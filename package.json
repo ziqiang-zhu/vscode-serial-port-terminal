@@ -1,0 +1,33 @@
+{
+  "name": "serial-port-terminal",
+  "displayName": "Serial Port Terminal",
+  "description": "An interactive serial port terminal (experiment)",
+  "version": "0.0.1",
+  "publisher": "ziqiang",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "serialPortTerminal.open",
+        "title": "Serial Port Terminal: Open"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.95.0",
+    "typescript": "^5.5.0"
+  }
+}
