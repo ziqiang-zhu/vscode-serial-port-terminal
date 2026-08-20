@@ -7,11 +7,11 @@
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
-    "target": "esnext",
+    "module": "node16",
+    "target": "es2020",
     "types": [],
     // For nodejs:
-    // "lib": ["esnext"],
+    "lib": ["es2020"],
     // "types": ["node"],
     // and npm install -D @types/node
 
@@ -19,6 +19,7 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
+    "moduleResolution": "node16",
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
@@ -35,10 +36,12 @@
     // Recommended Options
     "strict": true,
     "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
+    // "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", ".vscode-test"]
 }

@@ -4,7 +4,6 @@
   "description": "An interactive serial port terminal (experiment)",
   "version": "0.0.1",
   "publisher": "ziqiang",
-  "type": "module",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -13,12 +12,51 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "serialPortTerminalSideBar",
+          "title": "%serialPortTerminal.SideBar.title%",
+          "icon": "$(keybindings-editor-label-icon)",
+          "command": "serialPortTerminal.open"
+        }
+      ]
+    },
+    "views": {
+      "serialPortTerminalSideBar": [
+        {
+          "id": "serialPortDeviceList",
+          "name": "%serialPortDeviceList.View.title%",
+          "icon": "$(device-desktop)",
+          "initialSize": 50
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "serialPortDeviceList.refresh",
+        "title": "%serialPortDeviceList.refresh.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "serialPortDeviceList.connect",
+        "title": "%serialPortDeviceList.connect.title%",
+        "icon": "$(link)"
+      },
       {
         "command": "serialPortTerminal.open",
         "title": "Serial Port Terminal: Open"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "serialPortDeviceList.refresh",
+          "when": "view == serialPortDeviceList",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
@@ -28,6 +66,9 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.95.0",
-    "typescript": "^5.5.0"
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "serialport": "^13.0.0"
   }
 }
