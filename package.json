@@ -55,6 +55,13 @@
           "when": "view == serialPortDeviceList",
           "group": "navigation"
         }
+      ],
+      "view/item/context": [
+        {
+          "command": "serialPortDeviceList.connect",
+          "when": "view == serialPortDeviceList && viewItem == serialPortDevice",
+          "group": "inline"
+        }
       ]
     }
   },
