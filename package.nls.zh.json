@@ -2,5 +2,6 @@
   "serialPortTerminal.SideBar.title": "串口管理器",
   "serialPortDeviceList.View.title": "设备列表",
   "serialPortDeviceList.refresh.title": "刷新",
-  "serialPortDeviceList.connect.title": "连接/启动终端"
+  "serialPortDevice.connect.title": "连接",
+  "serialPortDevice.disconnect.title": "断开链接"
 }

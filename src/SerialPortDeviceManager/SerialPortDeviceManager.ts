@@ -11,7 +11,7 @@ class SerialPortDeviceItem extends vscode.TreeItem {
     super(path, vscode.TreeItemCollapsibleState.None);
     this.description = manufacturer || 'Unknown Device';
     this.tooltip = `Path: ${path}\nVendorID: ${vendorId}\nProductID: ${productId}`;
-    this.contextValue = 'serialPortDevice';
+    this.contextValue = 'serialPortDevice.disconnected'; // default disconnected state
     this.iconPath = new vscode.ThemeIcon('server-environment');
   }
 }
@@ -63,6 +63,22 @@ class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDevic
     }
     return Promise.resolve([]);
   }
+
+  public connectSerialPortDevice(item: SerialPortDeviceItem): void {
+    if (item) {
+      item.contextValue = 'serialPortDevice.connected';
+      vscode.window.showInformationMessage(`连接中: ${item.path}`);
+      this._onDidChangeTreeData.fire(item);
+    }
+  }
+
+  public disconnectSerialPortDevice(item: SerialPortDeviceItem): void {
+    if (item) {
+      item.contextValue = 'serialPortDevice.disconnected';
+      vscode.window.showInformationMessage(`断开连接: ${item.path}`);
+      this._onDidChangeTreeData.fire(item);
+    }
+  }
 }
 
 export function initSerialPortDeviceManager(context: vscode.ExtensionContext) {
@@ -84,13 +100,15 @@ export function initSerialPortDeviceManager(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(refreshCommand);
 
-  const connectCommand = vscode.commands.registerCommand('serialPortDeviceList.connect', (item: SerialPortDeviceItem) => {
-    if (item) {
-      vscode.window.showInformationMessage(`连接中: ${item.path}`);
-      // TODO: 这里可以调用 SerialPort.open() 的逻辑，或者将该逻辑也封装进 Manager
-    }
+  const connectCommand = vscode.commands.registerCommand('serialPortDevice.connect', (item: SerialPortDeviceItem) => {
+    serialManager.connectSerialPortDevice(item);
   });
   context.subscriptions.push(connectCommand);
+
+  const disconnectCommand = vscode.commands.registerCommand('serialPortDevice.disconnect', (item: SerialPortDeviceItem) => {
+    serialManager.disconnectSerialPortDevice(item);
+  });
+  context.subscriptions.push(disconnectCommand);
 
   // 4. 启动组件
   serialManager.init();

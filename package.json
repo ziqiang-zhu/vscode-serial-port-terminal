@@ -39,9 +39,14 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "serialPortDeviceList.connect",
-        "title": "%serialPortDeviceList.connect.title%",
-        "icon": "$(link)"
+        "command": "serialPortDevice.connect",
+        "title": "%serialPortDevice.connect.title%",
+        "icon": "$(vm-connect)"
+      },
+      {
+        "command": "serialPortDevice.disconnect",
+        "title": "%serialPortDevice.disconnect.title%",
+        "icon": "$(vm-outline)"
       },
       {
         "command": "serialPortTerminal.open",
@@ -58,8 +63,13 @@
       ],
       "view/item/context": [
         {
-          "command": "serialPortDeviceList.connect",
-          "when": "view == serialPortDeviceList && viewItem == serialPortDevice",
+          "command": "serialPortDevice.connect",
+          "when": "view == serialPortDeviceList && viewItem == serialPortDevice.disconnected",
+          "group": "inline"
+        },
+        {
+          "command": "serialPortDevice.disconnect",
+          "when": "view == serialPortDeviceList && viewItem == serialPortDevice.connected",
           "group": "inline"
         }
       ]
