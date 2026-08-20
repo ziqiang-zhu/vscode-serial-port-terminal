@@ -41,12 +41,12 @@
       {
         "command": "serialPortDevice.connect",
         "title": "%serialPortDevice.connect.title%",
-        "icon": "$(vm-connect)"
+        "icon": "$(remote)"
       },
       {
         "command": "serialPortDevice.disconnect",
         "title": "%serialPortDevice.disconnect.title%",
-        "icon": "$(vm-outline)"
+        "icon": "$(close)"
       },
       {
         "command": "serialPortTerminal.open",

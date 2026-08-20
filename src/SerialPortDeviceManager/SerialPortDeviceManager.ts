@@ -12,7 +12,7 @@ class SerialPortDeviceItem extends vscode.TreeItem {
     this.description = manufacturer || 'Unknown Device';
     this.tooltip = `Path: ${path}\nVendorID: ${vendorId}\nProductID: ${productId}`;
     this.contextValue = 'serialPortDevice.disconnected'; // default disconnected state
-    this.iconPath = new vscode.ThemeIcon('server-environment');
+    this.iconPath = new vscode.ThemeIcon('vm-outline');
   }
 }
 
@@ -21,6 +21,19 @@ class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDevic
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private devices: SerialPortDeviceItem[] = [];
+
+  // record all connected device paths for refresh keeping the connection status
+  private connectedPaths = new Set<string>();
+
+  private updateSerialPortDeviceConnectionStaus(item: SerialPortDeviceItem): void {
+    if (this.connectedPaths.has(item.path)) {
+      item.contextValue = 'serialPortDevice.connected';
+      item.iconPath = new vscode.ThemeIcon('vm-connect');
+    } else {
+      item.contextValue = 'serialPortDevice.disconnected';
+      item.iconPath = new vscode.ThemeIcon('vm-outline');
+    }
+  }
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -36,13 +49,20 @@ class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDevic
     try {
       // call serialport to get current device list
       const ports = await SerialPort.list();
-      
-      this.devices = ports.map(port => new SerialPortDeviceItem(
-        port.path,
-        port.manufacturer,
-        port.vendorId,
-        port.productId
-      ));
+
+      const livePaths = new Set(ports.map(port => port.path));
+      this.connectedPaths = new Set([...this.connectedPaths].filter(path => livePaths.has(path)));
+
+      this.devices = ports.map(port => {
+        const item = new SerialPortDeviceItem(
+          port.path,
+          port.manufacturer,
+          port.vendorId,
+          port.productId
+        );
+        this.updateSerialPortDeviceConnectionStaus(item);
+        return item;
+      });
 
       this._onDidChangeTreeData.fire();
       vscode.window.setStatusBarMessage('串口设备列表已刷新', 1500);
@@ -66,7 +86,8 @@ class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDevic
 
   public connectSerialPortDevice(item: SerialPortDeviceItem): void {
     if (item) {
-      item.contextValue = 'serialPortDevice.connected';
+      this.connectedPaths.add(item.path);
+      this.updateSerialPortDeviceConnectionStaus(item);
       vscode.window.showInformationMessage(`连接中: ${item.path}`);
       this._onDidChangeTreeData.fire(item);
     }
@@ -74,7 +95,8 @@ class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDevic
 
   public disconnectSerialPortDevice(item: SerialPortDeviceItem): void {
     if (item) {
-      item.contextValue = 'serialPortDevice.disconnected';
+      this.connectedPaths.delete(item.path);
+      this.updateSerialPortDeviceConnectionStaus(item);
       vscode.window.showInformationMessage(`断开连接: ${item.path}`);
       this._onDidChangeTreeData.fire(item);
     }
