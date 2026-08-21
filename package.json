@@ -47,10 +47,6 @@
         "command": "serialPortDevice.disconnect",
         "title": "%serialPortDevice.disconnect.title%",
         "icon": "$(close)"
-      },
-      {
-        "command": "serialPortTerminal.open",
-        "title": "Serial Port Terminal: Open"
       }
     ],
     "menus": {
