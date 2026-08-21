@@ -1,7 +1,7 @@
 {
-  "serialPortTerminal.title": "Serial Port List",
+  "serialPortTerminal.SideBar.title": "Serial Port List",
   "serialPortDeviceList.View.title": "Device List",
-  "serialPortDevice.refresh.title": "Refresh",
+  "serialPortDeviceList.refresh.title": "Refresh",
   "serialPortDevice.connect.title": "Connect",
   "serialPortDevice.disconnect.title": "Disconnect"
 }
