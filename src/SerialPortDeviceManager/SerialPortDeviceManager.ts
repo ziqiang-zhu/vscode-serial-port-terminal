@@ -1,16 +1,7 @@
 import * as vscode from 'vscode';
 import { SerialPort } from 'serialport';
 
-export type SerialPortDeviceStatus = 'connected' | 'disconnected' | 'loading';
-
-export interface SerialPortDevice {
-  readonly path: string,
-  readonly manufacturer?: string,
-  readonly vendorId?: string,
-  readonly productId?: string
-
-  setConnectStatus(status: SerialPortDeviceStatus): void;
-}
+export type SerialPortDeviceStatus = 'connected' | 'disconnected' | 'connecting';
 
 class SerialPortDeviceItem extends vscode.TreeItem {
   constructor(
@@ -22,9 +13,9 @@ class SerialPortDeviceItem extends vscode.TreeItem {
     super(path, vscode.TreeItemCollapsibleState.None);
     this.description = manufacturer || 'Unknown Device';
     this.tooltip = `Path: ${path}\nVendorID: ${vendorId}\nProductID: ${productId}\nManufacturer: ${manufacturer}`;
-    this.contextValue = 'serialPortDevice.disconnected'; // default disconnected state
-    this.iconPath = new vscode.ThemeIcon('vm-outline');
+    this.setConnectStatus('disconnected');  // default disconnected state
   }
+
   setConnectStatus(status: SerialPortDeviceStatus): void {
     switch (status) {
       case 'connected':
@@ -35,52 +26,49 @@ class SerialPortDeviceItem extends vscode.TreeItem {
         this.contextValue = 'serialPortDevice.disconnected';
         this.iconPath = new vscode.ThemeIcon('vm-outline');
         break;
-      case 'loading':
-        this.contextValue = '';
+      case 'connecting':
+        this.contextValue = 'serialPortDevice.connecting'; // without matched view/item/context, used to disable operation.
         this.iconPath = new vscode.ThemeIcon('loading~spin');
         break;
     }
   }
 }
 
-class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDeviceItem> {
+export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDeviceItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<SerialPortDeviceItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private devices: SerialPortDeviceItem[] = [];
 
-  // record all connected device paths for refresh keeping the connection status
-  private connectedPaths = new Set<string>();
-
-  private updateSerialPortDeviceConnectionStatus(item: SerialPortDeviceItem): void {
-    if (this.connectedPaths.has(item.path)) {
-      item.setConnectStatus('connected');
-    } else {
-      item.setConnectStatus('disconnected');
-    }
-  }
+  // 视图引用，用于空状态提示等视图级操作
+  private readonly treeView: vscode.TreeView<SerialPortDeviceItem>;
 
   constructor(private readonly context: vscode.ExtensionContext) {
+    // register commands
     const refreshCommand = vscode.commands.registerCommand('serialPortDeviceList.refresh', () => {
       this.refresh();
     });
     context.subscriptions.push(refreshCommand);
 
-    const connectCommand = vscode.commands.registerCommand('serialPortDevice.connect', (device: SerialPortDevice) => {
+    const connectCommand = vscode.commands.registerCommand('serialPortDevice.connect', (device: SerialPortDeviceItem) => {
       this.connectSerialPortDevice(device);
     });
     context.subscriptions.push(connectCommand);
 
-    const disconnectCommand = vscode.commands.registerCommand('serialPortDevice.disconnect', (device: SerialPortDevice) => {
+    const disconnectCommand = vscode.commands.registerCommand('serialPortDevice.disconnect', (device: SerialPortDeviceItem) => {
       this.disconnectSerialPortDevice(device);
     });
     context.subscriptions.push(disconnectCommand);
 
-    const treeView = vscode.window.createTreeView('serialPortDeviceList', {
+    // create tree view
+    this.treeView = vscode.window.createTreeView('serialPortDeviceList', {
       treeDataProvider: this,
       showCollapseAll: false
     });
-    context.subscriptions.push(treeView);
+    context.subscriptions.push(this.treeView);
+
+    // initialize device list
+    void this.init();
   }
 
   public async init(): Promise<void> {
@@ -96,22 +84,16 @@ class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDevic
       // call serialport to get current device list
       const ports = await SerialPort.list();
 
-      const livePaths = new Set(ports.map(port => port.path));
-      this.connectedPaths = new Set([...this.connectedPaths].filter(path => livePaths.has(path)));
+      this.devices = ports.map(port => new SerialPortDeviceItem(
+        port.path,
+        port.manufacturer,
+        port.vendorId,
+        port.productId
+      ));
 
-      this.devices = ports.map(port => {
-        const item = new SerialPortDeviceItem(
-          port.path,
-          port.manufacturer,
-          port.vendorId,
-          port.productId
-        );
-        this.updateSerialPortDeviceConnectionStatus(item);
-        return item;
-      });
+      this.treeView.message = this.devices.length > 0 ? '' : '未检测到串口设备';
 
       this._onDidChangeTreeData.fire();
-      vscode.window.setStatusBarMessage('串口设备列表已刷新', 1500);
     } catch (error) {
       console.error('Refresh error:', error);
       vscode.window.showErrorMessage(`获取串口列表失败: ${error}`);
@@ -130,28 +112,21 @@ class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPortDevic
     return Promise.resolve([]);
   }
 
-  public connectSerialPortDevice(device: SerialPortDevice): void {
+  public connectSerialPortDevice(device: SerialPortDeviceItem): void {
     if (device) {
-      this.connectedPaths.add(device.path);
-      device.setConnectStatus('loading');
+      device.setConnectStatus('connecting');
       vscode.window.showInformationMessage(`连接中: ${device.path}`);
       this._onDidChangeTreeData.fire(device);
+
+      // TODO: real connection logic here
     }
   }
 
-  public disconnectSerialPortDevice(device: SerialPortDevice): void {
+  public disconnectSerialPortDevice(device: SerialPortDeviceItem): void {
     if (device) {
-      this.connectedPaths.delete(device.path);
       device.setConnectStatus('disconnected');
       vscode.window.showInformationMessage(`断开连接: ${device.path}`);
       this._onDidChangeTreeData.fire(device);
     }
   }
-}
-
-export function initSerialPortDeviceManager(context: vscode.ExtensionContext) {
-  console.log('Extension is activating...');
-  const serialManager = new SerialPortDeviceManager(context);
-
-  serialManager.init();
 }
