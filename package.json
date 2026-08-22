@@ -69,6 +69,18 @@
           "group": "inline"
         }
       ]
+    },
+    "configuration": {
+      "title": "%serialPortTerminal.configuration.title%",
+      "properties": {
+        "serialPortTerminal.pollingInterval": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 15,
+          "description": "%serialPortTerminal.pollingInterval.description%"
+        }
+      }
     }
   },
   "scripts": {

@@ -69,18 +69,14 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private devices: SerialPortDeviceItem[] = [];
-
-  // view for displaying the serial port devices
+  private pollingTimer: ReturnType<typeof setInterval> | undefined;
+  
   private readonly treeView: vscode.TreeView<SerialPortDeviceItem>;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // register commands
     const refreshCommand = vscode.commands.registerCommand('serialPortDeviceList.refresh', () => {
-      try {
-        this.refresh();
-      } catch (error) {
-        vscode.window.showErrorMessage(`刷新串口列表失败: ${error}`);
-      }
+      void this.refresh();
     });
     context.subscriptions.push(refreshCommand);
 
@@ -101,15 +97,48 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
     });
     context.subscriptions.push(this.treeView);
 
+    // hot-plug polling: start/stop with view visibility
+    context.subscriptions.push(this.treeView.onDidChangeVisibility(({ visible }) => {
+      if (visible) {
+        this.startPolling();
+      } else {
+        this.stopPolling();
+      }
+    }));
+    if (this.treeView.visible) {
+      this.startPolling();
+    }
+
+    // polling interval change takes effect immediately
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration('serialPortTerminal.pollingInterval') && this.treeView.visible) {
+        this.startPolling();
+      }
+    }));
+
     // initialize device list
     void this.init();
   }
 
   public async init(): Promise<void> {
-    try {
-      await this.refresh();
-    } catch (error) {
-      vscode.window.showErrorMessage(`初始化串口管理器失败: ${error}`);
+    await this.refresh();
+  }
+
+  private get pollingIntervalSeconds(): number {
+    return vscode.workspace.getConfiguration('serialPortTerminal').get<number>('pollingInterval', 2);
+  }
+
+  private startPolling(): void {
+    this.stopPolling();
+    this.pollingTimer = setInterval(() => {
+      void this.refresh();
+    }, this.pollingIntervalSeconds * 1000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollingTimer) {
+      clearInterval(this.pollingTimer);
+      this.pollingTimer = undefined;
     }
   }
 
@@ -126,7 +155,6 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
     } catch (error) {
       console.error('Refresh error:', error);
       vscode.window.showErrorMessage(`获取串口列表失败: ${error}`);
-      throw error;
     }
   }
 

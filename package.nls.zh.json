@@ -3,5 +3,7 @@
   "serialPortDeviceList.View.title": "设备列表",
   "serialPortDeviceList.refresh.title": "刷新",
   "serialPortDevice.connect.title": "连接",
-  "serialPortDevice.disconnect.title": "断开链接"
+  "serialPortDevice.disconnect.title": "断开链接",
+  "serialPortTerminal.configuration.title": "串口终端",
+  "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）"
 }

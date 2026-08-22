@@ -3,5 +3,7 @@
   "serialPortDeviceList.View.title": "Device List",
   "serialPortDeviceList.refresh.title": "Refresh",
   "serialPortDevice.connect.title": "Connect",
-  "serialPortDevice.disconnect.title": "Disconnect"
+  "serialPortDevice.disconnect.title": "Disconnect",
+  "serialPortTerminal.configuration.title": "Serial Port Terminal",
+  "serialPortTerminal.pollingInterval.description": "Hot-plug polling interval in seconds."
 }
