@@ -1,22 +1,48 @@
 import * as vscode from 'vscode';
 import { SerialPort } from 'serialport';
 
+type PortInfo = Awaited<ReturnType<typeof SerialPort.list>>[number];
+
 export type SerialPortDeviceStatus = 'connected' | 'disconnected' | 'connecting';
 
 class SerialPortDeviceItem extends vscode.TreeItem {
-  constructor(
-    public readonly path: string,
-    public readonly manufacturer?: string,
-    public readonly vendorId?: string,
-    public readonly productId?: string
-  ) {
-    super(path, vscode.TreeItemCollapsibleState.None);
-    this.description = manufacturer || 'Unknown Device';
-    this.tooltip = `Path: ${path}\nVendorID: ${vendorId}\nProductID: ${productId}\nManufacturer: ${manufacturer}`;
-    this.setConnectStatus('disconnected');  // default disconnected state
+  private readonly _info: PortInfo;
+  private _status: SerialPortDeviceStatus = 'disconnected';
+
+  constructor(info: PortInfo) {
+    super(info.path, vscode.TreeItemCollapsibleState.None);
+    this._info = info;
+
+    // set viewItem properties
+    this.description = info.manufacturer || 'Unknown Device';
+    this.tooltip = `Path: ${info.path}\nVendorID: ${info.vendorId}\nProductID: ${info.productId}\nManufacturer: ${info.manufacturer}`;
+
+    // default disconnected state
+    this.status = 'disconnected';
   }
 
-  setConnectStatus(status: SerialPortDeviceStatus): void {
+  get path(): string {
+    return this._info.path;
+  }
+
+  get vendorId(): string {
+    return this._info.vendorId || 'Unknown';
+  }
+
+  get productId(): string {
+    return this._info.productId || 'Unknown';
+  }
+
+  get manufacturer(): string {
+    return this._info.manufacturer || 'Unknown';
+  }
+
+  get status(): SerialPortDeviceStatus {
+    return this._status;
+  }
+
+  set status(status: SerialPortDeviceStatus) {
+    this._status = status;
     switch (status) {
       case 'connected':
         this.contextValue = 'serialPortDevice.connected';
@@ -27,7 +53,11 @@ class SerialPortDeviceItem extends vscode.TreeItem {
         this.iconPath = new vscode.ThemeIcon('vm-outline');
         break;
       case 'connecting':
-        this.contextValue = 'serialPortDevice.connecting'; // without matched view/item/context, used to disable operation.
+        /*
+         * The contextValue is without matched view/item/context in package.json, just used for disable operation,
+         * expend cancle operation in the future.
+         */
+        this.contextValue = 'serialPortDevice.connecting'; 
         this.iconPath = new vscode.ThemeIcon('loading~spin');
         break;
     }
@@ -84,12 +114,7 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
       // call serialport to get current device list
       const ports = await SerialPort.list();
 
-      this.devices = ports.map(port => new SerialPortDeviceItem(
-        port.path,
-        port.manufacturer,
-        port.vendorId,
-        port.productId
-      ));
+      this.devices = ports.map(port => new SerialPortDeviceItem(port));
 
       this.treeView.message = this.devices.length > 0 ? '' : '未检测到串口设备';
 
@@ -114,7 +139,7 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
 
   public connectSerialPortDevice(device: SerialPortDeviceItem): void {
     if (device) {
-      device.setConnectStatus('connecting');
+      device.status = 'connecting';
       vscode.window.showInformationMessage(`连接中: ${device.path}`);
       this._onDidChangeTreeData.fire(device);
 
@@ -124,7 +149,7 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
 
   public disconnectSerialPortDevice(device: SerialPortDeviceItem): void {
     if (device) {
-      device.setConnectStatus('disconnected');
+      device.status = 'disconnected';
       vscode.window.showInformationMessage(`断开连接: ${device.path}`);
       this._onDidChangeTreeData.fire(device);
     }

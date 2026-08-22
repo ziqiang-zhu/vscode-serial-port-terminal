@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SerialPortDeviceManager } from './SerialPortDeviceManager/SerialPortDeviceManager'; // 引入组件
+import { SerialPortDeviceManager } from './SerialPortDeviceManager/SerialPortDeviceManager';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Serial Port Terminal is activating...');
