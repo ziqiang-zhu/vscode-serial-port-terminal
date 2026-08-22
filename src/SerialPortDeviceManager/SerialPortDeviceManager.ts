@@ -55,7 +55,7 @@ class SerialPortDeviceItem extends vscode.TreeItem {
       case 'connecting':
         /*
          * The contextValue is without matched view/item/context in package.json, just used for disable operation,
-         * expend cancle operation in the future.
+         * expend cancel operation in the future.
          */
         this.contextValue = 'serialPortDevice.connecting'; 
         this.iconPath = new vscode.ThemeIcon('loading~spin');
@@ -70,13 +70,17 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
 
   private devices: SerialPortDeviceItem[] = [];
 
-  // 视图引用，用于空状态提示等视图级操作
+  // view for displaying the serial port devices
   private readonly treeView: vscode.TreeView<SerialPortDeviceItem>;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // register commands
     const refreshCommand = vscode.commands.registerCommand('serialPortDeviceList.refresh', () => {
-      this.refresh();
+      try {
+        this.refresh();
+      } catch (error) {
+        vscode.window.showErrorMessage(`刷新串口列表失败: ${error}`);
+      }
     });
     context.subscriptions.push(refreshCommand);
 
