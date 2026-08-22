@@ -5,5 +5,6 @@
   "serialPortDevice.connect.title": "连接",
   "serialPortDevice.disconnect.title": "断开链接",
   "serialPortTerminal.configuration.title": "串口终端",
-  "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）"
+  "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）",
+  "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）"
 }

@@ -79,6 +79,11 @@
           "minimum": 1,
           "maximum": 15,
           "description": "%serialPortTerminal.pollingInterval.description%"
+        },
+        "serialPortTerminal.hotPlugEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%serialPortTerminal.hotPlugEnabled.description%"
         }
       }
     }

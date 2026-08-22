@@ -111,7 +111,7 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
 
     // polling interval change takes effect immediately
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
-      if (event.affectsConfiguration('serialPortTerminal.pollingInterval') && this.treeView.visible) {
+      if (event.affectsConfiguration('serialPortTerminal') && this.treeView.visible) {
         this.startPolling();
       }
     }));
@@ -128,8 +128,15 @@ export class SerialPortDeviceManager implements vscode.TreeDataProvider<SerialPo
     return vscode.workspace.getConfiguration('serialPortTerminal').get<number>('pollingInterval', 2);
   }
 
+  private get hotPlugEnabled(): boolean {
+    return vscode.workspace.getConfiguration('serialPortTerminal').get<boolean>('hotPlugEnabled', true);
+  }
+
   private startPolling(): void {
     this.stopPolling();
+    if (!this.hotPlugEnabled) {
+      return;
+    }
     this.pollingTimer = setInterval(() => {
       void this.refresh();
     }, this.pollingIntervalSeconds * 1000);
