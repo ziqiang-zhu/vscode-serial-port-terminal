@@ -66,8 +66,8 @@ Watcher 会以二级菜单的形式显示在设备管理视图中，可手动关
 
 | 组件 | 职责 |
 |---|---|
-| SerialPortDeviceManager | 设备枚举与列表、连接状态管理、读取设备配置、创建/销毁 Monitor |
-| SerialPortMonitor | 持有串口连接，数据收发中枢；管理 Watcher 注册；连接断开时负责清理 |
+| SerialPortDeviceManager | 设备枚举与列表、热插拔侦测、连接状态管理、载入配置并打开串口、创建/销毁 Monitor |
+| SerialPortMonitor | 接管已打开的端口、数据收发中枢、Watcher 注册、销毁时关闭端口并清理 |
 | SerialPortTerminal | 默认 Watcher：提供终端交互界面（输入发送、输出展示、日志保存） |
 | SerialPortDataPaster | 数据处理组件，属于 Watcher 的一部分，主要处理数据转义，让字符显示更加美观，符合直觉。需根据 Watcher 特性开发。 |
 | 其他 Watcher | 由插件拓展机制接入，如数据可视化、协议分析等 |
@@ -75,15 +75,17 @@ Watcher 会以二级菜单的形式显示在设备管理视图中，可手动关
 ### 连接与断开流程
 
 ```mermaid
-flowchart LR
-    A[用户点击连接] --> B[读取该设备配置]
-    B --> C[打开串口]
-    C -->|成功| D[创建 SerialPortMonitor]
-    C -->|失败| E[提示原因并回滚状态]
-    D --> F[注册默认 Watcher: Terminal]
-    F --> G[状态置为已连接]
-    G --> H[终端控制数据转发]
+flowchart TD
+    A[用户点击连接] --> B[Manager 载入设备配置]
+    B --> C[Manager 打开串口]
+    C -->|成功| D[构造 SerialPortMonitor\n注入 SerialPortDevice 与端口]
+    D --> E[Manager 置状态为已连接]
+    E --> F[注册默认 Watcher: Terminal]
+    F --> G[终端控制数据转发]
+    C -->|失败| H[提示原因并回滚状态]
 ```
+
+Monitor 的完整生命周期见 SerialPortMonitor设计.md。
 
 断开时反向执行：注销 Watcher → 关闭端口 → 销毁 Monitor → 状态置为未连接，连接状态置为未连接后，待下一个刷新周期自动移除，或手动刷新移除。
 
@@ -93,6 +95,21 @@ flowchart LR
 - Watcher 只读数据，不直接接触端口；
 - 同一数据流可广播给多个 Watcher，转发开关由终端控制；
 - Monitor 销毁时自动注销全部 Watcher，Watcher 无需感知生命周期细节。
+
+### 与 SerialPortMonitor 的边界
+
+| 职责 | 归属 |
+|---|---|
+| 设备枚举、列表、热插拔侦测 | Manager |
+| 连接状态的存储、渲染与**写入** | Manager |
+| 载入配置、打开串口 | Manager |
+| 创建/销毁 Monitor | Manager |
+| 端口的所有权（收发、关闭） | Monitor（构造时移交） |
+| 数据收发与 Watcher 管理 | Monitor |
+
+一句话：Manager 管"建立连接"，Monitor 管"持有连接与数据"，两者通过 SerialPortDevice 接口握手。
+
+Manager 是 Monitor 的创建者与持有者：内部维护 **Device ↔ Monitor 的映射**（以设备路径为键，与状态键一致），连接建立时登记、断开/拔除时注销，保证"给定设备即能找到其 Monitor"；销毁动作收敛在 Manager 单一入口。断开回传机制见 SerialPortMonitor设计.md「生命周期」。
 
 ## 设备身份管理
 
@@ -146,7 +163,7 @@ flowchart LR
 - 首次连接无配置时使用行业默认值 115200-8-N-1，并在用户修改后保存；
 - 存储为 `identity → SerialConfig` 的映射（key 形如 `serialPortDeviceManager.configs`）；
 - 存储选型：`context.globalState`（VS Code 托管 SQLite、跨重启）；若配置结构复杂或需要用户可见/可编辑，再迁移到 `globalStorageUri` 下的 JSON 文件；
-- 读取时机：连接发起前按身份查询；写入时机：用户修改参数后立即直写（扩展单进程运行，无并发问题）。
+- 读取时机：由 SerialPortDeviceManager 在打开串口前按身份查询；写入时机：用户修改参数后立即直写（扩展单进程运行，无并发问题）。
 
 ## 命令与菜单设计
 
@@ -172,23 +189,29 @@ flowchart LR
 
 ```mermaid
 classDiagram
-    class SerialPortDeviceItem {
+    class SerialPortDevice {
+        <<interface>>
         +path: string
-        +manufacturer?: string
-        +vendorId?: string
-        +productId?: string
-        +状态与外观属性
+        +vendorId / productId / manufacturer
+        +serialNumber / locationId
+        +status: SerialPortDeviceStatus
+    }
+    class SerialPortDeviceItem {
+        +实现 SerialPortDevice
+        +contextValue / iconPath 联动
     }
     class SerialPortDeviceManager {
         +初始化/销毁
         +枚举与刷新
+        +载入配置并打开串口
         +连接/断开
-        +读取设备配置
-        +创建 SerialPortMonitor
+        +创建/销毁 SerialPortMonitor
         -连接状态记录
+        -Device↔Monitor 映射
     }
     class SerialPortMonitor {
-        +open/close
+        +constructor(device, port)
+        +close
         +发送数据
         +注册/注销 Watcher
         +数据事件分发
@@ -200,8 +223,10 @@ classDiagram
         +终端交互
         +转发开关
     }
+    SerialPortDeviceItem ..|> SerialPortDevice
     SerialPortDeviceManager --> SerialPortDeviceItem : 管理
-    SerialPortDeviceManager --> SerialPortMonitor : 创建
+    SerialPortDeviceManager --> SerialPortMonitor : new + 注入 device/port
+    SerialPortMonitor --> SerialPortDevice : 只读信息
     SerialPortMonitor --> Watcher : 广播
     SerialPortTerminal ..|> Watcher : 默认实现
 ```
@@ -209,7 +234,7 @@ classDiagram
 ## 路线图
 
 - **M1 设备管理**：设备列表、连接状态三态管理、刷新与手动热插拔感知；
-- **M2 真实连接**：SerialPort.open 接入、Monitor 骨架、连接失败回滚；
+- **M2 真实连接**：SerialPortDevice 接口化、Monitor 骨架（打开串口、配置载入、失败回滚）；
 - **M3 终端交互**：SerialPortTerminal 作为默认 Watcher，完成收发与展示；
 - **M4 数据转发**：多 Watcher 注册、终端转发开关；
 - **M5 自动化**：热插拔轮询、设备参数配置与持久化、启动自动恢复。
