@@ -16,6 +16,8 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
 
   private items = new Map<string, SerialPortDeviceTreeItem>();
 
+  private selectedItem: ViewItem | undefined;
+
   private readonly treeView: vscode.TreeView<ViewItem>;
 
   constructor(
@@ -54,6 +56,9 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       } else {
         detector.stop();
       }
+    }));
+    context.subscriptions.push(this.treeView.onDidChangeSelection(({ selection }) => {
+      this.selectedItem = selection.length === 1 ? selection[0] : undefined;
     }));
     if (this.treeView.visible) {
       detector.start();
@@ -132,6 +137,11 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   }
 
   private async connectDevice(item: SerialPortDeviceTreeItem): Promise<void> {
+    const selected = this.selectedItem;
+    if (selected instanceof SerialPortQuickConfigTreeItem && selected.device.path === item.device.path) {
+      await this.connectWithConfig(item, selected.quickConfig.config);
+      return;
+    }
     const identity = item.device.identity;
     const saved = this.configStore.getConfigs(identity);
     const presets = readSerialPortPresets();
@@ -174,9 +184,13 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (!picked?.config) {
       return;
     }
-    await this.connectionService.connect(item.device, picked.config);
+    await this.connectWithConfig(item, picked.config);
+  }
+
+  private async connectWithConfig(item: SerialPortDeviceTreeItem, config: SerialConfig): Promise<void> {
+    await this.connectionService.connect(item.device, config);
     if (item.device.status === 'connected') {
-      this.configStore.setLastUsedConfig(identity, picked.config);
+      this.configStore.setLastUsedConfig(item.device.identity, config);
     }
   }
 

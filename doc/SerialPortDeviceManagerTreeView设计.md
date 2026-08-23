@@ -74,7 +74,7 @@ connecting 态不匹配任何菜单，用于禁用操作。原"hasConfigs 按钮
 | 命令 | 转发目标 |
 |---|---|
 | `serialPortDeviceList.refresh` | `detector.scan()` |
-| `serialPortDevice.connect` | `connectionService.connect(item.device, config)`（先弹参数选择器：已存配置[上次使用置顶] + 预设组合；连接成功后 `configStore.setLastUsedConfig`） |
+| `serialPortDevice.connect` | 选中该设备的配置子节点时直连该配置（跳过选择器）；否则弹参数选择器（已存配置[上次使用置顶] + 预设组合）；连接成功后 `configStore.setLastUsedConfig` |
 | `serialPortDevice.disconnect` | `connectionService.disconnect(item.device)` |
 | `serialPortQuickConfig.add` | `configStore.add(identity, name, config)`（经两步向导收集输入） |
 | `serialPortQuickConfig.rename` | `configStore.rename(identity, id, name)` |
@@ -87,6 +87,7 @@ connecting 态不匹配任何菜单，用于禁用操作。原"hasConfigs 按钮
 - **设备增删**：`detector.onDidChangeDevices` → 按 `{ added, removed }` 增删 item → `fire()`；
 - **连接状态变化**：`connectionService.onDidChangeDeviceStatus` → `fire()`（item 渲染时从模型同步外观）；
 - **高亮查询**：渲染时经 `connectionService.getConnectionConfig(path)` 查询当前连接配置，配置子节点做值比较（`serialConfigEquals`）、设备行追加参数摘要；断开后查询返回 undefined，高亮随状态事件流自动消失；
+- **选中直连**：`treeView.onDidChangeSelection` 跟踪单选；点设备连接按钮时，若选中项是该设备的配置子节点则直接以该配置连接（跳过参数选择器），否则走选择器流程；
 - **配置变更**：`configStore.onDidChangeConfigs` → 重建受影响设备节点（含配置子节点）→ `fire()`；
 - **预设读取**：参数选择器与添加向导的预设组合读取自 `serialPortTerminal.serialConfigPresets` 设置（见 SerialPortQuickConfig设计.md），每次打开选择器实时读取，设置修改无需重启；
 - **轮询启停**：`treeView.onDidChangeVisibility` → 可见时 `detector.start()`，隐藏时 `detector.stop()`；
