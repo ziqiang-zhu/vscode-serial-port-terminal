@@ -2,10 +2,20 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "clean",
 			"type": "npm",
-			"script": "watch",
-			"problemMatcher": "$tsc-watch",
-			"isBackground": true,
+			"script": "clean",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "never"
+			}
+		},
+		{
+			"label": "compile",
+			"type": "npm",
+			"script": "compile",
+			"problemMatcher": "$tsc",
+			"dependsOn": ["clean"],
 			"presentation": {
 				"reveal": "never"
 			},

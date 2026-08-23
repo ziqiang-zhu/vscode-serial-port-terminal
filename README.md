@@ -39,9 +39,10 @@ VS Code 串口终端插件：在侧边栏管理串口设备，一键连接，在
 npm install
 npm run compile     # 编译
 npm run watch       # 监听编译
+npm run clean       # 清空 dist
 ```
 
-按 `F5` 启动扩展开发主机进行调试。
+按 `F5` 启动扩展开发主机进行调试：每次 F5 自动执行 `clean + compile`，保证运行最新构建。
 
 ## 许可证
 
