@@ -111,13 +111,15 @@ SerialConfig 结构：
 - 无配置时使用行业默认值 115200-8-N-1；
 - 存储选型：`context.globalState`（VS Code 托管 SQLite、跨重启）；若配置结构复杂或需要用户可见/可编辑，再迁移到 `globalStorageUri` 下的 JSON 文件。
 
-## Consumer 中枢（后续里程碑）
+## Consumer 中枢
 
-- 打开成功后，Connection 默认注册 SerialPortTerminal 作为第一个 Consumer；
-- Terminal 提供交互界面，用于触发注册其他 Consumer；
-- 允许 Terminal 关闭，其他 Consumer 在后台监听（无界面时降低系统负载）；
-- Consumer 以二级菜单形式显示在设备管理视图中，可手动关闭；
-- 当某个设备的 Consumer 减为零时，关闭串口并销毁 Connection，等同于一次断开。
+Consumer 的通用规范（基类、host 契约、注册规则）见 SerialPortConsumer设计.md。Connection 对外的注册入口：
+
+- `addConsumer(consumer)`：注册并 attach（注入 host）；
+- `removeConsumer(id)`：注销（M4 二级菜单"手动关闭"走这里）；
+- **减为零规则**：当某个设备的 Consumer 减为零时，Connection 通知 Service，关闭串口并销毁 Connection，等同于一次断开。
+
+默认 Consumer：Service 在 connect 成功后注册 SerialPortTerminal（见 SerialPortTerminal设计.md），本阶段只提供显示与基础发送；多 Consumer 注册与二级菜单管理属于 M4。
 
 ## 组件结构
 
@@ -133,8 +135,8 @@ classDiagram
     class SerialPortConnection {
         +constructor(device, handle)
         +close / 销毁清理
-        +发送数据
-        +注册/注销 Consumer
+        +addConsumer(consumer)
+        +removeConsumer(id)
     }
     class SerialPortDeviceInterface {
         <<interface>>

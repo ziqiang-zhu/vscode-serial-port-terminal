@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { SerialPortHal } from '../hal/SerialPortHal';
 import { SerialPortDeviceDetector } from '../SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortDeviceInterface } from '../SerialPortDeviceDetector/SerialPortDeviceInterface';
+import { SerialPortConsumer } from './SerialPortConsumer';
 import { SerialPortConnection } from './SerialPortConnection';
 
 export class SerialPortConnectionService {
@@ -12,8 +13,9 @@ export class SerialPortConnectionService {
 
   constructor(
     private readonly hal: SerialPortHal,
-    detector: SerialPortDeviceDetector,
-    context: vscode.ExtensionContext
+    private readonly detector: SerialPortDeviceDetector,
+    context: vscode.ExtensionContext,
+    private readonly defaultConsumerFactory?: () => SerialPortConsumer
   ) {
     context.subscriptions.push(
       detector.onDidChangeDevices(event => {
@@ -33,7 +35,13 @@ export class SerialPortConnectionService {
     try {
       // TODO: 按设备身份（device.identity）载入配置，当前使用默认参数
       const handle = await this.hal.openPort({ path: device.path, baudRate: 115200 });
-      this.connections.set(device.path, new SerialPortConnection(device, handle));
+      const connection = new SerialPortConnection(device, handle, () => {
+        void this.disconnectByPath(device.path);
+      });
+      if (this.defaultConsumerFactory) {
+        connection.addConsumer(this.defaultConsumerFactory());
+      }
+      this.connections.set(device.path, connection);
       device.setStatus('connected');
     } catch (error) {
       device.setStatus('disconnected');
@@ -49,6 +57,13 @@ export class SerialPortConnectionService {
     await this.destroyConnection(device.path);
     device.setStatus('disconnected');
     this._onDidChangeDeviceStatus.fire(device);
+  }
+
+  private async disconnectByPath(path: string): Promise<void> {
+    const device = this.detector.getDevices().find(device => device.path === path);
+    if (device) {
+      await this.disconnect(device);
+    }
   }
 
   private async destroyConnection(path: string): Promise<void> {
