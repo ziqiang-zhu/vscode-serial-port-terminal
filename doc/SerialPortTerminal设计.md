@@ -115,4 +115,4 @@ src/SerialPortConsumer/
 - **M3-P1（已落地）**：Pseudoterminal 终端 —— 显示、键入发送、关闭即断开、断开保留日志；
 - **M3-P2**：输入增强（历史、行尾符配置）；
 - **M3-P3**：Parser（分帧）、字符转义；
-- **M4**：Terminal 可关闭而其他 Consumer 后台运行、二级菜单管理。
+- **M5**：Terminal 可关闭而其他 Consumer 后台运行、二级菜单管理。

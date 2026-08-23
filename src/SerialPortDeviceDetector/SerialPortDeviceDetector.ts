@@ -14,6 +14,7 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
 
   private devices = new Map<string, SerialPortDeviceImpl>();
   private pollingTimer: ReturnType<typeof setInterval> | undefined;
+  private active = false;
 
   constructor(
     private readonly hal: SerialPortHal,
@@ -21,7 +22,7 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
   ) {
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(event => {
-        if (event.affectsConfiguration('serialPortTerminal') && this.pollingTimer) {
+        if (event.affectsConfiguration('serialPortTerminal') && this.active) {
           this.start();
         }
       })
@@ -72,6 +73,7 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
 
   public start(): void {
     this.stop();
+    this.active = true;
     if (!this.hotPlugEnabled) {
       return;
     }
@@ -81,6 +83,7 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
   }
 
   public stop(): void {
+    this.active = false;
     if (this.pollingTimer) {
       clearInterval(this.pollingTimer);
       this.pollingTimer = undefined;

@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal (experiment)",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "publisher": "ziqiang",
   "engines": {
     "vscode": "^1.95.0"

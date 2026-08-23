@@ -113,7 +113,7 @@ readonly onDidChangeDevices: vscode.Event<{
 
 - `serialPortTerminal.pollingInterval`：轮询间隔（默认 2 秒，1–15）；
 - `serialPortTerminal.hotPlugEnabled`：热插拔侦测开关；
-- 配置变更监听在本模块内部，变更后立即生效（正在轮询时以新间隔重启）；
+- 配置变更监听在本模块内部，变更后立即生效：以独立 `active` 状态跟踪"视图可见、应当轮询"（由 `start()`/`stop()` 维护），配置变更且 active 时以新配置重启轮询 —— 关闭开关再开启同样立即恢复，不依赖定时器是否在运行；
 - 轮询仅在视图可见时进行（由 TreeView 按可见性调用 `start()` / `stop()`）。
 
 ## 9. 组件结构

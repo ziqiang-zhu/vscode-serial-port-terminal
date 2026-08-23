@@ -112,10 +112,10 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 Consumer 的通用规范见 SerialPortConsumer设计.md。Connection 对外的注册入口：
 
 - `addConsumer(consumer)`：注册并 attach（注入 host）；同 id 重复注册时先对旧实例执行 `onClosed`；
-- `removeConsumer(id)`：注销（M4 二级菜单"手动关闭"走这里）；
+- `removeConsumer(id)`：注销（M5 二级菜单"手动关闭"走这里）；
 - **减为零规则**：某设备的 Consumer 全部移除时，Connection 通知 Service，关闭串口并销毁 Connection，等同于一次断开。
 
-默认 Consumer：Service 在 connect 成功后经工厂注册 SerialPortTerminal（见 SerialPortTerminal设计.md）；多 Consumer 与二级菜单属于 M4。
+默认 Consumer：Service 在 connect 成功后经工厂注册 SerialPortTerminal（见 SerialPortTerminal设计.md）；多 Consumer 与二级菜单属于 M5。
 
 ## 8. 组件结构
 
@@ -153,6 +153,6 @@ classDiagram
 ## 9. 路线图
 
 - **M3**：默认 Consumer（SerialPortTerminal）完善 —— 输入增强、Parser；
-- **M4**：配置管理完善（重命名/删除/自定义参数，见 SerialPortQuickConfig设计.md 分阶段计划）；
+- **M4**：快捷配置（已完成：配置管理、参数选择、高亮、上次使用、预设管理 UI，见 SerialPortQuickConfig设计.md 分阶段计划）；
 - **M5**：多 Consumer 注册、二级菜单管理；
 - **M6**：启动自动恢复（上次设备与配置）。

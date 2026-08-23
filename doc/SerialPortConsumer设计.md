@@ -13,7 +13,7 @@ SerialPortConsumer 是数据**消费方**的通用规范，由 Connection 模块
 
 - **单向接收**：Consumer 只接收数据；发送必须经 Connection 中枢（host），"唯一触碰数据流"的始终是 Connection；
 - **生命周期由 Connection 驱动**：注册（attach）、注销（onClosed）均发生在 Connection 的上下文中，Consumer 不感知端口细节；
-- **可管理**：每个 Consumer 有 id 与显示名，支持未来的二级菜单展示与手动关闭（M4）；
+- **可管理**：每个 Consumer 有 id 与显示名，支持未来的二级菜单展示与手动关闭（M5）；
 - **关闭行为自决**：`onClosed` 时用户可见类型保留视图并提示断开，用户不可见类型直接销毁自身资源 —— 选择权在子类，基类不做假设。
 
 ## 3. API 定义
@@ -65,7 +65,7 @@ Service.connect 成功
 | 规则 | 说明 |
 |---|---|
 | `addConsumer(consumer)` | 注册并 attach；同 id 重复注册时先对旧实例执行 `onClosed` |
-| `removeConsumer(id)` | 注销指定 Consumer（M4 二级菜单"手动关闭"走这里） |
+| `removeConsumer(id)` | 注销指定 Consumer（M5 二级菜单"手动关闭"走这里） |
 | Consumer 减为零 | Connection 通知 Service → 关闭串口并销毁 Connection（等同于一次断开） |
 | 默认 Consumer | SerialPortTerminal，由 Service 在 connect 成功后经工厂注册；其移除同样适用"减为零"规则 |
 
@@ -120,4 +120,4 @@ classDiagram
 ## 7. 路线图
 
 - **M3**：SerialPortTerminal 作为默认 Consumer（已落地），输入增强与 Parser 演进；
-- **M4**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口。
+- **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口。
