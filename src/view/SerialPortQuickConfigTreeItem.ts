@@ -15,7 +15,7 @@ export class SerialPortQuickConfigTreeItem extends vscode.TreeItem {
     const active = activeConfig !== undefined && serialConfigEquals(activeConfig, this.quickConfig.config);
     this.iconPath = new vscode.ThemeIcon(active ? 'radio-tower' : 'debug-configure');
     this.description = active
-      ? `${formatSerialConfigSummary(this.quickConfig.config)} · 当前连接`
+      ? `${formatSerialConfigSummary(this.quickConfig.config)} · ${vscode.l10n.t('Current connection')}`
       : formatSerialConfigSummary(this.quickConfig.config);
   }
 }

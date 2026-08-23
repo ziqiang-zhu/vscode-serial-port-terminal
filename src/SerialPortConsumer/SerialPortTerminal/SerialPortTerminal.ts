@@ -60,7 +60,7 @@ class SerialPortPseudoTerminal implements vscode.Pseudoterminal {
       return;
     }
     this.disconnected = true;
-    this.writeText(`\r\n\r\n[已断开] ${path}\r\n`);
+    this.writeText(`\r\n\r\n${vscode.l10n.t('Disconnected: {0}', path)}\r\n`);
   }
 
   writeText(text: string): void {
@@ -96,7 +96,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
       () => this.requestDisconnect()
     );
     this.pty = pty;
-    this.terminal = vscode.window.createTerminal({ name: `Serial Port: ${host.path}`, pty });
+    this.terminal = vscode.window.createTerminal({ name: vscode.l10n.t('Serial Port: {0}', host.path), pty });
     this.terminal.show();
   }
 

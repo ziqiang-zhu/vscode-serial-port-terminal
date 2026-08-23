@@ -67,7 +67,7 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
       }
     } catch (error) {
       console.error('Device scan error:', error);
-      vscode.window.showErrorMessage(`获取串口列表失败: ${error}`);
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to list serial ports: {0}', `${error}`));
     }
   }
 

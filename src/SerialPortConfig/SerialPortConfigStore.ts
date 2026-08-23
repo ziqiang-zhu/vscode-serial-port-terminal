@@ -90,24 +90,24 @@ export class SerialPortConfigStore {
   private assertValidName(identity: string, name: string, excludeId?: string): string {
     const trimmed = name.trim();
     if (!trimmed) {
-      throw new Error('配置名称不能为空');
+      throw new Error(vscode.l10n.t('Config name cannot be empty'));
     }
     const duplicated = this.getConfigs(identity).some(c => c.id !== excludeId && c.name === trimmed);
     if (duplicated) {
-      throw new Error(`配置名称 "${trimmed}" 已存在`);
+      throw new Error(vscode.l10n.t('Config name "{0}" already exists', trimmed));
     }
     return trimmed;
   }
 
   private assertValidConfig(config: SerialConfig): void {
     if (!Number.isInteger(config.baudRate) || config.baudRate <= 0) {
-      throw new Error(`无效的波特率: ${config.baudRate}`);
+      throw new Error(vscode.l10n.t('Invalid baud rate: {0}', config.baudRate));
     }
     if (!VALID_DATA_BITS.includes(config.dataBits)) {
-      throw new Error(`无效的数据位: ${config.dataBits}`);
+      throw new Error(vscode.l10n.t('Invalid data bits: {0}', config.dataBits));
     }
     if (!VALID_STOP_BITS.includes(config.stopBits)) {
-      throw new Error(`无效的停止位: ${config.stopBits}`);
+      throw new Error(vscode.l10n.t('Invalid stop bits: {0}', config.stopBits));
     }
   }
 

@@ -6,7 +6,13 @@ export class SerialPortDeviceTreeItem extends vscode.TreeItem {
   constructor(public readonly device: SerialPortDeviceInterface) {
     super(device.path, vscode.TreeItemCollapsibleState.None);
     this.description = device.manufacturer;
-    this.tooltip = `Path: ${device.path}\nVendorID: ${device.vendorId}\nProductID: ${device.productId}\nManufacturer: ${device.manufacturer}`;
+    this.tooltip = vscode.l10n.t(
+      'Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}',
+      device.path,
+      device.vendorId,
+      device.productId,
+      device.manufacturer
+    );
     this.syncStatusAppearance();
   }
 

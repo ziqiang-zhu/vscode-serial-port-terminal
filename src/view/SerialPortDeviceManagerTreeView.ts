@@ -146,7 +146,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     const saved = this.configStore.getConfigs(identity);
     const presets = readSerialPortPresets();
     if (saved.length === 0 && presets.length === 0) {
-      vscode.window.showWarningMessage('没有可用的连接参数：请在设置中添加预设组合，或为设备添加快捷配置');
+      vscode.window.showWarningMessage(vscode.l10n.t('No connectable parameters: add presets in settings or add a quick config for the device'));
       return;
     }
     const lastUsed = this.configStore.getLastUsedConfig(identity);
@@ -158,18 +158,18 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       : saved;
     const items: ConfigPickItem[] = [];
     if (orderedSaved.length > 0) {
-      items.push({ label: '保存的配置', kind: vscode.QuickPickItemKind.Separator });
+      items.push({ label: vscode.l10n.t('Saved Configs'), kind: vscode.QuickPickItemKind.Separator });
       for (const quickConfig of orderedSaved) {
         const isLastUsed = lastUsed !== undefined && serialConfigEquals(lastUsed, quickConfig.config);
         items.push({
           label: quickConfig.name,
-          description: `${isLastUsed ? '上次使用 · ' : ''}${formatSerialConfigSummary(quickConfig.config)}`,
+          description: `${isLastUsed ? vscode.l10n.t('Last used · ') : ''}${formatSerialConfigSummary(quickConfig.config)}`,
           detail: formatSerialConfigDescription(quickConfig.config),
           config: quickConfig.config
         });
       }
     }
-    items.push({ label: '预设组合', kind: vscode.QuickPickItemKind.Separator });
+    items.push({ label: vscode.l10n.t('Presets'), kind: vscode.QuickPickItemKind.Separator });
     for (const preset of presets) {
       items.push({
         label: preset.label,
@@ -178,7 +178,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       });
     }
     const picked = await vscode.window.showQuickPick(items, {
-      placeHolder: '选择临时连接参数（波特率/数据位/校验/停止位/流控）',
+      placeHolder: vscode.l10n.t('Select connection parameters (baud rate/data bits/parity/stop bits/flow control)'),
       matchOnDescription: true
     });
     if (!picked?.config) {
@@ -197,8 +197,8 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   private async addQuickConfig(item: SerialPortDeviceTreeItem): Promise<void> {
     const identity = item.device.identity;
     const name = await vscode.window.showInputBox({
-      prompt: '输入配置名称',
-      value: `配置 ${this.configStore.getConfigs(identity).length + 1}`,
+      prompt: vscode.l10n.t('Enter a config name'),
+      value: vscode.l10n.t('Config {0}', this.configStore.getConfigs(identity).length + 1),
       validateInput: value => this.validateConfigName(identity, value)
     });
     if (!name) {
@@ -206,7 +206,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     }
     const presets = readSerialPortPresets();
     if (presets.length === 0) {
-      vscode.window.showWarningMessage('没有可用的预设组合：请在设置中添加（serialPortTerminal.serialConfigPresets）');
+      vscode.window.showWarningMessage(vscode.l10n.t('No presets available: add some in settings (serialPortTerminal.serialConfigPresets)'));
       return;
     }
     const preset = await vscode.window.showQuickPick(
@@ -215,7 +215,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
         description: formatSerialConfigDescription(p.config),
         config: p.config
       })),
-      { placeHolder: '选择预设参数组合（波特率/数据位/校验/停止位/流控）', matchOnDescription: true }
+      { placeHolder: vscode.l10n.t('Select a preset parameter combo (baud rate/data bits/parity/stop bits/flow control)'), matchOnDescription: true }
     );
     if (!preset) {
       return;
@@ -227,7 +227,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   private async renameQuickConfig(item: SerialPortQuickConfigTreeItem): Promise<void> {
     const { device, quickConfig } = item;
     const name = await vscode.window.showInputBox({
-      prompt: '输入新名称',
+      prompt: vscode.l10n.t('Enter a new name'),
       value: quickConfig.name,
       validateInput: value => this.validateConfigName(device.identity, value, quickConfig.id)
     });
@@ -239,12 +239,13 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
 
   private async removeQuickConfig(item: SerialPortQuickConfigTreeItem): Promise<void> {
     const { device, quickConfig } = item;
+    const deleteLabel = vscode.l10n.t('Delete');
     const choice = await vscode.window.showWarningMessage(
-      `删除配置 "${quickConfig.name}"？`,
+      vscode.l10n.t('Delete config "{0}"?', quickConfig.name),
       { modal: true },
-      '删除'
+      deleteLabel
     );
-    if (choice !== '删除') {
+    if (choice !== deleteLabel) {
       return;
     }
     this.configStore.remove(device.identity, quickConfig.id);
@@ -253,10 +254,10 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   private validateConfigName(identity: string, value: string, excludeId?: string): string | undefined {
     const trimmed = value.trim();
     if (!trimmed) {
-      return '名称不能为空';
+      return vscode.l10n.t('Name cannot be empty');
     }
     if (this.configStore.getConfigs(identity).some(c => c.id !== excludeId && c.name === trimmed)) {
-      return `名称 "${trimmed}" 已存在`;
+      return vscode.l10n.t('Name "{0}" already exists', trimmed);
     }
     return undefined;
   }
@@ -273,6 +274,6 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   }
 
   private updateEmptyStateMessage(): void {
-    this.treeView.message = this.items.size > 0 ? '' : '未检测到串口设备';
+    this.treeView.message = this.items.size > 0 ? '' : vscode.l10n.t('No serial devices detected');
   }
 }

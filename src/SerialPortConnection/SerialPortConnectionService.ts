@@ -54,7 +54,7 @@ export class SerialPortConnectionService {
       device.setStatus('connected');
     } catch (error) {
       device.setStatus('disconnected');
-      vscode.window.showErrorMessage(`连接失败: ${error}`);
+      vscode.window.showErrorMessage(vscode.l10n.t('Connection failed: {0}', `${error}`));
     }
     this._onDidChangeDeviceStatus.fire(device);
   }

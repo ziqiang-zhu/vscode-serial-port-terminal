@@ -8,12 +8,12 @@ const FRAME_FORMATS = [
 ];
 
 const FLOW_CONTROL_OPTIONS: { label: string; value: SerialConfig['flowControl'] }[] = [
-  { label: '无', value: 'none' },
-  { label: 'RTS/CTS', value: 'rtscts' }
+  { label: vscode.l10n.t('None'), value: 'none' },
+  { label: vscode.l10n.t('RTS/CTS'), value: 'rtscts' }
 ];
 
-const MOVE_UP_BUTTON: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('arrow-up'), tooltip: '上移' };
-const MOVE_DOWN_BUTTON: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('arrow-down'), tooltip: '下移' };
+const MOVE_UP_BUTTON: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('arrow-up'), tooltip: vscode.l10n.t('Move up') };
+const MOVE_DOWN_BUTTON: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('arrow-down'), tooltip: vscode.l10n.t('Move down') };
 
 type PresetPickItem = vscode.QuickPickItem & { action?: 'add'; index?: number };
 
@@ -48,10 +48,10 @@ export class SerialPortPresetManager {
       }
       const action = await vscode.window.showQuickPick(
         [
-          { label: '$(edit) 编辑', value: 'edit' },
-          { label: '$(trash) 删除', value: 'remove' }
+          { label: vscode.l10n.t('$(edit) Edit'), value: 'edit' },
+          { label: vscode.l10n.t('$(trash) Delete'), value: 'remove' }
         ],
-        { placeHolder: `预设 "${target.label}"` }
+        { placeHolder: vscode.l10n.t('Preset "{0}"', target.label) }
       );
       if (!action) {
         continue;
@@ -68,7 +68,7 @@ export class SerialPortPresetManager {
     return new Promise(resolve => {
       const picker = vscode.window.createQuickPick<PresetPickItem>();
       picker.items = this.buildPresetItems();
-      picker.placeholder = '管理预设组合（悬停点击 ↑/↓ 排序，回车编辑/删除）';
+      picker.placeholder = vscode.l10n.t('Manage presets (hover ↑/↓ to reorder, Enter to edit/delete)');
       picker.matchOnDescription = true;
       let settled = false;
       const settle = (item: PresetPickItem | undefined): void => {
@@ -109,8 +109,8 @@ export class SerialPortPresetManager {
   private buildPresetItems(): PresetPickItem[] {
     const presets = readSerialPortPresets();
     const items: PresetPickItem[] = [
-      { label: '$(add) 新增预设', action: 'add' },
-      { label: '预设列表', kind: vscode.QuickPickItemKind.Separator }
+      { label: vscode.l10n.t('$(add) Add Preset'), action: 'add' },
+      { label: vscode.l10n.t('Preset List'), kind: vscode.QuickPickItemKind.Separator }
     ];
     for (let index = 0; index < presets.length; index++) {
       const preset = presets[index];
@@ -138,7 +138,7 @@ export class SerialPortPresetManager {
   private async wizardPreset(existing?: { index: number; preset: SerialPortPreset }): Promise<void> {
     const presets = readSerialPortPresets();
     const name = await vscode.window.showInputBox({
-      prompt: '输入预设名称',
+      prompt: vscode.l10n.t('Enter a preset name'),
       value: existing?.preset.label ?? '',
       validateInput: value => this.validatePresetLabel(value, presets, existing?.index)
     });
@@ -146,7 +146,7 @@ export class SerialPortPresetManager {
       return;
     }
     const baudRateText = await vscode.window.showInputBox({
-      prompt: '输入波特率（如 115200、9600）',
+      prompt: vscode.l10n.t('Enter the baud rate (e.g. 115200, 9600)'),
       value: String(existing?.preset.config.baudRate ?? 115200),
       validateInput: value => this.validateBaudRate(value)
     });
@@ -155,12 +155,12 @@ export class SerialPortPresetManager {
     }
     const frame = await vscode.window.showQuickPick(
       FRAME_FORMATS.map(f => ({ label: f })),
-      { placeHolder: '选择帧格式（数据位-校验-停止位）' }
+      { placeHolder: vscode.l10n.t('Select the frame format (data bits-parity-stop bits)') }
     );
     if (!frame) {
       return;
     }
-    const flowControl = await vscode.window.showQuickPick(FLOW_CONTROL_OPTIONS, { placeHolder: '选择流控' });
+    const flowControl = await vscode.window.showQuickPick(FLOW_CONTROL_OPTIONS, { placeHolder: vscode.l10n.t('Select flow control') });
     if (!flowControl) {
       return;
     }
@@ -182,10 +182,14 @@ export class SerialPortPresetManager {
     try {
       await saveSerialPortPresets(entries);
     } catch (error) {
-      vscode.window.showErrorMessage(`保存预设失败: ${error}`);
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to save preset: {0}', `${error}`));
       return;
     }
-    vscode.window.showInformationMessage(existing ? `预设 "${entry.label}" 已更新` : `预设 "${entry.label}" 已新增`);
+    vscode.window.showInformationMessage(
+      existing
+        ? vscode.l10n.t('Preset "{0}" updated', entry.label)
+        : vscode.l10n.t('Preset "{0}" added', entry.label)
+    );
   }
 
   private async movePreset(index: number, offset: number): Promise<void> {
@@ -200,13 +204,18 @@ export class SerialPortPresetManager {
     try {
       await saveSerialPortPresets(entries);
     } catch (error) {
-      vscode.window.showErrorMessage(`调整顺序失败: ${error}`);
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to reorder: {0}', `${error}`));
     }
   }
 
   private async removePreset(index: number, label: string): Promise<void> {
-    const choice = await vscode.window.showWarningMessage(`删除预设 "${label}"？`, { modal: true }, '删除');
-    if (choice !== '删除') {
+    const deleteLabel = vscode.l10n.t('Delete');
+    const choice = await vscode.window.showWarningMessage(
+      vscode.l10n.t('Delete preset "{0}"?', label),
+      { modal: true },
+      deleteLabel
+    );
+    if (choice !== deleteLabel) {
       return;
     }
     const entries = readSerialPortPresets().map(toPresetEntry);
@@ -214,19 +223,19 @@ export class SerialPortPresetManager {
     try {
       await saveSerialPortPresets(entries);
     } catch (error) {
-      vscode.window.showErrorMessage(`删除预设失败: ${error}`);
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to delete preset: {0}', `${error}`));
       return;
     }
-    vscode.window.showInformationMessage(`预设 "${label}" 已删除`);
+    vscode.window.showInformationMessage(vscode.l10n.t('Preset "{0}" deleted', label));
   }
 
   private validatePresetLabel(value: string, presets: SerialPortPreset[], excludeIndex?: number): string | undefined {
     const trimmed = value.trim();
     if (!trimmed) {
-      return '名称不能为空';
+      return vscode.l10n.t('Name cannot be empty');
     }
     if (presets.some((p, index) => index !== excludeIndex && p.label === trimmed)) {
-      return `名称 "${trimmed}" 已存在`;
+      return vscode.l10n.t('Name "{0}" already exists', trimmed);
     }
     return undefined;
   }
@@ -234,7 +243,7 @@ export class SerialPortPresetManager {
   private validateBaudRate(value: string): string | undefined {
     const trimmed = value.trim();
     if (!/^\d+$/.test(trimmed) || Number(trimmed) <= 0) {
-      return '请输入正整数波特率（如 115200）';
+      return vscode.l10n.t('Enter a positive integer baud rate (e.g. 115200)');
     }
     return undefined;
   }

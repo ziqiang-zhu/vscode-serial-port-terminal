@@ -45,7 +45,8 @@ classDiagram
 - `serialPortDevice.*` —— 设备条目级命令（如连接、断开）；
 - `serialPortQuickConfig.*` —— 快捷配置级命令（添加、重命名、删除、用配置连接）；
 - `serialPortPreset.*` —— 预设管理级命令（`serialPortPreset.manage`，由 SerialPortPresetManager 注册，见 SerialPortQuickConfig设计.md「预设管理 UI」）；
-- 用户可见命令名一律经 `%...%` 本地化占位符解析（package.nls.json / package.nls.zh.json）。
+- 用户可见命令名一律经 `%...%` 本地化占位符解析（package.nls.json / package.nls.zh-cn.json）；
+- 运行时用户可见字符串（提示、按钮、校验消息）一律经 `vscode.l10n.t` 解析，语言包在 `l10n/bundle.l10n.json`（英文基准）与 `l10n/bundle.l10n.zh-cn.json`；日志（console）不本地化，保持中文。
 
 ### 4.2 菜单设计
 
