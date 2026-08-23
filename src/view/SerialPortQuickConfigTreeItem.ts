@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { SerialPortDeviceInterface } from '../SerialPortDeviceDetector/SerialPortDeviceInterface';
-import { SerialPortQuickConfig, formatSerialConfigDetails, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
+import { SerialConfig, SerialPortQuickConfig, formatSerialConfigDetails, formatSerialConfigSummary, serialConfigEquals } from '../SerialPortConfig/SerialPortQuickConfig';
 
 export class SerialPortQuickConfigTreeItem extends vscode.TreeItem {
   constructor(public readonly device: SerialPortDeviceInterface, public readonly quickConfig: SerialPortQuickConfig) {
@@ -9,5 +9,13 @@ export class SerialPortQuickConfigTreeItem extends vscode.TreeItem {
     this.iconPath = new vscode.ThemeIcon('debug-configure');
     this.description = formatSerialConfigSummary(quickConfig.config);
     this.tooltip = formatSerialConfigDetails(quickConfig.config);
+  }
+
+  public syncActiveState(activeConfig: SerialConfig | undefined): void {
+    const active = activeConfig !== undefined && serialConfigEquals(activeConfig, this.quickConfig.config);
+    this.iconPath = new vscode.ThemeIcon(active ? 'radio-tower' : 'debug-configure');
+    this.description = active
+      ? `${formatSerialConfigSummary(this.quickConfig.config)} · 当前连接`
+      : formatSerialConfigSummary(this.quickConfig.config);
   }
 }

@@ -44,7 +44,7 @@ export class SerialPortConnectionService {
     this._onDidChangeDeviceStatus.fire(device);
     try {
       const handle = await this.hal.openPort(this.toOpenOptions(device.path, config));
-      const connection = new SerialPortConnection(device, handle, () => {
+      const connection = new SerialPortConnection(device, handle, config, () => {
         void this.disconnectByPath(device.path);
       });
       if (this.defaultConsumerFactory) {
@@ -57,6 +57,10 @@ export class SerialPortConnectionService {
       vscode.window.showErrorMessage(`连接失败: ${error}`);
     }
     this._onDidChangeDeviceStatus.fire(device);
+  }
+
+  public getConnectionConfig(path: string): SerialConfig | undefined {
+    return this.connections.get(path)?.config;
   }
 
   private toOpenOptions(path: string, config: SerialConfig): SerialPortOpenOptions {

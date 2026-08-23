@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { SerialPortDeviceDetector, SerialPortDevicesChangeEvent } from '../SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortConnectionService } from '../SerialPortConnection/SerialPortConnectionService';
 import { SerialPortConfigStore } from '../SerialPortConfig/SerialPortConfigStore';
-import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
+import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary, serialConfigEquals } from '../SerialPortConfig/SerialPortQuickConfig';
 import { readSerialPortPresets } from '../SerialPortConfig/SerialPortPresets';
 import { SerialPortDeviceTreeItem } from './SerialPortDeviceTreeItem';
 import { SerialPortQuickConfigTreeItem } from './SerialPortQuickConfigTreeItem';
@@ -106,9 +106,12 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   getTreeItem(element: ViewItem): vscode.TreeItem {
     if (element instanceof SerialPortDeviceTreeItem) {
       element.syncStatusAppearance();
+      element.syncConnectionConfig(this.connectionService.getConnectionConfig(element.device.path));
       element.collapsibleState = this.hasQuickConfigs(element.device.identity)
         ? vscode.TreeItemCollapsibleState.Collapsed
         : vscode.TreeItemCollapsibleState.None;
+    } else {
+      element.syncActiveState(this.connectionService.getConnectionConfig(element.device.path));
     }
     return element;
   }
@@ -129,19 +132,28 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   }
 
   private async connectDevice(item: SerialPortDeviceTreeItem): Promise<void> {
-    const saved = this.configStore.getConfigs(item.device.identity);
+    const identity = item.device.identity;
+    const saved = this.configStore.getConfigs(identity);
     const presets = readSerialPortPresets();
     if (saved.length === 0 && presets.length === 0) {
       vscode.window.showWarningMessage('没有可用的连接参数：请在设置中添加预设组合，或为设备添加快捷配置');
       return;
     }
+    const lastUsed = this.configStore.getLastUsedConfig(identity);
+    const orderedSaved = lastUsed
+      ? [...saved].sort(
+          (a, b) =>
+            Number(serialConfigEquals(lastUsed, b.config)) - Number(serialConfigEquals(lastUsed, a.config))
+        )
+      : saved;
     const items: ConfigPickItem[] = [];
-    if (saved.length > 0) {
+    if (orderedSaved.length > 0) {
       items.push({ label: '保存的配置', kind: vscode.QuickPickItemKind.Separator });
-      for (const quickConfig of saved) {
+      for (const quickConfig of orderedSaved) {
+        const isLastUsed = lastUsed !== undefined && serialConfigEquals(lastUsed, quickConfig.config);
         items.push({
           label: quickConfig.name,
-          description: formatSerialConfigSummary(quickConfig.config),
+          description: `${isLastUsed ? '上次使用 · ' : ''}${formatSerialConfigSummary(quickConfig.config)}`,
           detail: formatSerialConfigDescription(quickConfig.config),
           config: quickConfig.config
         });
@@ -163,6 +175,9 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       return;
     }
     await this.connectionService.connect(item.device, picked.config);
+    if (item.device.status === 'connected') {
+      this.configStore.setLastUsedConfig(identity, picked.config);
+    }
   }
 
   private async addQuickConfig(item: SerialPortDeviceTreeItem): Promise<void> {

@@ -44,6 +44,7 @@ export interface SerialConfig {
 - 存储键：`serialPortQuickConfigs`（globalState），结构 `Record<deviceIdentity, SerialPortQuickConfig[]>`；
 - 键为设备身份（退化链，见 SerialPortDeviceDetector设计.md「设备身份管理」）：配置跟随物理设备，COM 号复用/换口均不串味；
 - 设备消失时配置**保留**（拔除不等于失去配置）；
+- 上次使用的配置：键 `serialPortLastUsedConfigs`（globalState），结构 `Record<deviceIdentity, SerialConfig>`，连接成功后由视图记录，选择器置顶用；
 - 预设组合不在此列：归 workspace 设置 `serialPortTerminal.serialConfigPresets`，随 settings.json 持久化并在设置界面编辑；
 - 全量读写即可：配置体量小，无需分片（扩展单进程运行，无并发问题）。
 
@@ -53,8 +54,10 @@ export interface SerialConfig {
 |---|---|
 | `getConfigs(identity): SerialPortQuickConfig[]` | 查询某设备的配置集合，无则空数组 |
 | `add(identity, name, config): SerialPortQuickConfig` | 创建配置并持久化，随后发布变更事件 |
-| `rename(identity, id, newName): void` | 重命名（P2），发布变更事件 |
-| `remove(identity, id): void` | 删除配置（P2），发布变更事件 |
+| `rename(identity, id, newName): void` | 重命名，发布变更事件 |
+| `remove(identity, id): void` | 删除配置，发布变更事件 |
+| `getLastUsedConfig(identity): SerialConfig \| undefined` | 该设备上次成功连接的配置 |
+| `setLastUsedConfig(identity, config): void` | 记录上次成功连接的配置（连接成功后由视图调用），静默持久化、不发布事件 |
 | `onDidChangeConfigs: Event<string /*identity*/>` | 配置变更事件，负载为受影响的设备身份 |
 
 校验规则（权威校验归 Store，add/rename 强制校验并抛出）：
@@ -82,12 +85,21 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 
 配置子节点右键 → 重命名 → `showInputBox`（预填当前名）→ Store.rename → 事件刷新。
 
-### 6.3 连接（部分实现）
+### 6.3 连接（已实现）
 
-- **已实现 —— 设备级参数选择**：点击设备连接按钮（无论是否有快捷配置）先弹出参数选择器：上方为"保存的配置"分组（label = 名称、description = 摘要、detail = 中文参数说明），下方为"预设组合"分组；选择后以 `connect(device, config)` 连接，**临时生效、不保存**。设备无快捷配置时不再静默使用默认参数；
-- **未实现 —— 配置子节点 inline 连接按钮**：`serialPortQuickConfig.connect` 尚未注册，配置子节点暂无可点连接入口（下一阶段）。
+连接按钮保留在设备上（配置子节点不设连接入口，原"按钮迁移"方案取消）：
 
-连接参数由调用方随连接请求传入，Service 不查询存储（当前阶段；M6 自动恢复场景再评估注入 Store）。
+- 点击设备连接按钮 → 参数选择器（"保存的配置"分组 + "预设组合"分组）→ `connect(device, config)`，临时生效、不保存；
+- **上次使用置顶**：该设备上次成功连接的配置排在"保存的配置"分组首位并标注"上次使用"；
+- 连接参数由调用方随连接请求传入，Service 不查询存储（M6 自动恢复场景再评估注入 Store）。
+
+#### 6.3.1 当前连接高亮
+
+连接成功后树视图高亮正在使用的配置：
+
+- **Service 侧**：SerialPortConnection 持有本次连接的 `config`，Service 暴露 `getConnectionConfig(path)` 只读查询；
+- **视图侧**：重渲染时（复用 `onDidChangeDeviceStatus` 事件流）对每个配置子节点做**值比较**（`serialConfigEquals`，五项全等，不依赖对象引用），命中的子节点图标换为 `radio-tower`、description 追加"当前连接"；设备行 description 追加参数摘要（如 `Arduino · 115200 8-N-1`）；
+- 断开后查询返回 undefined，高亮随同一事件流自动消失；用预设（非已存配置）连接时不命中任何子节点，自然无高亮。
 
 ### 6.4 删除（已实现）
 
@@ -109,19 +121,17 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 ### 7.1 配置子节点
 
 - 设备节点有配置时变为可折叠（`TreeItemCollapsibleState`），子节点为各配置项；
-- 配置项呈现：label = 名称；description = 参数摘要（如 `115200 8-N-1`）；tooltip = 完整参数信息（悬浮显示基本信息）；
-- 配置项 inline 连接按钮（与设备连接按钮同款交互）。
+- 配置项呈现：label = 名称；description = 参数摘要（如 `115200 8-N-1`）；tooltip = 完整参数信息（悬浮显示基本信息）；当前连接的配置子节点高亮（`radio-tower` 图标 + "当前连接"标注，见 6.3.1）。
 
-### 7.2 contextValue 约定扩展
+### 7.2 contextValue 约定
 
 | contextValue | 含义 |
 |---|---|
-| `serialPortDevice.disconnected` | 设备未连接且**无**快捷配置（设备级连接按钮显示于此态） |
-| `serialPortDevice.disconnected.hasConfigs` | 设备未连接且**有**快捷配置（设备级连接按钮隐藏） |
+| `serialPortDevice.disconnected` | 设备未连接（设备级连接按钮显示于此态，有/无快捷配置一致） |
 | `serialPortDevice.connecting` / `serialPortDevice.connected` | 与配置无关，维持不变 |
-| `serialPortQuickConfig` | 配置子节点（连接/重命名/删除菜单匹配此值） |
+| `serialPortQuickConfig` | 配置子节点（重命名/删除菜单匹配此值） |
 
-需求"连接按钮显示在快捷配置上"由第一条与第二条的区分实现：设备级连接菜单的 `when` 精确匹配 `serialPortDevice.disconnected`，带 `hasConfigs` 后缀时不命中。该迁移随「配置连接」一并落地，当前阶段未生效。
+注：原"有快捷配置时隐藏设备连接按钮（hasConfigs）并迁移至配置子节点"的方案已取消 —— 连接入口统一保留在设备上（见 6.3）。
 
 ### 7.3 视图刷新
 
@@ -131,7 +141,7 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 
 ### 8.1 命令命名
 
-- 沿用规范：`serialPortQuickConfig.*` —— 配置级命令（添加、重命名、删除、连接）；
+- 沿用规范：`serialPortQuickConfig.*` —— 配置级命令（添加、重命名、删除）；
 - `serialPortPreset.*` —— 预设管理级命令（`serialPortPreset.manage`），与设备无关、操作全局预设列表。
 
 ### 8.2 菜单设计
@@ -139,19 +149,18 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 | 位置 | 命令 | 展示方式 |
 |---|---|---|
 | `view/item/context`（普通组） | 添加快捷配置 | 设备右键菜单，`viewItem =~ /^serialPortDevice\./`（连接与否均可添加） |
-| `view/item/context`（inline 组） | 用此配置连接 | 配置子节点行内按钮 |
 | `view/item/context`（普通组） | 重命名 | 配置子节点右键 |
-| `view/item/context`（普通组） | 删除 | 配置子节点右键（P2） |
+| `view/item/context`（普通组） | 删除 | 配置子节点右键 |
 
 ## 9. 分阶段实施计划
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P1** | 数据模型 + Store（持久化/事件）、添加向导（名称 + 设置驱动的预设组合，带中文参数说明）、配置子节点展示与 tooltip、重命名、删除（含确认）、设备级连接参数选择（已存配置 + 预设，临时不保存） | 已实现 |
-| **P2** | 配置节点 inline 连接、设备级连接按钮迁移（需求 4）、自定义参数向导（完整五参数，`QuickPickButtons.Back` 回退） | 未实现（当前里程碑） |
-| **P3** | 终端标题附带配置名、默认配置策略 | 未实现 |
+| **P1** | 数据模型 + Store（持久化/事件）、添加向导（名称 + 设置驱动的预设组合，带中文参数说明）、配置子节点展示与 tooltip、重命名、删除（含确认）、设备级连接参数选择（已存配置 + 预设，临时不保存）、预设管理 UI（列表 + 行内排序 + 四步向导） | 已实现 |
+| **P2** | 当前连接高亮（6.3.1）、上次使用置顶 | 已实现（当前里程碑完成） |
+| **P3** | 终端标题附带配置名 | 未实现 |
 
-注：原计划的"编辑已有配置参数"已取消 —— 配置内容简单，直接删除重建即可。
+已取消/取代的项：编辑已有配置参数（内容简单，删除重建即可）；配置节点 inline 连接与设备级连接按钮迁移（连接入口统一保留在设备上，见 6.3）；自定义参数向导（由预设管理 UI 取代 —— 自建组合即预设）。
 
 ## 10. 组件结构
 

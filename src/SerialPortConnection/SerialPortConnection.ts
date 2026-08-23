@@ -1,5 +1,6 @@
 import { SerialPortHandle } from '../hal/SerialPortHal';
 import { SerialPortDeviceInterface } from '../SerialPortDeviceDetector/SerialPortDeviceInterface';
+import { SerialConfig } from '../SerialPortConfig/SerialPortQuickConfig';
 import { SerialPortConsumer, SerialPortConsumerHost } from './SerialPortConsumer';
 
 export class SerialPortConnection implements SerialPortConsumerHost {
@@ -8,6 +9,7 @@ export class SerialPortConnection implements SerialPortConsumerHost {
   constructor(
     private readonly device: SerialPortDeviceInterface,
     private readonly handle: SerialPortHandle,
+    readonly config: SerialConfig,
     private readonly onCloseRequested: () => void
   ) {
     this.handle.onError(error => {

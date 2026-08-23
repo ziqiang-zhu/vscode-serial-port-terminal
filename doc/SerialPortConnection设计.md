@@ -96,6 +96,7 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 连接参数以**命名配置集合**形态存在，完整的配置域设计（数据模型、存储、CRUD、交互向导）见 SerialPortQuickConfig设计.md。本节只定义连接服务的契约：
 
 - `connect(device, config?)`：连接参数由调用方随连接请求传入（已接入：UI 经参数选择器传入）；未传时使用默认值 115200-8-N-1；
+- `getConnectionConfig(path)`：当前连接配置的只读查询，供视图高亮（见 SerialPortQuickConfig设计.md「当前连接高亮」）；
 - Service 不查询配置存储（当前阶段）：配置的选择与传递是视图层职责；自动恢复场景（M6）再评估注入 Store；
 - 持久化归 SerialPortConfigStore（键为设备身份，换口重插自动找回）。
 
@@ -103,7 +104,7 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 |---|---|---|---|
 | 设备列表 | —— | 否 | 硬件事实，每次启动重新枚举 |
 | 命名配置集合（SerialPortQuickConfig[]） | 设备身份 | 是 | 用户配置，换口重插自动找回，归 ConfigStore 管理 |
-| 上次连接设备/配置 | 设备身份 | 是 | 用于可选的"启动后自动恢复连接"（M6） |
+| 上次使用配置（SerialConfig） | 设备身份 | 是 | 选择器置顶"上次使用"（已实现）；启动后自动恢复连接仍属 M6 |
 | 当前连接状态 | 路径 | 否 | 随进程结束而失效 |
 
 ## 7. Consumer 中枢
@@ -123,12 +124,14 @@ classDiagram
     class SerialPortConnectionService {
         +connect(device, config?)
         +disconnect(device)
+        +getConnectionConfig(path)
         +onDidChangeDeviceStatus
         +载入配置并打开串口
         -Device↔Connection 映射
     }
     class SerialPortConnection {
-        +constructor(device, handle)
+        +constructor(device, handle, config)
+        +config
         +close / 销毁清理
         +addConsumer(consumer)
         +removeConsumer(id)

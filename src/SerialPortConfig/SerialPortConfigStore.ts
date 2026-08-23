@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { SerialConfig, SerialPortQuickConfig } from './SerialPortQuickConfig';
 
 const STORAGE_KEY = 'serialPortQuickConfigs';
+const LAST_USED_KEY = 'serialPortLastUsedConfigs';
 const VALID_DATA_BITS = [5, 6, 7, 8];
 const VALID_STOP_BITS = [1, 1.5, 2];
 
@@ -63,6 +64,16 @@ export class SerialPortConfigStore {
     }
     void this.storage.update(STORAGE_KEY, all);
     this._onDidChangeConfigs.fire(identity);
+  }
+
+  getLastUsedConfig(identity: string): SerialConfig | undefined {
+    return this.storage.get<Record<string, SerialConfig>>(LAST_USED_KEY)?.[identity];
+  }
+
+  setLastUsedConfig(identity: string, config: SerialConfig): void {
+    const all = this.storage.get<Record<string, SerialConfig>>(LAST_USED_KEY) ?? {};
+    all[identity] = config;
+    void this.storage.update(LAST_USED_KEY, all);
   }
 
   dispose(): void {

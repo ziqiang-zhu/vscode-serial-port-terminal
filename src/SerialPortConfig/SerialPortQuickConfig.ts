@@ -17,6 +17,16 @@ const parityMarks: Record<SerialConfig['parity'], string> = { none: 'N', even: '
 const parityLabels: Record<SerialConfig['parity'], string> = { none: '无', even: '偶', odd: '奇', mark: 'Mark', space: 'Space' };
 const flowControlLabels: Record<SerialConfig['flowControl'], string> = { none: '无', rtscts: 'RTS/CTS' };
 
+export function serialConfigEquals(a: SerialConfig, b: SerialConfig): boolean {
+  return (
+    a.baudRate === b.baudRate &&
+    a.dataBits === b.dataBits &&
+    a.parity === b.parity &&
+    a.stopBits === b.stopBits &&
+    a.flowControl === b.flowControl
+  );
+}
+
 export function formatSerialConfigSummary(config: SerialConfig): string {
   const flow = config.flowControl === 'none' ? '' : ` ${flowControlLabels[config.flowControl]}`;
   return `${config.baudRate} ${config.dataBits}-${parityMarks[config.parity]}-${config.stopBits}${flow}`;
