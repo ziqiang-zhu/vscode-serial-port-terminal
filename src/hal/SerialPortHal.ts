@@ -14,7 +14,7 @@ export interface SerialPortOpenOptions {
   dataBits?: number;
   parity?: string;
   stopBits?: number;
-  flowControl?: boolean | string;
+  rtscts?: boolean;
 }
 
 export interface SerialPortHandle {

@@ -42,7 +42,7 @@ HAL（Hardware Abstraction Layer，硬件抽象层）封装串口底层库，向
 | `dataBits` | 否 | 数据位（5/6/7/8） |
 | `parity` | 否 | 校验方式（none/even/odd/mark/space） |
 | `stopBits` | 否 | 停止位（1/1.5/2） |
-| `flowControl` | 否 | 流控（none/rtscts/dtr） |
+| `rtscts` | 否 | RTS/CTS 硬件流控。字段名与 serialport 原生选项一致；对应 SerialConfig 的 `flowControl='rtscts'`（none 映射为 false） |
 
 - 与 SerialConfig（见 SerialPortConnection设计.md）的关系：连接服务把持久化的设备配置**映射**为本结构后调用 `openPort`；
 - 刻意不包含 `autoOpen`：打开时机属 HAL 内部事务，上层契约只要求"返回一个已打开的句柄"。
@@ -89,7 +89,7 @@ classDiagram
     }
     class SerialPortOpenOptions {
         +path / baudRate
-        +dataBits / parity / stopBits / flowControl
+        +dataBits / parity / stopBits / rtscts
     }
     class SerialPortHandle {
         <<interface>>

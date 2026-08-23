@@ -95,7 +95,7 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 
 连接参数以**命名配置集合**形态存在，完整的配置域设计（数据模型、存储、CRUD、交互向导）见 SerialPortQuickConfig设计.md。本节只定义连接服务的契约：
 
-- `connect(device, config?)`：连接参数由调用方随连接请求传入；未传时使用默认值 115200-8-N-1。config 参数当前尚未接入（快捷配置连接属当前里程碑的下一步，见 SerialPortQuickConfig设计.md 分阶段计划）；
+- `connect(device, config?)`：连接参数由调用方随连接请求传入（已接入：UI 经参数选择器传入）；未传时使用默认值 115200-8-N-1；
 - Service 不查询配置存储（当前阶段）：配置的选择与传递是视图层职责；自动恢复场景（M6）再评估注入 Store；
 - 持久化归 SerialPortConfigStore（键为设备身份，换口重插自动找回）。
 

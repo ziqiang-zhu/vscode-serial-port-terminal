@@ -44,7 +44,7 @@ port.open(error => {
 
 `as ConstructorParameters<typeof SerialPort>[0]` 是本文件唯一的类型适配：
 
-- HAL 的 `SerialPortOpenOptions` 为上层友好而类型较宽（如 `dataBits?: number`、`parity?: string`、`flowControl?: boolean | string`）；
+- HAL 的 `SerialPortOpenOptions` 为上层友好而类型较宽（如 `dataBits?: number`、`parity?: string`；流控直接采用 serialport 的原生字段名 `rtscts?: boolean`）；
 - serialport 的选项声明为字面量联合（`dataBits?: 5 | 6 | 7 | 8` 等）；
 - 适配发生在 HAL 边界：上层不感知底层约束，非法取值由 serialport 自行抛错并经 3.2 的路径归一为 reject。
 

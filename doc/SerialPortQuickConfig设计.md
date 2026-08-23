@@ -31,12 +31,13 @@ export interface SerialConfig {
   dataBits: number;
   parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
   stopBits: number;
-  flowControl: 'none' | 'rtscts' | 'dtr';
+  flowControl: 'none' | 'rtscts';
 }
 ```
 
 - `id` 由 Store 生成（时间戳或递增号），名称变化不改变引用；
-- `schemaVersion` 预留结构迁移。
+- `schemaVersion` 预留结构迁移；
+- 流控只有 none / rtscts：serialport 不提供 DTR 流控，建模时即剔除，避免配置出无法兑现的参数。
 
 ## 4. 存储与持久化
 
@@ -67,8 +68,9 @@ export interface SerialConfig {
 
 ```
 右键设备 → 添加快捷配置
-    ↓ showInputBox：配置名称（预填 "配置 N"，validateInput 校验非空、去重）
-    ↓ showQuickPick：预设组合（如 "115200 8-N-1"、"9600 8-N-1"、"115200 7-E-1"…）
+    ↓ showInputBox：配置名称（预填 "配置 N"，prompt 附命名示例，validateInput 校验非空、去重）
+    ↓ showQuickPick：预设组合（label = "115200 8-N-1" 等摘要，description = 中文参数说明
+      "波特率 115200 · 数据位 8 · 无校验 · 停止位 1 · 流控 无"，支持按说明搜索）
     ↓
 Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 ```
@@ -79,9 +81,12 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 
 配置子节点右键 → 重命名 → `showInputBox`（预填当前名）→ Store.rename → 事件刷新。
 
-### 6.3 连接（未实现）
+### 6.3 连接（部分实现）
 
-配置子节点 inline 按钮 → `connectionService.connect(device, config)` —— 连接参数由调用方随连接请求传入，Service 不查询存储（当前阶段；M6 自动恢复场景再评估注入 Store）。本阶段仅实现配置管理 UI，不对接实际连接功能。
+- **已实现 —— 设备级参数选择**：点击设备连接按钮（无论是否有快捷配置）先弹出参数选择器：上方为"保存的配置"分组（label = 名称、description = 摘要、detail = 中文参数说明），下方为"预设组合"分组；选择后以 `connect(device, config)` 连接，**临时生效、不保存**。设备无快捷配置时不再静默使用默认参数；
+- **未实现 —— 配置子节点 inline 连接按钮**：`serialPortQuickConfig.connect` 尚未注册，配置子节点暂无可点连接入口（下一阶段）。
+
+连接参数由调用方随连接请求传入，Service 不查询存储（当前阶段；M6 自动恢复场景再评估注入 Store）。
 
 ### 6.4 删除（已实现）
 
@@ -129,7 +134,7 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P1** | 数据模型 + Store（持久化/事件）、添加向导（名称 + 预设组合）、配置子节点展示与 tooltip、重命名、删除（含确认） | 已实现 |
+| **P1** | 数据模型 + Store（持久化/事件）、添加向导（名称 + 预设组合，带中文参数说明）、配置子节点展示与 tooltip、重命名、删除（含确认）、设备级连接参数选择（已存配置 + 预设，临时不保存） | 已实现 |
 | **P2** | 配置节点 inline 连接、设备级连接按钮迁移（需求 4）、自定义参数向导（完整五参数，`QuickPickButtons.Back` 回退） | 未实现（当前里程碑） |
 | **P3** | 终端标题附带配置名、默认配置策略 | 未实现 |
 

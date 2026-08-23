@@ -1,9 +1,19 @@
 import * as vscode from 'vscode';
-import { SerialPortHal } from '../hal/SerialPortHal';
+import { SerialPortHal, SerialPortOpenOptions } from '../hal/SerialPortHal';
 import { SerialPortDeviceDetector } from '../SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortDeviceInterface } from '../SerialPortDeviceDetector/SerialPortDeviceInterface';
+import { SerialConfig } from '../SerialPortConfig/SerialPortQuickConfig';
 import { SerialPortConsumer } from './SerialPortConsumer';
 import { SerialPortConnection } from './SerialPortConnection';
+
+const DEFAULT_CONFIG: SerialConfig = {
+  schemaVersion: 1,
+  baudRate: 115200,
+  dataBits: 8,
+  parity: 'none',
+  stopBits: 1,
+  flowControl: 'none'
+};
 
 export class SerialPortConnectionService {
   private _onDidChangeDeviceStatus = new vscode.EventEmitter<SerialPortDeviceInterface>();
@@ -26,15 +36,14 @@ export class SerialPortConnectionService {
     );
   }
 
-  public async connect(device: SerialPortDeviceInterface): Promise<void> {
+  public async connect(device: SerialPortDeviceInterface, config: SerialConfig = DEFAULT_CONFIG): Promise<void> {
     if (!device || device.status !== 'disconnected') {
       return;
     }
     device.setStatus('connecting');
     this._onDidChangeDeviceStatus.fire(device);
     try {
-      // TODO: 按设备身份（device.identity）载入配置，当前使用默认参数
-      const handle = await this.hal.openPort({ path: device.path, baudRate: 115200 });
+      const handle = await this.hal.openPort(this.toOpenOptions(device.path, config));
       const connection = new SerialPortConnection(device, handle, () => {
         void this.disconnectByPath(device.path);
       });
@@ -48,6 +57,17 @@ export class SerialPortConnectionService {
       vscode.window.showErrorMessage(`连接失败: ${error}`);
     }
     this._onDidChangeDeviceStatus.fire(device);
+  }
+
+  private toOpenOptions(path: string, config: SerialConfig): SerialPortOpenOptions {
+    return {
+      path,
+      baudRate: config.baudRate,
+      dataBits: config.dataBits,
+      parity: config.parity,
+      stopBits: config.stopBits,
+      rtscts: config.flowControl === 'rtscts'
+    };
   }
 
   public async disconnect(device: SerialPortDeviceInterface): Promise<void> {

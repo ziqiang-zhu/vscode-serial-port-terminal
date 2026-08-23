@@ -75,7 +75,7 @@ connecting 态不匹配任何菜单，用于禁用操作。
 | 命令 | 转发目标 |
 |---|---|
 | `serialPortDeviceList.refresh` | `detector.scan()` |
-| `serialPortDevice.connect` | `connectionService.connect(item.device)`（无配置设备的默认参数连接） |
+| `serialPortDevice.connect` | `connectionService.connect(item.device, config)`（先弹参数选择器：该设备的已存配置 + 预设组合，临时生效不保存） |
 | `serialPortDevice.disconnect` | `connectionService.disconnect(item.device)` |
 | `serialPortQuickConfig.connect` | `connectionService.connect(item.device, item.config)`（未实现：随配置连接阶段落地） |
 | `serialPortQuickConfig.add` | `configStore.add(identity, name, config)`（经两步向导收集输入） |
