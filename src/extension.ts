@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
-import { SerialPortDeviceManager } from './SerialPortDeviceManager/SerialPortDeviceManager';
+import { SerialPortHalImpl } from './hal/SerialPortHalImpl';
+import { SerialPortDeviceDetector } from './SerialPortDeviceDetector/SerialPortDeviceDetector';
+import { SerialPortConnectionService } from './SerialPortConnection/SerialPortConnectionService';
+import { SerialPortDeviceManagerTreeView } from './view/SerialPortDeviceManagerTreeView';
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Serial Port Terminal is activating...');
-
-  new SerialPortDeviceManager(context);
+  const hal = new SerialPortHalImpl();
+  const detector = new SerialPortDeviceDetector(hal, context);
+  const connectionService = new SerialPortConnectionService(hal, detector, context);
+  new SerialPortDeviceManagerTreeView(detector, connectionService, context);
 }
 
 export function deactivate() {}

@@ -9,7 +9,7 @@ SerialPortDeviceManagerTreeView 是 UI 层组件：负责侧边栏树视图、�
 
 - **UI 与数据分离**：视图节点可随时重建，模型稳定（见 Detector 文档"模型实例稳定"）；
 - **只转发不实现**：命令回调里只做转发，业务逻辑归服务层；
-- **订阅驱动刷新**：Detector 的增删事件是视图刷新的唯一触发器。
+- **订阅驱动刷新**：视图刷新的两个触发器 —— Detector 的设备增删事件、MonitorService 的连接状态变化事件。
 
 ## 视图结构
 
@@ -58,13 +58,14 @@ classDiagram
 
 | 命令 | 转发目标 |
 |---|---|
-| `serialPortDeviceList.refresh` | `detector.refresh()` |
-| `serialPortDevice.connect` | `monitorService.connect(item.device)` |
-| `serialPortDevice.disconnect` | `monitorService.disconnect(item.device)` |
+| `serialPortDeviceList.refresh` | `detector.scan()` |
+| `serialPortDevice.connect` | `connectionService.connect(item.device)` |
+| `serialPortDevice.disconnect` | `connectionService.disconnect(item.device)` |
 
-## 与 Detector 的配合
+## 与服务的配合
 
-- **订阅**：`detector.onDidChangeDevices` → 按 `{ added, removed }` 增删 item 列表 → `fire()`；
+- **设备增删**：`detector.onDidChangeDevices` → 按 `{ added, removed }` 增删 item 列表 → `fire()`；
+- **连接状态变化**：`connectionService.onDidChangeDeviceStatus` → `fire()` 触发重渲染（item 渲染时从模型同步外观）；
 - **轮询启停**：`treeView.onDidChangeVisibility` → 可见时 `detector.start()`，隐藏时 `detector.stop()`；
 - 首次订阅时机：视图创建后立即订阅并同步一次全量列表。
 
@@ -81,13 +82,13 @@ classDiagram
     class SerialPortDeviceDetector {
         +onDidChangeDevices
         +getDevices()
-        +refresh()
+        +scan()
         +start() / stop()
     }
-    class SerialPortMonitorService {
+    class SerialPortConnectionService {
         +connect(device)
         +disconnect(device)
     }
     SerialPortDeviceManagerTreeView --> SerialPortDeviceDetector : 订阅
-    SerialPortDeviceManagerTreeView --> SerialPortMonitorService : 转发动作
+    SerialPortDeviceManagerTreeView --> SerialPortConnectionService : 转发动作 + 订阅状态事件
 ```

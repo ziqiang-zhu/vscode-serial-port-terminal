@@ -75,7 +75,7 @@ readonly onDidChangeDevices: vscode.Event<{
 ```
 
 - 明细事件让订阅者各取所需：视图按 added/removed 增删 item，连接服务按 removed 清理资源；
-- Detector 对外另提供 `getDevices()` 快照与 `refresh()` 手动刷新。
+- Detector 对外另提供 `getDevices()` 快照与 `scan()` 手动触发一次扫描。
 
 ## 设备身份管理
 
@@ -115,7 +115,7 @@ Detector 在内存中维护会话级映射 `identity → path`，每次轮询时
 classDiagram
     class SerialPortDeviceDetector {
         +getDevices()
-        +refresh()
+        +scan()
         +start() / stop()
         +onDidChangeDevices
         -devices: Map~path, SerialPortDeviceImpl~
