@@ -1,19 +1,25 @@
 import * as vscode from 'vscode';
 import { SerialPortDeviceDetector, SerialPortDevicesChangeEvent } from '../SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortConnectionService } from '../SerialPortConnection/SerialPortConnectionService';
+import { SerialPortConfigStore } from '../SerialPortConfig/SerialPortConfigStore';
+import { serialPortPresets } from '../SerialPortConfig/SerialPortQuickConfig';
 import { SerialPortDeviceTreeItem } from './SerialPortDeviceTreeItem';
+import { SerialPortQuickConfigTreeItem } from './SerialPortQuickConfigTreeItem';
 
-export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<SerialPortDeviceTreeItem> {
-  private _onDidChangeTreeData = new vscode.EventEmitter<SerialPortDeviceTreeItem | undefined | null | void>();
+type ViewItem = SerialPortDeviceTreeItem | SerialPortQuickConfigTreeItem;
+
+export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<ViewItem> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<ViewItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private items = new Map<string, SerialPortDeviceTreeItem>();
 
-  private readonly treeView: vscode.TreeView<SerialPortDeviceTreeItem>;
+  private readonly treeView: vscode.TreeView<ViewItem>;
 
   constructor(
     private readonly detector: SerialPortDeviceDetector,
     connectionService: SerialPortConnectionService,
+    private readonly configStore: SerialPortConfigStore,
     context: vscode.ExtensionContext
   ) {
     this.treeView = vscode.window.createTreeView('serialPortDeviceList', {
@@ -30,6 +36,12 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
 
     context.subscriptions.push(
       connectionService.onDidChangeDeviceStatus(() => {
+        this._onDidChangeTreeData.fire();
+      })
+    );
+
+    context.subscriptions.push(
+      configStore.onDidChangeConfigs(() => {
         this._onDidChangeTreeData.fire();
       })
     );
@@ -64,20 +76,112 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
         }
       })
     );
+    context.subscriptions.push(
+      vscode.commands.registerCommand('serialPortQuickConfig.add', (item: SerialPortDeviceTreeItem) => {
+        if (item) {
+          void this.addQuickConfig(item);
+        }
+      })
+    );
+    context.subscriptions.push(
+      vscode.commands.registerCommand('serialPortQuickConfig.rename', (item: SerialPortQuickConfigTreeItem) => {
+        if (item) {
+          void this.renameQuickConfig(item);
+        }
+      })
+    );
+    context.subscriptions.push(
+      vscode.commands.registerCommand('serialPortQuickConfig.remove', (item: SerialPortQuickConfigTreeItem) => {
+        if (item) {
+          void this.removeQuickConfig(item);
+        }
+      })
+    );
 
     void detector.scan();
   }
 
-  getTreeItem(element: SerialPortDeviceTreeItem): vscode.TreeItem {
-    element.syncStatusAppearance();
+  getTreeItem(element: ViewItem): vscode.TreeItem {
+    if (element instanceof SerialPortDeviceTreeItem) {
+      element.syncStatusAppearance();
+      element.collapsibleState = this.hasQuickConfigs(element.device.identity)
+        ? vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None;
+    }
     return element;
   }
 
-  getChildren(element?: SerialPortDeviceTreeItem): Thenable<SerialPortDeviceTreeItem[]> {
-    if (element) {
-      return Promise.resolve([]);
+  getChildren(element?: ViewItem): Thenable<ViewItem[]> {
+    if (element instanceof SerialPortDeviceTreeItem) {
+      return Promise.resolve(
+        this.configStore
+          .getConfigs(element.device.identity)
+          .map(config => new SerialPortQuickConfigTreeItem(element.device, config))
+      );
     }
     return Promise.resolve([...this.items.values()]);
+  }
+
+  private hasQuickConfigs(identity: string): boolean {
+    return this.configStore.getConfigs(identity).length > 0;
+  }
+
+  private async addQuickConfig(item: SerialPortDeviceTreeItem): Promise<void> {
+    const identity = item.device.identity;
+    const name = await vscode.window.showInputBox({
+      prompt: '输入配置名称',
+      value: `配置 ${this.configStore.getConfigs(identity).length + 1}`,
+      validateInput: value => this.validateConfigName(identity, value)
+    });
+    if (!name) {
+      return;
+    }
+    const preset = await vscode.window.showQuickPick(
+      serialPortPresets.map(p => ({ label: p.label, config: p.config })),
+      { placeHolder: '选择预设参数组合' }
+    );
+    if (!preset) {
+      return;
+    }
+    this.configStore.add(identity, name, preset.config);
+    await this.treeView.reveal(item, { expand: true, focus: true });
+  }
+
+  private async renameQuickConfig(item: SerialPortQuickConfigTreeItem): Promise<void> {
+    const { device, quickConfig } = item;
+    const name = await vscode.window.showInputBox({
+      prompt: '输入新名称',
+      value: quickConfig.name,
+      validateInput: value => this.validateConfigName(device.identity, value, quickConfig.id)
+    });
+    if (!name) {
+      return;
+    }
+    this.configStore.rename(device.identity, quickConfig.id, name);
+  }
+
+  private async removeQuickConfig(item: SerialPortQuickConfigTreeItem): Promise<void> {
+    const { device, quickConfig } = item;
+    const choice = await vscode.window.showWarningMessage(
+      `删除配置 "${quickConfig.name}"？`,
+      { modal: true },
+      '删除'
+    );
+    if (choice !== '删除') {
+      return;
+    }
+    this.configStore.remove(device.identity, quickConfig.id);
+  }
+
+  private validateConfigName(identity: string, value: string, excludeId?: string): string | undefined {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '名称不能为空';
+    }
+    if (this.configStore.getConfigs(identity).some(c => c.id !== excludeId && c.name === trimmed)) {
+      return `名称 "${trimmed}" 已存在`;
+    }
+    return undefined;
   }
 
   private handleDevicesChanged(event: SerialPortDevicesChangeEvent): void {

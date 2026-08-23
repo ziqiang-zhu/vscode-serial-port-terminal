@@ -4,6 +4,9 @@
   "serialPortDeviceList.refresh.title": "Refresh",
   "serialPortDevice.connect.title": "Connect",
   "serialPortDevice.disconnect.title": "Disconnect",
+  "serialPortQuickConfig.add.title": "Add Quick Config",
+  "serialPortQuickConfig.rename.title": "Rename",
+  "serialPortQuickConfig.remove.title": "Remove",
   "serialPortTerminal.configuration.title": "Serial Port Terminal",
   "serialPortTerminal.pollingInterval.description": "Hot-plug polling interval in seconds.",
   "serialPortTerminal.hotPlugEnabled.description": "Enable hot-plug detection (periodic polling of serial devices)."

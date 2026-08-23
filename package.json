@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal (experiment)",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "ziqiang",
   "engines": {
     "vscode": "^1.95.0"
@@ -47,6 +47,18 @@
         "command": "serialPortDevice.disconnect",
         "title": "%serialPortDevice.disconnect.title%",
         "icon": "$(close)"
+      },
+      {
+        "command": "serialPortQuickConfig.add",
+        "title": "%serialPortQuickConfig.add.title%"
+      },
+      {
+        "command": "serialPortQuickConfig.rename",
+        "title": "%serialPortQuickConfig.rename.title%"
+      },
+      {
+        "command": "serialPortQuickConfig.remove",
+        "title": "%serialPortQuickConfig.remove.title%"
       }
     ],
     "menus": {
@@ -67,6 +79,18 @@
           "command": "serialPortDevice.disconnect",
           "when": "view == serialPortDeviceList && viewItem == serialPortDevice.connected",
           "group": "inline"
+        },
+        {
+          "command": "serialPortQuickConfig.add",
+          "when": "view == serialPortDeviceList && viewItem =~ /^serialPortDevice\\./"
+        },
+        {
+          "command": "serialPortQuickConfig.rename",
+          "when": "view == serialPortDeviceList && viewItem == serialPortQuickConfig"
+        },
+        {
+          "command": "serialPortQuickConfig.remove",
+          "when": "view == serialPortDeviceList && viewItem == serialPortQuickConfig"
         }
       ]
     },

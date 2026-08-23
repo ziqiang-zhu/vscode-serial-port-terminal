@@ -4,6 +4,9 @@
   "serialPortDeviceList.refresh.title": "刷新",
   "serialPortDevice.connect.title": "连接",
   "serialPortDevice.disconnect.title": "断开链接",
+  "serialPortQuickConfig.add.title": "添加快捷配置",
+  "serialPortQuickConfig.rename.title": "重命名",
+  "serialPortQuickConfig.remove.title": "删除",
   "serialPortTerminal.configuration.title": "串口终端",
   "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）",
   "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）"

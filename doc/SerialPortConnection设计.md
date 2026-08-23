@@ -64,7 +64,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    A[TreeView 命令转发 connect] --> B[Service 载入设备配置]
+    A[TreeView 命令转发 connect\n（携带 config，可为默认）] --> B[Service 校验 config 并映射打开参数]
     B --> C[Service 经 HAL 打开串口]
     C -->|成功| D[构造 SerialPortConnection\n注入 device 与端口句柄]
     D --> E[注册默认 Consumer]
@@ -91,31 +91,20 @@ flowchart TD
 
 Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅并重渲染；该事件是应用内**唯一**的连接状态词汇表。
 
-## 6. 配置载入与持久化
+## 6. 配置与持久化
+
+连接参数以**命名配置集合**形态存在，完整的配置域设计（数据模型、存储、CRUD、交互向导）见 SerialPortQuickConfig设计.md。本节只定义连接服务的契约：
+
+- `connect(device, config?)`：连接参数由调用方随连接请求传入；未传时使用默认值 115200-8-N-1。config 参数当前尚未接入（快捷配置连接属当前里程碑的下一步，见 SerialPortQuickConfig设计.md 分阶段计划）；
+- Service 不查询配置存储（当前阶段）：配置的选择与传递是视图层职责；自动恢复场景（M6）再评估注入 Store；
+- 持久化归 SerialPortConfigStore（键为设备身份，换口重插自动找回）。
 
 | 数据 | 键 | 是否持久化 | 说明 |
 |---|---|---|---|
 | 设备列表 | —— | 否 | 硬件事实，每次启动重新枚举 |
-| 每设备连接参数（波特率、数据位、校验、停止位、流控） | 设备身份 | 是 | 用户配置，换口重插自动找回 |
-| 上次连接设备 | 设备身份 | 是 | 用于可选的"启动后自动恢复连接" |
+| 命名配置集合（SerialPortQuickConfig[]） | 设备身份 | 是 | 用户配置，换口重插自动找回，归 ConfigStore 管理 |
+| 上次连接设备/配置 | 设备身份 | 是 | 用于可选的"启动后自动恢复连接"（M6） |
 | 当前连接状态 | 路径 | 否 | 随进程结束而失效 |
-
-SerialConfig 结构：
-
-```jsonc
-{
-  "schemaVersion": 1,          // 结构版本，便于将来迁移
-  "baudRate": 115200,          // 波特率
-  "dataBits": 8,               // 数据位
-  "parity": "none",            // 校验：none / even / odd / mark / space
-  "stopBits": 1,               // 停止位
-  "flowControl": "none"        // 流控：none / rtscts / dtr
-}
-```
-
-- 读取时机：Service 在打开串口前按 `device.identity` 查询；无配置时使用默认值 115200-8-N-1；
-- 写入时机：用户修改参数后立即直写（扩展单进程运行，无并发问题）；
-- 存储选型：`context.globalState`（VS Code 托管 SQLite、跨重启）；配置复杂化后可迁移至 `globalStorageUri` 下的 JSON 文件。
 
 ## 7. Consumer 中枢
 
@@ -132,7 +121,7 @@ Consumer 的通用规范见 SerialPortConsumer设计.md。Connection 对外的�
 ```mermaid
 classDiagram
     class SerialPortConnectionService {
-        +connect(device)
+        +connect(device, config?)
         +disconnect(device)
         +onDidChangeDeviceStatus
         +载入配置并打开串口
@@ -161,5 +150,6 @@ classDiagram
 ## 9. 路线图
 
 - **M3**：默认 Consumer（SerialPortTerminal）完善 —— 输入增强、Parser；
-- **M4**：多 Consumer 注册、二级菜单管理；
-- **M5**：配置持久化接入（SerialConfig 落地）、启动自动恢复。
+- **M4**：配置管理完善（重命名/删除/自定义参数，见 SerialPortQuickConfig设计.md 分阶段计划）；
+- **M5**：多 Consumer 注册、二级菜单管理；
+- **M6**：启动自动恢复（上次设备与配置）。
