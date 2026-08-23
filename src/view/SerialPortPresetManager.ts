@@ -68,12 +68,19 @@ export class SerialPortPresetManager {
     return new Promise(resolve => {
       const picker = vscode.window.createQuickPick<PresetPickItem>();
       picker.items = this.buildPresetItems();
-      picker.placeholder = '管理预设组合（悬停条目点击 ↑/↓ 按钮排序）';
+      picker.placeholder = '管理预设组合（悬停点击 ↑/↓ 排序，回车编辑/删除）';
       picker.matchOnDescription = true;
-      picker.onDidAccept(() => {
-        const selected = picker.selectedItems[0];
+      let settled = false;
+      const settle = (item: PresetPickItem | undefined): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
         picker.dispose();
-        resolve(selected);
+        resolve(item);
+      };
+      picker.onDidAccept(() => {
+        settle(picker.selectedItems[0]);
       });
       picker.onDidTriggerItemButton(async event => {
         const index = event.item.index;
@@ -93,8 +100,7 @@ export class SerialPortPresetManager {
         }
       });
       picker.onDidHide(() => {
-        picker.dispose();
-        resolve(undefined);
+        settle(undefined);
       });
       picker.show();
     });

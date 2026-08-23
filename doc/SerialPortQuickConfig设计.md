@@ -98,7 +98,7 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 设置项 `serialPortTerminal.serialConfigPresets` 的图形入口（避免用户手改 JSON），由 SerialPortPresetManager（`src/view/`）承载：
 
 - **入口**：视图标题栏齿轮按钮 / 命令面板 `serialPortPreset.manage`；
-- **列表**：QuickPick 展示全部预设（label = 名称、description = 摘要、detail = 中文参数说明），顶部"＋ 新增预设"；
+- **列表**：QuickPick 展示全部预设（label = 名称、description = 摘要、detail = 中文参数说明），顶部"＋ 新增预设"；回车进入编辑/删除菜单；
 - **新增/编辑向导（四步）**：名称（非空、去重校验）→ 波特率（正整数校验）→ 帧格式（12 种数据位-校验-停止位组合）→ 流控（无 / RTS/CTS）；编辑时预填当前值；
 - **删除**：modal 确认后移除；
 - **排序**：列表每行悬停显示行内 ↑/↓ 按钮（QuickPickItemButtons，首条隐藏上移、末条隐藏下移），点击即移动并即时重排，选择器保持打开，顺序随设置持久化；
