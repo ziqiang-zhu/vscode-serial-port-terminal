@@ -44,6 +44,7 @@ export interface SerialConfig {
 - 存储键：`serialPortQuickConfigs`（globalState），结构 `Record<deviceIdentity, SerialPortQuickConfig[]>`；
 - 键为设备身份（退化链，见 SerialPortDeviceDetector设计.md「设备身份管理」）：配置跟随物理设备，COM 号复用/换口均不串味；
 - 设备消失时配置**保留**（拔除不等于失去配置）；
+- 预设组合不在此列：归 workspace 设置 `serialPortTerminal.serialConfigPresets`，随 settings.json 持久化并在设置界面编辑；
 - 全量读写即可：配置体量小，无需分片（扩展单进程运行，无并发问题）。
 
 ## 5. 配置仓库（SerialPortConfigStore）
@@ -75,7 +76,7 @@ export interface SerialConfig {
 Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 ```
 
-预设组合为代码内常量表 `serialPortPresets`（常用波特率 × 帧格式 × 流控的组合）；"自定义…" 项与完整五参数向导属 P2，P2 起用户自建的自定义组合并入候选列表。
+预设组合读取自设置项 `serialPortTerminal.serialConfigPresets`（数组，默认内置 8 个常用组合；运行时经 `readSerialPortPresets()` 解析校验，非法条目跳过并记录警告）。设置项是持久化载体，图形化编辑入口见 6.5；"自定义…" 项与完整五参数向导属 P2，P2 起用户自建的自定义组合并入候选列表。
 
 ### 6.2 重命名（已实现）
 
@@ -91,6 +92,17 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 ### 6.4 删除（已实现）
 
 配置子节点右键 → 删除 → 确认（`showWarningMessage`，modal）→ Store.remove → 事件刷新。
+
+### 6.5 预设管理 UI（已实现）
+
+设置项 `serialPortTerminal.serialConfigPresets` 的图形入口（避免用户手改 JSON），由 SerialPortPresetManager（`src/view/`）承载：
+
+- **入口**：视图标题栏齿轮按钮 / 命令面板 `serialPortPreset.manage`；
+- **列表**：QuickPick 展示全部预设（label = 名称、description = 摘要、detail = 中文参数说明），顶部"＋ 新增预设"；
+- **新增/编辑向导（四步）**：名称（非空、去重校验）→ 波特率（正整数校验）→ 帧格式（12 种数据位-校验-停止位组合）→ 流控（无 / RTS/CTS）；编辑时预填当前值；
+- **删除**：modal 确认后移除；
+- **排序**：列表每行悬停显示行内 ↑/↓ 按钮（QuickPickItemButtons，首条隐藏上移、末条隐藏下移），点击即移动并即时重排，选择器保持打开，顺序随设置持久化；
+- **读写**：向导经 `saveSerialPortPresets()` 全量回写设置项（以校验通过的条目为准），**写入目标为 Global（用户设置）**——预设是用户级偏好，不随工作区漂移；注意 `update` 不指定目标时默认写工作区设置，未开工作区会直接抛错，因此必须显式指定；成功弹出提示（已新增/已更新/已删除），写入失败弹出错误提示；子级 Esc 返回列表、列表 Esc 退出；选择器（6.1/6.3）每次打开实时读取，改完立即生效。
 
 ## 7. 视图呈现
 
@@ -119,7 +131,8 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 
 ### 8.1 命令命名
 
-- 沿用规范：`serialPortQuickConfig.*` —— 配置级命令（添加、重命名、删除、连接）。
+- 沿用规范：`serialPortQuickConfig.*` —— 配置级命令（添加、重命名、删除、连接）；
+- `serialPortPreset.*` —— 预设管理级命令（`serialPortPreset.manage`），与设备无关、操作全局预设列表。
 
 ### 8.2 菜单设计
 
@@ -134,7 +147,7 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P1** | 数据模型 + Store（持久化/事件）、添加向导（名称 + 预设组合，带中文参数说明）、配置子节点展示与 tooltip、重命名、删除（含确认）、设备级连接参数选择（已存配置 + 预设，临时不保存） | 已实现 |
+| **P1** | 数据模型 + Store（持久化/事件）、添加向导（名称 + 设置驱动的预设组合，带中文参数说明）、配置子节点展示与 tooltip、重命名、删除（含确认）、设备级连接参数选择（已存配置 + 预设，临时不保存） | 已实现 |
 | **P2** | 配置节点 inline 连接、设备级连接按钮迁移（需求 4）、自定义参数向导（完整五参数，`QuickPickButtons.Back` 回退） | 未实现（当前里程碑） |
 | **P3** | 终端标题附带配置名、默认配置策略 | 未实现 |
 

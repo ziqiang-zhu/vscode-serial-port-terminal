@@ -7,7 +7,15 @@
   "serialPortQuickConfig.add.title": "Add Quick Config",
   "serialPortQuickConfig.rename.title": "Rename",
   "serialPortQuickConfig.remove.title": "Remove",
+  "serialPortPreset.manage.title": "Manage Presets...",
   "serialPortTerminal.configuration.title": "Serial Port Terminal",
   "serialPortTerminal.pollingInterval.description": "Hot-plug polling interval in seconds.",
-  "serialPortTerminal.hotPlugEnabled.description": "Enable hot-plug detection (periodic polling of serial devices)."
+  "serialPortTerminal.hotPlugEnabled.description": "Enable hot-plug detection (periodic polling of serial devices).",
+  "serialPortTerminal.serialConfigPresets.description": "Preset parameter combinations offered when connecting or adding a quick config. Add, edit or remove entries freely.",
+  "serialPortTerminal.serialConfigPresets.label.description": "Preset name shown in the picker (e.g. \"115200 8-N-1\")",
+  "serialPortTerminal.serialConfigPresets.baudRate.description": "Baud rate (positive integer, e.g. 115200)",
+  "serialPortTerminal.serialConfigPresets.dataBits.description": "Data bits (5/6/7/8)",
+  "serialPortTerminal.serialConfigPresets.parity.description": "Parity (none/even/odd/mark/space)",
+  "serialPortTerminal.serialConfigPresets.stopBits.description": "Stop bits (1/1.5/2)",
+  "serialPortTerminal.serialConfigPresets.flowControl.description": "Flow control (none/rtscts)"
 }

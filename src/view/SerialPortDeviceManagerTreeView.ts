@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import { SerialPortDeviceDetector, SerialPortDevicesChangeEvent } from '../SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortConnectionService } from '../SerialPortConnection/SerialPortConnectionService';
 import { SerialPortConfigStore } from '../SerialPortConfig/SerialPortConfigStore';
-import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary, serialPortPresets } from '../SerialPortConfig/SerialPortQuickConfig';
+import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
+import { readSerialPortPresets } from '../SerialPortConfig/SerialPortPresets';
 import { SerialPortDeviceTreeItem } from './SerialPortDeviceTreeItem';
 import { SerialPortQuickConfigTreeItem } from './SerialPortQuickConfigTreeItem';
 
@@ -129,6 +130,11 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
 
   private async connectDevice(item: SerialPortDeviceTreeItem): Promise<void> {
     const saved = this.configStore.getConfigs(item.device.identity);
+    const presets = readSerialPortPresets();
+    if (saved.length === 0 && presets.length === 0) {
+      vscode.window.showWarningMessage('没有可用的连接参数：请在设置中添加预设组合，或为设备添加快捷配置');
+      return;
+    }
     const items: ConfigPickItem[] = [];
     if (saved.length > 0) {
       items.push({ label: '保存的配置', kind: vscode.QuickPickItemKind.Separator });
@@ -142,7 +148,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       }
     }
     items.push({ label: '预设组合', kind: vscode.QuickPickItemKind.Separator });
-    for (const preset of serialPortPresets) {
+    for (const preset of presets) {
       items.push({
         label: preset.label,
         description: formatSerialConfigDescription(preset.config),
@@ -150,7 +156,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       });
     }
     const picked = await vscode.window.showQuickPick(items, {
-      placeHolder: '选择本次连接参数（不会保存为快捷配置）',
+      placeHolder: '选择临时连接参数（波特率/数据位/校验/停止位/流控）',
       matchOnDescription: true
     });
     if (!picked?.config) {
@@ -162,15 +168,20 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   private async addQuickConfig(item: SerialPortDeviceTreeItem): Promise<void> {
     const identity = item.device.identity;
     const name = await vscode.window.showInputBox({
-      prompt: '输入配置名称（如：开发板调试、GPS 模块）',
+      prompt: '输入配置名称',
       value: `配置 ${this.configStore.getConfigs(identity).length + 1}`,
       validateInput: value => this.validateConfigName(identity, value)
     });
     if (!name) {
       return;
     }
+    const presets = readSerialPortPresets();
+    if (presets.length === 0) {
+      vscode.window.showWarningMessage('没有可用的预设组合：请在设置中添加（serialPortTerminal.serialConfigPresets）');
+      return;
+    }
     const preset = await vscode.window.showQuickPick(
-      serialPortPresets.map(p => ({
+      presets.map(p => ({
         label: p.label,
         description: formatSerialConfigDescription(p.config),
         config: p.config
@@ -183,7 +194,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     this.configStore.add(identity, name, preset.config);
     await this.treeView.reveal(item, { expand: true, focus: true });
   }
-
+ 
   private async renameQuickConfig(item: SerialPortQuickConfigTreeItem): Promise<void> {
     const { device, quickConfig } = item;
     const name = await vscode.window.showInputBox({

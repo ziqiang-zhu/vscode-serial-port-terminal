@@ -44,6 +44,7 @@ classDiagram
 - `serialPortDeviceList.*` —— 视图级命令（如扫描）；
 - `serialPortDevice.*` —— 设备条目级命令（如连接、断开）；
 - `serialPortQuickConfig.*` —— 快捷配置级命令（添加、重命名、删除、用配置连接）；
+- `serialPortPreset.*` —— 预设管理级命令（`serialPortPreset.manage`，由 SerialPortPresetManager 注册，见 SerialPortQuickConfig设计.md「预设管理 UI」）；
 - 用户可见命令名一律经 `%...%` 本地化占位符解析（package.nls.json / package.nls.zh.json）。
 
 ### 4.2 菜单设计
@@ -89,6 +90,7 @@ connecting 态不匹配任何菜单，用于禁用操作。
 - **设备增删**：`detector.onDidChangeDevices` → 按 `{ added, removed }` 增删 item → `fire()`；
 - **连接状态变化**：`connectionService.onDidChangeDeviceStatus` → `fire()`（item 渲染时从模型同步外观）；
 - **配置变更**：`configStore.onDidChangeConfigs` → 重建受影响设备节点（含配置子节点）→ `fire()`；
+- **预设读取**：参数选择器与添加向导的预设组合读取自 `serialPortTerminal.serialConfigPresets` 设置（见 SerialPortQuickConfig设计.md），每次打开选择器实时读取，设置修改无需重启；
 - **轮询启停**：`treeView.onDidChangeVisibility` → 可见时 `detector.start()`，隐藏时 `detector.stop()`；
 - 首次订阅时机：视图构造时订阅并触发一次 `detector.scan()` 同步全量列表；
 - 全部订阅与命令注册均入 `context.subscriptions`，扩展停用时由框架统一清理。

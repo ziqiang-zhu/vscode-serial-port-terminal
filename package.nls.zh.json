@@ -7,7 +7,15 @@
   "serialPortQuickConfig.add.title": "添加快捷配置",
   "serialPortQuickConfig.rename.title": "重命名",
   "serialPortQuickConfig.remove.title": "删除",
+  "serialPortPreset.manage.title": "管理预设组合…",
   "serialPortTerminal.configuration.title": "串口终端",
   "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）",
-  "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）"
+  "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）",
+  "serialPortTerminal.serialConfigPresets.description": "连接或添加快捷配置时可选的预设参数组合，可自由新增、修改或删除条目",
+  "serialPortTerminal.serialConfigPresets.label.description": "预设名称，显示在选择器中（如 \"115200 8-N-1\"）",
+  "serialPortTerminal.serialConfigPresets.baudRate.description": "波特率（正整数，如 115200）",
+  "serialPortTerminal.serialConfigPresets.dataBits.description": "数据位（5/6/7/8）",
+  "serialPortTerminal.serialConfigPresets.parity.description": "校验方式（none=无 / even=偶 / odd=奇 / mark / space）",
+  "serialPortTerminal.serialConfigPresets.stopBits.description": "停止位（1/1.5/2）",
+  "serialPortTerminal.serialConfigPresets.flowControl.description": "流控（none=无 / rtscts=RTS/CTS）"
 }
