@@ -8,13 +8,11 @@ class SerialPortPseudoTerminal implements vscode.Pseudoterminal {
   private closeEmitter = new vscode.EventEmitter<void>();
   readonly onDidClose = this.closeEmitter.event;
 
-  private inputBuffer = '';
   private closed = false;
   private disconnected = false;
-  private escapeState: 'idle' | 'esc' | 'sequence' = 'idle';
 
   constructor(
-    private readonly onLineInput: (line: string) => void,
+    private readonly onInput: (data: string) => void,
     private readonly onTerminalClosed: () => void
   ) {}
 
@@ -35,47 +33,7 @@ class SerialPortPseudoTerminal implements vscode.Pseudoterminal {
     if (this.closed || this.disconnected) {
       return;
     }
-    for (const char of data) {
-      this.handleChar(char);
-    }
-  }
-
-  private handleChar(char: string): void {
-    if (this.escapeState !== 'idle') {
-      this.consumeEscape(char);
-      return;
-    }
-    if (char === '\x1b') {
-      this.escapeState = 'esc';
-      return;
-    }
-    if (char === '\r') {
-      const line = this.inputBuffer;
-      this.inputBuffer = '';
-      this.echo('\r\n');
-      this.onLineInput(line);
-      return;
-    }
-    if (char === '\x7f') {
-      if (this.inputBuffer) {
-        this.inputBuffer = this.inputBuffer.slice(0, -1);
-        this.echo('\b \b');
-      }
-      return;
-    }
-    this.inputBuffer += char;
-    this.echo(char);
-  }
-
-  private consumeEscape(char: string): void {
-    if (this.escapeState === 'esc') {
-      this.escapeState = char === '[' || char === 'O' ? 'sequence' : 'idle';
-      return;
-    }
-    const code = char.charCodeAt(0);
-    if (code >= 0x40 && code <= 0x7e) {
-      this.escapeState = 'idle';
-    }
+    this.onInput(data);
   }
 
   notifyDisconnected(path: string): void {
@@ -97,10 +55,6 @@ class SerialPortPseudoTerminal implements vscode.Pseudoterminal {
     this.writeEmitter.dispose();
     this.closeEmitter.dispose();
   }
-
-  private echo(text: string): void {
-    this.writeEmitter.fire(text);
-  }
 }
 
 export class SerialPortTerminal extends SerialPortConsumer {
@@ -115,7 +69,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
     super.attach(host);
     this.hostPath = host.path;
     const pty = new SerialPortPseudoTerminal(
-      line => this.send(Buffer.from(line + '\n', 'utf-8')),
+      data => this.send(Buffer.from(data, 'utf-8')),
       () => this.requestDisconnect()
     );
     this.pty = pty;
