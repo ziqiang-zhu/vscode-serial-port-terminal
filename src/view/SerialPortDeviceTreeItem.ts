@@ -1,18 +1,12 @@
 import * as vscode from 'vscode';
 import { SerialPortDeviceInterface } from '../SerialPortDeviceDetector/SerialPortDeviceInterface';
-import { SerialConfig, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
+import { SerialConfig, formatSerialConfigDetails, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
 
 export class SerialPortDeviceTreeItem extends vscode.TreeItem {
   constructor(public readonly device: SerialPortDeviceInterface) {
     super(device.path, vscode.TreeItemCollapsibleState.None);
     this.description = device.manufacturer;
-    this.tooltip = vscode.l10n.t(
-      'Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}',
-      device.path,
-      device.vendorId,
-      device.productId,
-      device.manufacturer
-    );
+    this.tooltip = this.baseTooltip();
     this.syncStatusAppearance();
   }
 
@@ -20,6 +14,19 @@ export class SerialPortDeviceTreeItem extends vscode.TreeItem {
     this.description = config
       ? `${this.device.manufacturer} · ${formatSerialConfigSummary(config)}`
       : this.device.manufacturer;
+    this.tooltip = config
+      ? `${this.baseTooltip()}\n${formatSerialConfigDetails(config)}`
+      : this.baseTooltip();
+  }
+
+  private baseTooltip(): string {
+    return vscode.l10n.t(
+      'Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}',
+      this.device.path,
+      this.device.vendorId,
+      this.device.productId,
+      this.device.manufacturer
+    );
   }
 
   public syncStatusAppearance(): void {

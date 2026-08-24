@@ -42,6 +42,11 @@ export class SerialPortHalImpl implements SerialPortHal {
       port.open(error => {
         if (error) {
           port.on('error', () => {});
+          try {
+            port.close(() => {});
+          } catch {
+            // 打开失败后的尽力清理，忽略关闭错误
+          }
           reject(error);
           return;
         }
