@@ -115,7 +115,7 @@ Consumer 的通用规范见 SerialPortConsumer设计.md。Connection 对外的�
 - `removeConsumer(id)`：注销（M5 二级菜单"手动关闭"走这里）；
 - **减为零规则**：某设备的 Consumer 全部移除时，Connection 通知 Service，关闭串口并销毁 Connection，等同于一次断开。
 
-默认 Consumer：Service 在 connect 成功后经工厂注册 SerialPortTerminal（见 SerialPortTerminal设计.md）；多 Consumer 与二级菜单属于 M5。
+默认 Consumer：Service 在 connect 成功后经工厂注册 SerialPortTerminal（见 SerialPortTerminal设计.md）；多 Consumer 与二级菜单属于 M5。依附型 Consumer（如 SerialPortLogRecorder）由 SerialPortTerminal 经 `addConsumer` 注册并托管生命周期，见 SerialPortLogRecorder设计.md。
 
 ## 8. 组件结构
 

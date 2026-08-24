@@ -29,6 +29,8 @@ Consumer 注册时由 Connection 注入，是 Consumer 与连接之间的唯一�
 | `readonly label: string \| undefined` | 连接来源标签（快捷配置名）；预设连接时为 `undefined` |
 | `send(data: Buffer)` | 向串口发送数据，Consumer 的**唯一**发送途径 |
 | `requestDisconnect()` | 请求断开连接，由 Connection 转交 Service 的销毁流程（终端内断开走这里） |
+| `addConsumer(consumer)` | 注册附属 Consumer（依附型 Consumer 的接入点，如 SerialPortLogRecorder） |
+| `removeConsumer(id)` | 注销指定 Consumer |
 
 ### 3.2 SerialPortConsumer —— 抽象基类
 
@@ -43,10 +45,12 @@ export abstract class SerialPortConsumer {
   attach(host: SerialPortConsumerHost): void; // 注册时由 Connection 调用
   protected send(data: Buffer): void;         // 转发到 host
   protected requestDisconnect(): void;        // 转发到 host
+  protected addConsumer(consumer): void;      // 转发到 host（依附型 Consumer 注册）
+  protected removeConsumer(id): void;         // 转发到 host
 }
 ```
 
-- `attach` 后基类持有 host，子类经受保护的 `send` / `requestDisconnect` 使用；
+- `attach` 后基类持有 host，子类经受保护的 `send` / `requestDisconnect` / `addConsumer` / `removeConsumer` 使用；
 - `onData` 由 Connection 的数据流入口调用，调用顺序即串口到达顺序；
 - 基类不关心数据的解析、转义、配色 —— 那是各 Consumer 自身职责。
 
@@ -70,6 +74,7 @@ Service.connect 成功
 | `removeConsumer(id)` | 注销指定 Consumer（M5 二级菜单"手动关闭"走这里） |
 | Consumer 减为零 | Connection 通知 Service → 关闭串口并销毁 Connection（等同于一次断开） |
 | 默认 Consumer | SerialPortTerminal，由 Service 在 connect 成功后经工厂注册；其移除同样适用"减为零"规则 |
+| 依附型 Consumer | 由已注册的 Consumer 经 `host.addConsumer` 注册、并托管其生命周期（如 SerialPortLogRecorder 由 SerialPortTerminal 创建与管理，见 SerialPortLogRecorder设计.md） |
 
 ### 4.1 关闭行为约定
 
@@ -103,12 +108,18 @@ classDiagram
         +attach(host)
         #send(data)
         #requestDisconnect()
+        #addConsumer(consumer)
+        #removeConsumer(id)
     }
     class SerialPortConsumerHost {
         <<interface>>
         +path
+        +config
+        +label
         +send(data)
         +requestDisconnect()
+        +addConsumer(consumer)
+        +removeConsumer(id)
     }
     class SerialPortConnection {
         +addConsumer(consumer)

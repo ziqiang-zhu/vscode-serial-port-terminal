@@ -5,7 +5,7 @@
 
 ## 1. 定位
 
-SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**连接成功后启动一块 VS Code 终端面板**，串口数据实时显示其中，用户在终端内键入、回车发送。它是连接建立后第一个注册的 Consumer。
+SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**连接成功后启动一块 VS Code 终端面板**，串口数据实时显示其中，用户在终端内键入、回车发送。它是连接建立后第一个注册的 Consumer。此外，它托管 SerialPortLogRecorder 的生命周期（保存 / 暂停 / 停止日志记录）。
 
 终端基于 VS Code 的 `Pseudoterminal` 接口实现（微软官方 serial-monitor 扩展同款方案）：扩展充当伪终端，将串口数据写入终端面板，将用户输入转发到串口。
 
@@ -49,6 +49,14 @@ SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**�
 
 两标志保证"断开"与"关面板"两条路径互不干扰：断开后关面板仅清理资源（不重复触发断开）；面板先关时断开通告自动跳过（不触碰已释放的 emitter）。
 
+### 3.4 日志记录
+
+SerialPortTerminal 托管 SerialPortLogRecorder 的生命周期（详见 SerialPortLogRecorder设计.md）：
+
+- 终端面板标题栏提供「保存 / 暂停 / 停止」按钮（`view/title` + `when: view == terminal`，context key 驱动显隐）；
+- 命令 `serialPortLog.start / pause / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startLog() / pauseLog() / stopLog()`；
+- `startLog()` 创建 LogRecorder 并经 `host.addConsumer` 注册；`stopLog()` 注销并销毁；断开时随 Connection 自动收尾。
+
 ## 4. 生命周期
 
 ```
@@ -74,23 +82,29 @@ classDiagram
         +attach(host)
         #send(data)
         #requestDisconnect()
+        #addConsumer(consumer)
+        #removeConsumer(id)
     }
     class SerialPortTerminal {
         +id / displayName
         +onData(data)
         +onClosed()
+        +startLog()
+        +pauseLog()
+        +stopLog()
         -terminal: vscode.Terminal
         -pty: SerialPortPseudoTerminal
+        -logRecorder: SerialPortLogRecorder
     }
     class SerialPortPseudoTerminal {
         +open / close / setDimensions
         +handleInput(data)
         +writeText(text)
-        -inputBuffer
         -closed / disconnected 标志
     }
     SerialPortTerminal --|> SerialPortConsumer
     SerialPortTerminal --> SerialPortPseudoTerminal : 持有
+    SerialPortTerminal --> SerialPortLogRecorder : 创建并托管
     SerialPortPseudoTerminal ..|> Pseudoterminal : 实现
 ```
 
@@ -98,10 +112,12 @@ classDiagram
 
 ```
 src/SerialPortConsumer/
-└── SerialPortTerminal/
-    ├── SerialPortTerminal.ts        ← Consumer 实现 + 伪终端
-    ├── parser/                      ← 后续：Parser、字符转义
-    └── view/                        ← 预留（若未来需要 Webview 增强界面）
+├── SerialPortTerminal/
+│   ├── SerialPortTerminal.ts        ← Consumer 实现 + 伪终端
+│   ├── parser/                      ← 后续：Parser、字符转义
+│   └── view/                        ← 预留（若未来需要 Webview 增强界面）
+└── SerialPortLogRecorder/
+    └── SerialPortLogRecorder.ts     ← 日志记录 Consumer（见 SerialPortLogRecorder设计.md）
 ```
 
 ## 7. 后续演进
