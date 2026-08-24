@@ -6,6 +6,8 @@ export interface SerialPortConsumerHost {
   readonly label: string | undefined;
   send(data: Buffer): void;
   requestDisconnect(): void;
+  addConsumer(consumer: SerialPortConsumer): void;
+  removeConsumer(id: string): void;
 }
 
 export abstract class SerialPortConsumer {
@@ -27,5 +29,13 @@ export abstract class SerialPortConsumer {
 
   protected requestDisconnect(): void {
     this.host?.requestDisconnect();
+  }
+
+  protected addConsumer(consumer: SerialPortConsumer): void {
+    this.host?.addConsumer(consumer);
+  }
+
+  protected removeConsumer(id: string): void {
+    this.host?.removeConsumer(id);
   }
 }

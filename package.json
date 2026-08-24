@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal (experiment)",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "publisher": "ziqiang",
   "engines": {
     "vscode": "^1.95.0"
@@ -65,6 +65,26 @@
         "command": "serialPortPreset.manage",
         "title": "%serialPortPreset.manage.title%",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "serialPortLog.start",
+        "title": "%serialPortLog.start.title%",
+        "icon": "$(save)"
+      },
+      {
+        "command": "serialPortLog.pause",
+        "title": "%serialPortLog.pause.title%",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "serialPortLog.resume",
+        "title": "%serialPortLog.resume.title%",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "serialPortLog.stop",
+        "title": "%serialPortLog.stop.title%",
+        "icon": "$(debug-stop)"
       }
     ],
     "menus": {
@@ -77,6 +97,26 @@
         {
           "command": "serialPortPreset.manage",
           "when": "view == serialPortDeviceList",
+          "group": "navigation"
+        },
+        {
+          "command": "serialPortLog.start",
+          "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.recording",
+          "group": "navigation"
+        },
+        {
+          "command": "serialPortLog.pause",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && !serialPortTerminal.paused",
+          "group": "navigation"
+        },
+        {
+          "command": "serialPortLog.resume",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && serialPortTerminal.paused",
+          "group": "navigation"
+        },
+        {
+          "command": "serialPortLog.stop",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording",
           "group": "navigation"
         }
       ],
@@ -119,6 +159,11 @@
           "type": "boolean",
           "default": true,
           "description": "%serialPortTerminal.hotPlugEnabled.description%"
+        },
+        "serialPortTerminal.logDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "%serialPortTerminal.logDirectory.description%"
         },
         "serialPortTerminal.serialConfigPresets": {
           "type": "array",

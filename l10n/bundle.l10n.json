@@ -37,6 +37,7 @@
   "Failed to reorder: {0}": "Failed to reorder: {0}",
   "Enter a positive integer baud rate (e.g. 115200)": "Enter a positive integer baud rate (e.g. 115200)",
   "Connection failed: {0}": "Connection failed: {0}",
+  "Failed to start log: {0}": "Failed to start log: {0}",
   "Failed to list serial ports: {0}": "Failed to list serial ports: {0}",
   "Current connection": "Current connection",
   "Baud {0} · Data {1} · Parity {2} · Stop {3} · Flow {4}": "Baud {0} · Data {1} · Parity {2} · Stop {3} · Flow {4}",

@@ -1,7 +1,7 @@
 
 # SerialPortLogRecorder 设计
 
-> 状态：设计完成（待实现）｜ 目录：`src/SerialPortConsumer/SerialPortLogRecorder/` ｜ 规范：SerialPortConsumer设计.md ｜ 上位文档：总体架构.md
+> 状态：已实现 ｜ 目录：`src/SerialPortConsumer/SerialPortLogRecorder/` ｜ 规范：SerialPortConsumer设计.md ｜ 上位文档：总体架构.md
 
 ## 1. 定位
 
@@ -115,11 +115,11 @@ context key：
 
 ### 7.3 命令与实例定位
 
-命令 `serialPortLog.start / pause / stop`：
+命令 `serialPortLog.start / pause / resume / stop`：
 
 1. 取 `vscode.window.activeTerminal`；
 2. 经 `Map<vscode.Terminal, SerialPortTerminal>` 映射到 Terminal 实例；
-3. 调用 `startLog() / pauseLog() / stopLog()`。
+3. 调用 `startLog() / pauseLog() / resumeLog() / stopLog()`。
 
 `vscode.window.onDidChangeActiveTerminal` 维护三个 context key（切换终端时刷新显隐）。
 
