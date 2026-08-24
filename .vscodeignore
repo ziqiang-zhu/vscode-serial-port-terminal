@@ -1,0 +1,24 @@
+# Source and docs (not needed in the published package)
+src/**
+doc/**
+scripts/**
+
+# Dev and build config
+.vscode/**
+.claude/**
+.git/**
+.gitignore
+package-lock.json
+*.vsix
+
+# Keep only .js in dist (exclude source maps and type declarations)
+dist/**/*.map
+dist/**/*.d.ts
+dist/**/*.d.ts.map
+
+# serialport native module: keep only Windows x64 prebuild
+node_modules/@serialport/bindings-cpp/prebuilds/android-*/**
+node_modules/@serialport/bindings-cpp/prebuilds/darwin-*/**
+node_modules/@serialport/bindings-cpp/prebuilds/linux-*/**
+node_modules/@serialport/bindings-cpp/prebuilds/win32-arm64/**
+node_modules/@serialport/bindings-cpp/prebuilds/win32-ia32/**

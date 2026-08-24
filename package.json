@@ -4,6 +4,22 @@
   "description": "An interactive serial port terminal (experiment)",
   "version": "0.3.0",
   "publisher": "ziqiang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ziqiang-zhu/vscode-serial-port-terminal.git"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/ziqiang-zhu/vscode-serial-port-terminal#readme",
+  "bugs": {
+    "url": "https://github.com/ziqiang-zhu/vscode-serial-port-terminal/issues"
+  },
+  "keywords": [
+    "serial",
+    "serial-port",
+    "terminal",
+    "uart",
+    "log"
+  ],
   "engines": {
     "vscode": "^1.95.0"
   },
