@@ -25,6 +25,8 @@ Consumer 注册时由 Connection 注入，是 Consumer 与连接之间的唯一�
 | 成员 | 契约 |
 |---|---|
 | `readonly path: string` | 所属设备路径，用于显示与日志 |
+| `readonly config: SerialConfig` | 当前连接的配置参数（终端标题等展示用途） |
+| `readonly label: string \| undefined` | 连接来源标签（快捷配置名）；预设连接时为 `undefined` |
 | `send(data: Buffer)` | 向串口发送数据，Consumer 的**唯一**发送途径 |
 | `requestDisconnect()` | 请求断开连接，由 Connection 转交 Service 的销毁流程（终端内断开走这里） |
 
@@ -119,5 +121,5 @@ classDiagram
 
 ## 7. 路线图
 
-- **M3**：SerialPortTerminal 作为默认 Consumer（已落地），输入增强与 Parser 演进；
+- **M3**：SerialPortTerminal 作为默认 Consumer（已落地），输入增强（行尾符配置）与 Parser（Consumer 自决）演进；
 - **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口。

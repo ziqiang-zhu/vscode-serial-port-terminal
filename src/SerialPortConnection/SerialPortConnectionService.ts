@@ -36,7 +36,7 @@ export class SerialPortConnectionService {
     );
   }
 
-  public async connect(device: SerialPortDeviceInterface, config: SerialConfig = DEFAULT_CONFIG): Promise<void> {
+  public async connect(device: SerialPortDeviceInterface, config: SerialConfig = DEFAULT_CONFIG, label?: string): Promise<void> {
     if (!device || device.status !== 'disconnected') {
       return;
     }
@@ -44,7 +44,7 @@ export class SerialPortConnectionService {
     this._onDidChangeDeviceStatus.fire(device);
     try {
       const handle = await this.hal.openPort(this.toOpenOptions(device.path, config));
-      const connection = new SerialPortConnection(device, handle, config, () => {
+      const connection = new SerialPortConnection(device, handle, config, label, () => {
         void this.disconnectByPath(device.path);
       });
       if (this.defaultConsumerFactory) {

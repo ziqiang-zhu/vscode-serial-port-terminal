@@ -1,5 +1,9 @@
+import { SerialConfig } from '../SerialPortConfig/SerialPortQuickConfig';
+
 export interface SerialPortConsumerHost {
   readonly path: string;
+  readonly config: SerialConfig;
+  readonly label: string | undefined;
   send(data: Buffer): void;
   requestDisconnect(): void;
 }

@@ -8,7 +8,7 @@ import { SerialPortDeviceTreeItem } from './SerialPortDeviceTreeItem';
 import { SerialPortQuickConfigTreeItem } from './SerialPortQuickConfigTreeItem';
 
 type ViewItem = SerialPortDeviceTreeItem | SerialPortQuickConfigTreeItem;
-type ConfigPickItem = vscode.QuickPickItem & { config?: SerialConfig };
+type ConfigPickItem = vscode.QuickPickItem & { config?: SerialConfig; configName?: string };
 
 export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<ViewItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<ViewItem | undefined | null | void>();
@@ -139,7 +139,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   private async connectDevice(item: SerialPortDeviceTreeItem): Promise<void> {
     const selected = this.selectedItem;
     if (selected instanceof SerialPortQuickConfigTreeItem && selected.device.path === item.device.path) {
-      await this.connectWithConfig(item, selected.quickConfig.config);
+      await this.connectWithConfig(item, selected.quickConfig.config, selected.quickConfig.name);
       return;
     }
     const identity = item.device.identity;
@@ -165,7 +165,8 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
           label: quickConfig.name,
           description: `${isLastUsed ? vscode.l10n.t('Last used · ') : ''}${formatSerialConfigSummary(quickConfig.config)}`,
           detail: formatSerialConfigDescription(quickConfig.config),
-          config: quickConfig.config
+          config: quickConfig.config,
+          configName: quickConfig.name
         });
       }
     }
@@ -184,11 +185,11 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (!picked?.config) {
       return;
     }
-    await this.connectWithConfig(item, picked.config);
+    await this.connectWithConfig(item, picked.config, picked.configName);
   }
 
-  private async connectWithConfig(item: SerialPortDeviceTreeItem, config: SerialConfig): Promise<void> {
-    await this.connectionService.connect(item.device, config);
+  private async connectWithConfig(item: SerialPortDeviceTreeItem, config: SerialConfig, label?: string): Promise<void> {
+    await this.connectionService.connect(item.device, config, label);
     if (item.device.status === 'connected') {
       this.configStore.setLastUsedConfig(item.device.identity, config);
     }

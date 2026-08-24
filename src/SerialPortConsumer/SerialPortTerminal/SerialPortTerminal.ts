@@ -73,7 +73,8 @@ export class SerialPortTerminal extends SerialPortConsumer {
       () => this.requestDisconnect()
     );
     this.pty = pty;
-    this.terminal = vscode.window.createTerminal({ name: vscode.l10n.t('Serial Port: {0}', host.path), pty });
+    const title = `${host.path} · ${host.label ?? String(host.config.baudRate)}`;
+    this.terminal = vscode.window.createTerminal({ name: title, pty });
     this.terminal.show();
   }
 

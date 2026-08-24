@@ -51,7 +51,6 @@
   "Flow control: {0}": "流控: {0}",
   "Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}": "路径: {0}\n厂商 ID: {1}\n产品 ID: {2}\n厂商: {3}",
   "Disconnected: {0}": "[已断开] {0}",
-  "Serial Port: {0}": "串口终端: {0}",
   "Config name cannot be empty": "配置名称不能为空",
   "Config name \"{0}\" already exists": "配置名称 \"{0}\" 已存在",
   "Invalid baud rate: {0}": "无效的波特率: {0}",

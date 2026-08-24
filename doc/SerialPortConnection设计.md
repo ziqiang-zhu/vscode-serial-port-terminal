@@ -152,7 +152,7 @@ classDiagram
 
 ## 9. 路线图
 
-- **M3**：默认 Consumer（SerialPortTerminal）完善 —— 输入增强、Parser；
+- **M3**：默认 Consumer（SerialPortTerminal）完善 —— 输入增强（行尾符配置）、Parser（Consumer 自决）；
 - **M4**：快捷配置（已完成：配置管理、参数选择、高亮、上次使用、预设管理 UI，见 SerialPortQuickConfig设计.md 分阶段计划）；
 - **M5**：多 Consumer 注册、二级菜单管理；
 - **M6**：启动自动恢复（上次设备与配置）。

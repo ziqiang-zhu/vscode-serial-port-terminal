@@ -51,7 +51,6 @@
   "Flow control: {0}": "Flow control: {0}",
   "Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}": "Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}",
   "Disconnected: {0}": "Disconnected: {0}",
-  "Serial Port: {0}": "Serial Port: {0}",
   "Config name cannot be empty": "Config name cannot be empty",
   "Config name \"{0}\" already exists": "Config name \"{0}\" already exists",
   "Invalid baud rate: {0}": "Invalid baud rate: {0}",

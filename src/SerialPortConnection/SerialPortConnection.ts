@@ -10,6 +10,7 @@ export class SerialPortConnection implements SerialPortConsumerHost {
     private readonly device: SerialPortDeviceInterface,
     private readonly handle: SerialPortHandle,
     readonly config: SerialConfig,
+    readonly label: string | undefined,
     private readonly onCloseRequested: () => void
   ) {
     this.handle.onError(error => {
