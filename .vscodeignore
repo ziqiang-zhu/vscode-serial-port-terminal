@@ -8,6 +8,7 @@ scripts/**
 .claude/**
 .git/**
 .gitignore
+tsconfig.json
 package-lock.json
 *.vsix
 
