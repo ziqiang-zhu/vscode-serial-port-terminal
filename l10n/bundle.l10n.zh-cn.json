@@ -38,6 +38,7 @@
   "Enter a positive integer baud rate (e.g. 115200)": "请输入正整数波特率（如 115200）",
   "Connection failed: {0}": "连接失败: {0}",
   "Failed to start log: {0}": "开始记录日志失败: {0}",
+  "Failed to open log directory: {0}": "打开日志目录失败: {0}",
   "Failed to list serial ports: {0}": "获取串口列表失败: {0}",
   "Current connection": "当前连接",
   "Baud {0} · Data {1} · Parity {2} · Stop {3} · Flow {4}": "波特率 {0} · 数据位 {1} · {2}校验 · 停止位 {3} · 流控 {4}",

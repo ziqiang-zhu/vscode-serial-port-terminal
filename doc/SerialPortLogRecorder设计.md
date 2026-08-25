@@ -89,6 +89,8 @@ LogRecorder 记录的是 `onData` 收到的**原始串口字节流**。当前 Te
 
 采用 littrick/vscode-serial-terminal 同款方案：**终端面板标题栏按钮**（`contributes.menus.view/title` + `when: "view == terminal"`），命令带 `icon`。按钮显隐由 context key 驱动。
 
+另有全局「打开日志目录」按钮，位于**设备列表视图标题栏**（`when: "view == serialPortDeviceList"`，图标 `$(folder-opened)`）：经命令 `serialPortLog.openDirectory` 在系统文件管理器中打开日志目录，不依赖活动终端或记录会话。
+
 ### 7.2 状态机与 context key
 
 | 状态 | 终端标题栏按钮 |
@@ -168,6 +170,8 @@ classDiagram
 
 ## 10. 后续演进（本次不实现）
 
+- **保存提示**：日志文件成功保存后，提示保存成功（可展示保存路径）；
+- **文件名自定义**：支持自定义日志文件名模板与时间戳格式（含时间分隔符号）；
 - **DataParser**：写入前经 Parser 处理，移除不可见符号与颜色信息，保证日志可读性；
 - **快捷键**：为「开始保存 / 暂停保存 / 停止保存」绑定快捷键；
 - **文件分割**：按大小分割，超出后切分到同名文件夹；

@@ -12,6 +12,7 @@
   "serialPortLog.pause.title": "Pause",
   "serialPortLog.resume.title": "Resume",
   "serialPortLog.stop.title": "Stop",
+  "serialPortLog.openDirectory.title": "Open Log Directory",
   "serialPortTerminal.configuration.title": "Serial Port Terminal",
   "serialPortTerminal.pollingInterval.description": "Hot-plug polling interval in seconds.",
   "serialPortTerminal.hotPlugEnabled.description": "Enable hot-plug detection (periodic polling of serial devices).",

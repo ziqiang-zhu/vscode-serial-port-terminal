@@ -171,6 +171,19 @@ function resolveLogDirectory(): string {
   return path.join(os.homedir(), 'Documents', 'SerialPortTerminal', 'Log');
 }
 
+async function openLogDirectory(): Promise<void> {
+  try {
+    const directory = resolveLogDirectory();
+    fs.mkdirSync(directory, { recursive: true });
+    const opened = await vscode.env.openExternal(vscode.Uri.file(directory));
+    if (!opened) {
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to open log directory: {0}', directory));
+    }
+  } catch (error) {
+    vscode.window.showErrorMessage(vscode.l10n.t('Failed to open log directory: {0}', `${error}`));
+  }
+}
+
 function getActiveInstance(): SerialPortTerminal | undefined {
   const terminal = vscode.window.activeTerminal;
   return terminal ? terminalInstances.get(terminal) : undefined;
@@ -188,6 +201,9 @@ function refreshLogContext(): void {
 
 export function registerSerialPortLogCommands(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
+    vscode.commands.registerCommand('serialPortLog.openDirectory', () => {
+      void openLogDirectory();
+    }),
     vscode.commands.registerCommand('serialPortLog.start', () => getActiveInstance()?.startLog()),
     vscode.commands.registerCommand('serialPortLog.pause', () => getActiveInstance()?.pauseLog()),
     vscode.commands.registerCommand('serialPortLog.resume', () => getActiveInstance()?.resumeLog()),

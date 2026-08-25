@@ -12,6 +12,7 @@
   "serialPortLog.pause.title": "暂停",
   "serialPortLog.resume.title": "继续",
   "serialPortLog.stop.title": "停止",
+  "serialPortLog.openDirectory.title": "打开日志目录",
   "serialPortTerminal.configuration.title": "串口终端",
   "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）",
   "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）",
