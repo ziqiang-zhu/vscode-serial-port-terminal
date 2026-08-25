@@ -5,7 +5,7 @@
 
 ## 1. 定位
 
-SerialPortConsumer 是数据**消费方**的通用规范，由 Connection 模块定义。任何接入串口数据流的组件 —— 终端展示、数据转义、可视化、协议分析 —— 均继承这一基类，向 SerialPortConnection 注册。
+SerialPortConsumer 是数据**消费方**的通用规范，由 Connection 模块定义。任何接入串口数据流的组件 —— 终端展示、可视化、协议分析 —— 均继承这一基类，向 SerialPortConnection 注册。数据转义、更好显示等加工由 DataParser 等**数据处理类**承担，属于 Consumer 内部的实现细节，不是 Consumer。
 
 新增 Consumer 的方式：在 `src/SerialPortConsumer/<组件名>/` 下新建子类，实现基类契约，经 Connection 的注册入口接入。
 
@@ -90,10 +90,10 @@ Service.connect 成功
 ```
 串口 → HAL 句柄 onData
     → Connection 分发给每个已注册 Consumer.onData(data)
-    → Terminal 显示 / DataPaster 转义 / 分析器处理（各自内部）
+    → Terminal 显示 / 分析器处理（各自内部，可经 DataParser 数据处理类做转义、更好显示等加工）
 ```
 
-Connection 只广播不加工；Consumer 之间的协作（如 DataPaster 的转义结果供 Terminal 使用）不经过 Connection，由 Consumer 内部自行编排。若未来出现共享转义结果的管道需求，再引入 Processor 概念，不扩充 Consumer 契约。
+Connection 只广播不加工；数据的转义、解析与展示由各 Consumer 内部经数据处理类（如 DataParser）自行完成，Consumer 之间不协作、不经 Connection 传递加工结果。若未来出现跨 Consumer 共享加工结果的管道需求，再引入 Processor 概念，不扩充 Consumer 契约。
 
 ## 6. 组件结构
 
