@@ -8,17 +8,24 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
   private stream: fs.WriteStream | undefined;
   private paused = false;
 
-  constructor(filePath: string) {
+  constructor(private readonly filePath: string) {
     super();
-    this.stream = fs.createWriteStream(filePath, { flags: 'a' });
-    this.stream.on('error', () => {});
   }
 
   onData(data: Buffer): void {
     if (this.paused) {
       return;
     }
+    this.ensureStream();
     this.stream?.write(data);
+  }
+
+  private ensureStream(): void {
+    if (this.stream) {
+      return;
+    }
+    this.stream = fs.createWriteStream(this.filePath, { flags: 'a' });
+    this.stream.on('error', () => {});
   }
 
   onClosed(): void {

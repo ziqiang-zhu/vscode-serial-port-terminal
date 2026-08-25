@@ -33,8 +33,8 @@ class SerialPortLogRecorder extends SerialPortConsumer {
   readonly id = 'serialPortLogRecorder';
   readonly displayName = 'Serial Port Log Recorder';
 
-  constructor(filePath: string);       // 打开目标文件的写入流
-  onData(data: Buffer): void;          // 未暂停时写文件
+  constructor(filePath: string);       // 记录目标文件路径，首次收到数据时才创建文件
+  onData(data: Buffer): void;          // 未暂停时写文件（首次写入时惰性创建文件流）
   onClosed(): void;                    // 关闭文件流（断开 / 停止时收尾）
   pause(): void;                       // 暂停写入（仍注册、仍接收广播）
   resume(): void;                      // 恢复写入
@@ -43,8 +43,9 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 ```
 
 - `onData` 由 Connection 的数据流入口调用，调用顺序即串口到达顺序；
+- 首次收到数据时才创建文件（延迟创建），未收到数据即停止不产生空文件；
 - `pause` / `resume` 只切换内部标志，**不注销** Consumer；
-- `onClosed` 幂等：重复调用安全（文件流已关闭时短路）。
+- `onClosed` 幂等：重复调用安全（文件流未创建或已关闭时短路）。
 
 ## 5. 生命周期
 
@@ -54,7 +55,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
    → host.addConsumer(recorder)        // 注册，Connection 开始广播
    → 进入「记录中」
 
-记录中 → Connection 广播 onData(data) → recorder 写文件
+记录中 → Connection 广播 onData(data) → recorder 首次收到数据时创建文件并写入
 
 点击[暂停] → recorder.pause()          // 内部标志置位，onData 跳过写入
 点击[继续] → recorder.resume()
@@ -127,8 +128,8 @@ context key：
 
 | 项 | 方案 |
 |---|---|
-| 写入 | `fs.createWriteStream`（流式追加） |
-| 文件名 | `{basename}_{YYYYMMDD}_{HHmm}.log`，如 `COM3_20250112_1530.log`；basename 清洗 `/`、`:` 等非法字符为 `_` |
+| 写入 | `fs.createWriteStream`（流式追加，首次收到数据时才创建文件） |
+| 文件名 | `{basename}_{YYYYMMDD}_{HHmmss}.log`，如 `COM3_20250112_153045.log`；basename 清洗 `/`、`:` 等非法字符为 `_` |
 | 配置项 | `serialPortTerminal.logDirectory`（string，默认空） |
 | 默认目录 | 空时取 `os.homedir()/Documents/SerialPortTerminal/Log`（Windows：`C:\Users\{user}\Documents\SerialPortTerminal\Log`）；目录不存在时递归创建 |
 | 权限 | 写日志到文档目录属 workspace 外，实现时按需申请文件权限 |
@@ -167,7 +168,6 @@ classDiagram
 
 ## 10. 后续演进（本次不实现）
 
-- **延迟创建文件**：真正有数据时才创建日志文件，避免产生空文件；
 - **DataParser**：写入前经 Parser 处理，移除不可见符号与颜色信息，保证日志可读性；
 - **快捷键**：为「开始保存 / 暂停保存 / 停止保存」绑定快捷键；
 - **文件分割**：按大小分割，超出后切分到同名文件夹；
