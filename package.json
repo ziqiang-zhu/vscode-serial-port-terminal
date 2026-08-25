@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal (experiment)",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "publisher": "ziqiang",
   "repository": {
     "type": "git",
@@ -34,7 +34,7 @@
         {
           "id": "serialPortTerminalSideBar",
           "title": "%serialPortTerminal.SideBar.title%",
-          "icon": "$(keybindings-editor-label-icon)",
+          "icon": "$(debug-console)",
           "command": "serialPortTerminal.open"
         }
       ]
