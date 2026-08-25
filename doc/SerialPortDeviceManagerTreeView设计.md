@@ -11,7 +11,7 @@ SerialPortDeviceManagerTreeView 是 UI 层组件：负责侧边栏树视图、�
 
 - **UI 与数据分离**：视图节点可随时重建，模型实例稳定（见 SerialPortDeviceDetector设计.md「模型实例稳定」）；状态写者始终是服务层；
 - **只转发不实现**：命令回调中仅做转发，业务逻辑归服务层；
-- **订阅驱动刷新**：视图重渲染只有两个触发器 —— Detector 的设备增删事件、ConnectionService 的状态变化事件。
+- **订阅驱动刷新**：视图重渲染由三个事件触发器驱动 —— Detector 的设备增删事件、ConnectionService 的状态变化事件、ConfigStore 的配置变更事件。
 
 ## 3. 视图结构
 
@@ -46,7 +46,7 @@ classDiagram
 - `serialPortQuickConfig.*` —— 快捷配置级命令（添加、重命名、删除、用配置连接）；
 - `serialPortPreset.*` —— 预设管理级命令（`serialPortPreset.manage`，由 SerialPortPresetManager 注册，见 SerialPortQuickConfig设计.md「预设管理 UI」）；
 - 用户可见命令名一律经 `%...%` 本地化占位符解析（package.nls.json / package.nls.zh-cn.json）；
-- 运行时用户可见字符串（提示、按钮、校验消息）一律经 `vscode.l10n.t` 解析，语言包在 `l10n/bundle.l10n.json`（英文基准）与 `l10n/bundle.l10n.zh-cn.json`；日志（console）不本地化，保持中文。
+- 运行时用户可见字符串（提示、按钮、校验消息）一律经 `vscode.l10n.t` 解析，语言包在 `l10n/bundle.l10n.json`（英文基准）与 `l10n/bundle.l10n.zh-cn.json`；日志（console）不本地化（不经 `vscode.l10n.t`），为开发期调试输出。
 
 ### 4.2 菜单设计
 
@@ -85,7 +85,7 @@ connecting 态不匹配任何菜单，用于禁用操作。原"hasConfigs 按钮
 
 ## 5. 与服务的配合
 
-- **设备增删**：`detector.onDidChangeDevices` → 按 `{ added, removed }` 增删 item → `fire()`；
+- **设备增删**：`detector.onDidChangeDevices` → 按 `{ added, removed }` 增删 item → `fire()`；处理顺序为**先 removed、后 added** —— 同路径身份变化时两者携带相同 path，先删后增避免同键覆盖导致新条目被误删；
 - **连接状态变化**：`connectionService.onDidChangeDeviceStatus` → `fire()`（item 渲染时从模型同步外观）；
 - **高亮查询**：渲染时经 `connectionService.getConnectionConfig(path)` 查询当前连接配置，配置子节点做值比较（`serialConfigEquals`）、设备行追加参数摘要；断开后查询返回 undefined，高亮随状态事件流自动消失；
 - **选中直连**：`treeView.onDidChangeSelection` 跟踪单选；点设备连接按钮时，若选中项是该设备的配置子节点则直接以该配置连接（跳过参数选择器），否则走选择器流程；

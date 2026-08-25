@@ -264,11 +264,12 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   }
 
   private handleDevicesChanged(event: SerialPortDevicesChangeEvent): void {
-    for (const device of event.added) {
-      this.items.set(device.path, new SerialPortDeviceTreeItem(device));
-    }
+    // 先 removed 后 added：同路径身份变化时两者携带相同 path，先删后增避免同键覆盖导致新条目被误删。
     for (const device of event.removed) {
       this.items.delete(device.path);
+    }
+    for (const device of event.added) {
+      this.items.set(device.path, new SerialPortDeviceTreeItem(device));
     }
     this.updateEmptyStateMessage();
     this._onDidChangeTreeData.fire();
