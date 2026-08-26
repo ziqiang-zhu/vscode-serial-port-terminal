@@ -71,6 +71,7 @@
 | `serialPortTerminal.pollingInterval` | `2` | 轮询间隔（秒），范围 1–15 |
 | `serialPortTerminal.serialConfigPresets` | 8 个常用组合 | 连接/添加配置时可选的预设参数组合（建议经「管理预设组合」界面编辑） |
 | `serialPortTerminal.logDirectory` | 空 | 日志保存目录，留空使用默认（`Documents/SerialPortTerminal/Log`） |
+| `serialPortTerminal.logFilenameTemplate` | `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log` | 日志文件名模板（占位符：设备名 / 年月日时分秒） |
 
 ## 🗺️ 待开发计划
 
@@ -78,7 +79,7 @@
 - Parser 与字符转义（分帧、不可见字符可视化）
 - 多 Consumer 二级菜单管理
 - 启动自动恢复（上次设备与配置）
-- 日志增强：DataParser、保存/暂停/停止快捷键、按大小分割、时间戳、文件名/时间戳格式自定义、更多配置（分割大小、时间戳开关/间隔、编码）
+- 日志增强：DataParser、保存/暂停/停止快捷键、按大小分割、时间戳、更多配置（分割大小、时间戳开关/间隔、编码）
 
 ## 🛠️ 开发
 

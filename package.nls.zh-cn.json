@@ -17,6 +17,8 @@
   "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）",
   "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）",
   "serialPortTerminal.logDirectory.description": "日志保存目录。留空则使用默认目录（Documents/SerialPortTerminal/Log）",
+  "serialPortTerminal.logFilenameTemplate.description": "日志文件名模板。可用占位符：{device}（设备名）、{YYYY} 年、{MM} 月、{DD} 日、{HH} 时、{mm} 分、{ss} 秒。",
+  "serialPortTerminal.logFilenameTemplate.patternError": "文件名不能包含以下字符：\\ / : * ? \" < > |",
   "serialPortTerminal.serialConfigPresets.description": "连接或添加快捷配置时可选的预设参数组合，可自由新增、修改或删除条目",
   "serialPortTerminal.serialConfigPresets.label.description": "预设名称，显示在选择器中（如 \"115200 8-N-1\"）",
   "serialPortTerminal.serialConfigPresets.baudRate.description": "波特率（正整数，如 115200）",

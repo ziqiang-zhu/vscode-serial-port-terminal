@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal (experiment)",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -190,6 +190,13 @@
           "type": "string",
           "default": "",
           "description": "%serialPortTerminal.logDirectory.description%"
+        },
+        "serialPortTerminal.logFilenameTemplate": {
+          "type": "string",
+          "default": "{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log",
+          "pattern": "^[^\\\\/:*?\"<>|]+$",
+          "patternErrorMessage": "%serialPortTerminal.logFilenameTemplate.patternError%",
+          "description": "%serialPortTerminal.logFilenameTemplate.description%"
         },
         "serialPortTerminal.serialConfigPresets": {
           "type": "array",

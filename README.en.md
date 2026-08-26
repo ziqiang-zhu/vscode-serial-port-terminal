@@ -71,6 +71,7 @@ The following commands require selecting a device or quick-config node in the de
 | `serialPortTerminal.pollingInterval` | `2` | Polling interval in seconds, range 1–15 |
 | `serialPortTerminal.serialConfigPresets` | 8 common combos | Preset parameter combos offered when connecting or adding a config (edit via the "Manage Presets" UI) |
 | `serialPortTerminal.logDirectory` | empty | Log directory; empty uses the default (`Documents/SerialPortTerminal/Log`) |
+| `serialPortTerminal.logFilenameTemplate` | `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log` | Log filename template (placeholders: device name / date and time) |
 
 ## 🗺️ Roadmap
 
@@ -78,7 +79,7 @@ The following commands require selecting a device or quick-config node in the de
 - Parser and character escaping (framing, invisible-character visualization)
 - Multi-consumer secondary menu management
 - Auto-restore on startup (last device and config)
-- Log enhancements: DataParser, save/pause/stop shortcuts, size-based splitting, timestamps, custom filename/timestamp format
+- Log enhancements: DataParser, save/pause/stop shortcuts, size-based splitting, timestamps
 
 ## 🛠️ Development
 

@@ -133,8 +133,9 @@ context key：
 | 项 | 方案 |
 |---|---|
 | 写入 | `fs.createWriteStream`（流式追加，首次收到数据时才创建文件） |
-| 文件名 | `{basename}_{YYYYMMDD}_{HHmmss}.log`，如 `COM3_20250112_153045.log`；basename 清洗 `/`、`:` 等非法字符为 `_` |
+| 文件名 | 由模板生成，默认 `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log`，如 `COM3_20250112_153045.log`；占位符：`{device}`=设备名、`{YYYY}{MM}{DD}{HH}{mm}{ss}`=时间戳；替换后清洗非法字符 `\ / : * ? " < > \|` 为 `_` |
 | 配置项 | `serialPortTerminal.logDirectory`（string，默认空） |
+| 配置项 | `serialPortTerminal.logFilenameTemplate`（string，默认 `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log`，设置界面经 `pattern` 校验非法字符） |
 | 默认目录 | 空时取 `os.homedir()/Documents/SerialPortTerminal/Log`（Windows：`C:\Users\{user}\Documents\SerialPortTerminal\Log`）；目录不存在时递归创建 |
 | 权限 | 写日志到文档目录属 workspace 外，实现时按需申请文件权限 |
 
@@ -172,7 +173,6 @@ classDiagram
 
 ## 10. 后续演进（本次不实现）
 
-- **文件名自定义**：支持自定义日志文件名模板与时间戳格式（含时间分隔符号）；
 - **DataParser**：写入前经 Parser 处理，移除不可见符号与颜色信息，保证日志可读性；
 - **快捷键**：为「开始保存 / 暂停保存 / 停止保存」绑定快捷键；
 - **文件分割**：按大小分割，超出后切分到同名文件夹；

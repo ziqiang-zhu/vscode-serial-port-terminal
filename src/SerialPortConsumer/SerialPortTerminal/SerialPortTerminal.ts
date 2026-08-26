@@ -153,14 +153,40 @@ export class SerialPortTerminal extends SerialPortConsumer {
   }
 }
 
+const DEFAULT_LOG_FILENAME_TEMPLATE = '{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log';
+const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
+
 function buildLogFilePath(devicePath: string): string {
   const directory = resolveLogDirectory();
   fs.mkdirSync(directory, { recursive: true });
-  const base = path.basename(devicePath).replace(/[\\/:*?"<>|]/g, '_');
+  return path.join(directory, buildLogFileName(devicePath, getLogFilenameTemplate()));
+}
+
+function getLogFilenameTemplate(): string {
+  const configured = vscode.workspace
+    .getConfiguration('serialPortTerminal')
+    .get<string>('logFilenameTemplate', DEFAULT_LOG_FILENAME_TEMPLATE);
+  return configured && configured.trim() ? configured : DEFAULT_LOG_FILENAME_TEMPLATE;
+}
+
+function buildLogFileName(devicePath: string, template: string): string {
+  const device = path.basename(devicePath).replace(ILLEGAL_FILENAME_CHARS, '_');
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
-  const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  return path.join(directory, `${base}_${timestamp}.log`);
+  const replacements: Record<string, string> = {
+    '{device}': device,
+    '{YYYY}': String(now.getFullYear()),
+    '{MM}': pad(now.getMonth() + 1),
+    '{DD}': pad(now.getDate()),
+    '{HH}': pad(now.getHours()),
+    '{mm}': pad(now.getMinutes()),
+    '{ss}': pad(now.getSeconds())
+  };
+  const name = template.replace(
+    /\{device\}|\{YYYY\}|\{MM\}|\{DD\}|\{HH\}|\{mm\}|\{ss\}/g,
+    token => replacements[token] ?? token
+  );
+  return name.replace(ILLEGAL_FILENAME_CHARS, '_');
 }
 
 function resolveLogDirectory(): string {

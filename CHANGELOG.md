@@ -1,5 +1,10 @@
 # 更新日志
 
+## [0.3.7]
+
+### 新增
+- 日志文件名自定义：新增 `serialPortTerminal.logFilenameTemplate` 配置，支持占位符模板与时间戳格式自定义
+
 ## [0.3.6]
 
 ### 新增
