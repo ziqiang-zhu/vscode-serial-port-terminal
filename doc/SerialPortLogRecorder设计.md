@@ -83,7 +83,9 @@ class SerialPortLogRecorder extends SerialPortConsumer {
                                    └──▶ SerialPortLogRecorder（经 SerialPortLogDataParser 剥离 ANSI 后写文件）
 ```
 
-LogRecorder 写入前经 `SerialPortLogDataParser` 剥离 ANSI 转义序列（颜色码、光标控制等），保留 `\r\n`、`\t`、退格等有意义的控制字符。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。
+LogRecorder 写入前经 `SerialPortLogDataParser` 剥离 ANSI 转义序列（颜色码、光标控制等），并按行加时间戳（`logTimestampEnabled` 开启时），保留 `\r\n`、`\t`、退格等有意义的控制字符。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。
+
+> **行缓冲说明**：时间戳按「行」加，而数据按「chunk」到达，chunk 边界与行边界不对齐。因此 `process()` 维护内部缓冲，按 `\n` 切分：完整行加时间戳后输出，末尾半行留在缓冲等待下一 chunk 补全；`flush()` 在结束前冲刷剩余的半行（无结尾换行的最后一行）。关闭时间戳时不缓冲、直接透传。
 
 ## 7. UI：按钮与命令
 
@@ -136,6 +138,9 @@ context key：
 | 文件名 | 由模板生成，默认 `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log`，如 `COM3_20250112_153045.log`；占位符：`{device}`=设备名、`{YYYY}{MM}{DD}{HH}{mm}{ss}`=时间戳；替换后清洗非法字符 `\ / : * ? " < > \|` 为 `_` |
 | 配置项 | `serialPortTerminal.logDirectory`（string，默认空） |
 | 配置项 | `serialPortTerminal.logFilenameTemplate`（string，默认 `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log`，设置界面经 `pattern` 校验非法字符） |
+| 时间戳 | 开启后每行日志前加时间戳（默认关闭，下次开始记录时生效），占位符 `{YYYY}{MM}{DD}{HH}{mm}{ss}{SSS}`（`{SSS}`=毫秒） |
+| 配置项 | `serialPortTerminal.logTimestampEnabled`（boolean，默认 false） |
+| 配置项 | `serialPortTerminal.logTimestampFormat`（string，默认 `[{HH}:{mm}:{ss}.{SSS}] `） |
 | 默认目录 | 空时取 `os.homedir()/Documents/SerialPortTerminal/Log`（Windows：`C:\Users\{user}\Documents\SerialPortTerminal\Log`）；目录不存在时递归创建 |
 | 权限 | 写日志到文档目录属 workspace 外，实现时按需申请文件权限 |
 
@@ -163,7 +168,8 @@ classDiagram
         -paused: boolean
     }
     class SerialPortLogDataParser {
-        +stripAnsi(data): Buffer
+        +process(data): Buffer
+        +flush(): Buffer
     }
     class SerialPortTerminal {
         +startLog()
@@ -179,5 +185,4 @@ classDiagram
 
 - **快捷键**：为「开始保存 / 暂停保存 / 停止保存」绑定快捷键；
 - **文件分割**：按大小分割，超出后切分到同名文件夹；
-- **时间戳**：写入行前追加时间戳；
 - **更多配置**：分割大小、时间戳开关与间隔、编码等。

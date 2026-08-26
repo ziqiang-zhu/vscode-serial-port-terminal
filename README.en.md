@@ -17,7 +17,7 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🎯 **Smart connection** — highlight the active config, pin the last-used config, direct-connect by selecting a quick-config node
 - 🧩 **Preset manager** — gear button opens the preset list; a four-step wizard for add/edit, no hand-edited JSON
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
-- 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, and stopping notifies the save path
+- 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
 - 🌐 **Localization** — English / Simplified Chinese
 
@@ -72,6 +72,8 @@ The following commands require selecting a device or quick-config node in the de
 | `serialPortTerminal.serialConfigPresets` | 8 common combos | Preset parameter combos offered when connecting or adding a config (edit via the "Manage Presets" UI) |
 | `serialPortTerminal.logDirectory` | empty | Log directory; empty uses the default (`Documents/SerialPortTerminal/Log`) |
 | `serialPortTerminal.logFilenameTemplate` | `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log` | Log filename template (placeholders: device name / date and time) |
+| `serialPortTerminal.logTimestampEnabled` | `false` | Prepend a timestamp to each log line (takes effect on the next recording) |
+| `serialPortTerminal.logTimestampFormat` | `[{HH}:{mm}:{ss}.{SSS}] ` | Timestamp format (placeholders: date and time with milliseconds) |
 
 ## 🗺️ Roadmap
 
@@ -79,7 +81,7 @@ The following commands require selecting a device or quick-config node in the de
 - Parser and character escaping (framing, invisible-character visualization)
 - Multi-consumer secondary menu management
 - Auto-restore on startup (last device and config)
-- Log enhancements: save/pause/stop shortcuts, size-based splitting, timestamps
+- Log enhancements: save/pause/stop shortcuts, size-based splitting
 - Command palette: prefix all commands with "Serial Port Terminal" (category) for clarity
 
 ## 🛠️ Development

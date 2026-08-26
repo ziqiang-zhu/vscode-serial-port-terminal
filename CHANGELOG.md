@@ -1,5 +1,10 @@
 # 更新日志
 
+## [0.3.9]
+
+### 新增
+- 日志每行时间戳：新增 `serialPortTerminal.logTimestampEnabled` / `logTimestampFormat` 配置，时间戳可精确到毫秒
+
 ## [0.3.8]
 
 ### 新增

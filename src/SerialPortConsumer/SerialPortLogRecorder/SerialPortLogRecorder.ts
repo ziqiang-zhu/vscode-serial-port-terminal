@@ -20,11 +20,20 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
     if (this.paused) {
       return;
     }
+    const processed = this.dataParser.process(data);
+    if (processed.length === 0) {
+      return;
+    }
     this.ensureStream();
-    this.stream?.write(this.dataParser.stripAnsi(data));
+    this.stream?.write(processed);
   }
 
   onClosed(): void {
+    const remaining = this.dataParser.flush();
+    if (remaining.length > 0) {
+      this.ensureStream();
+      this.stream?.write(remaining);
+    }
     this.closeStream();
     this.notifySaved();
   }

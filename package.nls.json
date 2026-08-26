@@ -19,6 +19,8 @@
   "serialPortTerminal.logDirectory.description": "Directory for saved logs. Leave empty to use the default (Documents/SerialPortTerminal/Log).",
   "serialPortTerminal.logFilenameTemplate.description": "Template for log filenames. Placeholders: {device} (device name), {YYYY} year, {MM} month, {DD} day, {HH} hour, {mm} minute, {ss} second.",
   "serialPortTerminal.logFilenameTemplate.patternError": "Filename cannot contain any of these characters: \\ / : * ? \" < > |",
+  "serialPortTerminal.logTimestampEnabled.description": "Prepend a timestamp to each line of the saved log.",
+  "serialPortTerminal.logTimestampFormat.description": "Timestamp format. Placeholders: {YYYY} year, {MM} month, {DD} day, {HH} hour, {mm} minute, {ss} second, {SSS} millisecond.",
   "serialPortTerminal.serialConfigPresets.description": "Preset parameter combinations offered when connecting or adding a quick config. Add, edit or remove entries freely.",
   "serialPortTerminal.serialConfigPresets.label.description": "Preset name shown in the picker (e.g. \"115200 8-N-1\")",
   "serialPortTerminal.serialConfigPresets.baudRate.description": "Baud rate (positive integer, e.g. 115200)",
