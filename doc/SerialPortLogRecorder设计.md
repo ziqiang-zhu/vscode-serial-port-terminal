@@ -80,10 +80,10 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 
 ```
 串口 → Connection.handle.onData ──广播──▶ SerialPortTerminal（显示）
-                                   └──▶ SerialPortLogRecorder（写文件）
+                                   └──▶ SerialPortLogRecorder（经 SerialPortLogDataParser 剥离 ANSI 后写文件）
 ```
 
-LogRecorder 记录的是 `onData` 收到的**原始串口字节流**。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。
+LogRecorder 写入前经 `SerialPortLogDataParser` 剥离 ANSI 转义序列（颜色码、光标控制等），保留 `\r\n`、`\t`、退格等有意义的控制字符。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。
 
 ## 7. UI：按钮与命令
 
@@ -162,18 +162,21 @@ classDiagram
         -stream: WriteStream
         -paused: boolean
     }
+    class SerialPortLogDataParser {
+        +stripAnsi(data): Buffer
+    }
     class SerialPortTerminal {
         +startLog()
         +pauseLog()
         +stopLog()
     }
+    SerialPortLogRecorder --> SerialPortLogDataParser : 使用
     SerialPortLogRecorder --|> SerialPortConsumer
     SerialPortTerminal --> SerialPortLogRecorder : 创建并托管生命周期
 ```
 
 ## 10. 后续演进（本次不实现）
 
-- **DataParser**：写入前经 Parser 处理，移除不可见符号与颜色信息，保证日志可读性；
 - **快捷键**：为「开始保存 / 暂停保存 / 停止保存」绑定快捷键；
 - **文件分割**：按大小分割，超出后切分到同名文件夹；
 - **时间戳**：写入行前追加时间戳；

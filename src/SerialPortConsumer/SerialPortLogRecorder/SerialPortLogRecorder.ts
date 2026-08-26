@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { SerialPortConsumer } from '../../SerialPortConnection/SerialPortConsumer';
+import { SerialPortLogDataParser } from './SerialPortLogDataParser';
 
 export class SerialPortLogRecorder extends SerialPortConsumer {
   readonly id = 'serialPortLogRecorder';
@@ -9,6 +10,7 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
   private stream: fs.WriteStream | undefined;
   private paused = false;
   private fileCreated = false;
+  private readonly dataParser = new SerialPortLogDataParser();
 
   constructor(private readonly filePath: string) {
     super();
@@ -19,7 +21,7 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
       return;
     }
     this.ensureStream();
-    this.stream?.write(data);
+    this.stream?.write(this.dataParser.stripAnsi(data));
   }
 
   onClosed(): void {
