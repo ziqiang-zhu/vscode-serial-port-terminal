@@ -39,7 +39,7 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 
 ### Available from the Command Palette
 
-The following commands can be run directly from the Command Palette (`Ctrl+Shift+P`):
+The following commands can be run directly from the Command Palette (`Ctrl+Shift+P`), all prefixed with `Serial Port Terminal:`:
 
 | Command ID | Title | Description |
 |---|---|---|
@@ -82,7 +82,6 @@ The following commands require selecting a device or quick-config node in the de
 - Multi-consumer secondary menu management
 - Auto-restore on startup (last device and config)
 - Log enhancements: save/pause/stop shortcuts, size-based splitting
-- Command palette: prefix all commands with "Serial Port Terminal" (category) for clarity
 
 ## 🛠️ Development
 

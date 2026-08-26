@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal (experiment)",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -53,58 +53,70 @@
       {
         "command": "serialPortDeviceList.refresh",
         "title": "%serialPortDeviceList.refresh.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(refresh)"
       },
       {
         "command": "serialPortDevice.connect",
         "title": "%serialPortDevice.connect.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(remote)"
       },
       {
         "command": "serialPortDevice.disconnect",
         "title": "%serialPortDevice.disconnect.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(close)"
       },
       {
         "command": "serialPortQuickConfig.add",
-        "title": "%serialPortQuickConfig.add.title%"
+        "title": "%serialPortQuickConfig.add.title%",
+        "category": "Serial Port Terminal"
       },
       {
         "command": "serialPortQuickConfig.rename",
-        "title": "%serialPortQuickConfig.rename.title%"
+        "title": "%serialPortQuickConfig.rename.title%",
+        "category": "Serial Port Terminal"
       },
       {
         "command": "serialPortQuickConfig.remove",
-        "title": "%serialPortQuickConfig.remove.title%"
+        "title": "%serialPortQuickConfig.remove.title%",
+        "category": "Serial Port Terminal"
       },
       {
         "command": "serialPortPreset.manage",
         "title": "%serialPortPreset.manage.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(settings-gear)"
       },
       {
         "command": "serialPortLog.start",
         "title": "%serialPortLog.start.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(save)"
       },
       {
         "command": "serialPortLog.pause",
         "title": "%serialPortLog.pause.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(debug-pause)"
       },
       {
         "command": "serialPortLog.resume",
         "title": "%serialPortLog.resume.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(debug-continue)"
       },
       {
         "command": "serialPortLog.stop",
         "title": "%serialPortLog.stop.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(debug-stop)"
       },
       {
         "command": "serialPortLog.openDirectory",
         "title": "%serialPortLog.openDirectory.title%",
+        "category": "Serial Port Terminal",
         "icon": "$(folder-opened)"
       }
     ],
