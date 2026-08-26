@@ -23,7 +23,8 @@ class SerialPortPseudoTerminal implements vscode.Pseudoterminal {
 
   constructor(
     private readonly onInput: (data: string) => void,
-    private readonly onTerminalClosed: () => void
+    private readonly onTerminalClosed: () => void,
+    private readonly onToggleLog: () => void
   ) {}
 
   open(): void {}
@@ -43,7 +44,24 @@ class SerialPortPseudoTerminal implements vscode.Pseudoterminal {
     if (this.closed || this.disconnected) {
       return;
     }
-    this.onInput(data);
+    const shortcutsEnabled = vscode.workspace
+      .getConfiguration('serialPortTerminal')
+      .get<boolean>('logShortcutsEnabled', false);
+    if (!shortcutsEnabled || !data.includes('\x13')) {
+      this.onInput(data);
+      return;
+    }
+    // 拦截 Ctrl+S（0x13）：触发开始/停止记录，不发送给设备
+    const parts = data.split('\x13');
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (part) {
+        this.onInput(part);
+      }
+      if (i < parts.length - 1) {
+        this.onToggleLog();
+      }
+    }
   }
 
   notifyDisconnected(path: string): void {
@@ -81,7 +99,8 @@ export class SerialPortTerminal extends SerialPortConsumer {
     this.hostPath = host.path;
     const pty = new SerialPortPseudoTerminal(
       data => this.send(Buffer.from(data, 'utf-8')),
-      () => this.requestDisconnect()
+      () => this.requestDisconnect(),
+      () => this.toggleLog()
     );
     this.pty = pty;
     const title = `${host.path} · ${host.label ?? String(host.config.baudRate)}`;
@@ -133,6 +152,14 @@ export class SerialPortTerminal extends SerialPortConsumer {
     this.logRecorder = undefined;
     this.removeConsumer(recorder.id);
     refreshLogContext();
+  }
+
+  toggleLog(): void {
+    if (this.isRecording()) {
+      this.stopLog();
+    } else {
+      this.startLog();
+    }
   }
 
   isRecording(): boolean {

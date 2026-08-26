@@ -130,6 +130,14 @@ context key：
 
 `vscode.window.onDidChangeActiveTerminal` 维护三个 context key（切换终端时刷新显隐）。
 
+### 7.4 快捷键（Ctrl+S）
+
+在**串口终端内**按 `Ctrl+S`（字节 `0x13`）可在「开始记录 / 停止记录」之间切换。因 VS Code 终端聚焦时会把按键发给终端进程（而非 VS Code 快捷键系统），故该快捷键在 `SerialPortPseudoTerminal.handleInput` 中**直接拦截**实现，不依赖 context key。
+
+- **默认关闭**：配置项 `serialPortTerminal.logShortcutsEnabled`（boolean，默认 `false`）。
+- **拦截语义**：开启后，终端内按 `Ctrl+S` 被扩展消费、触发开始/停止记录，**不会发送给设备**；关闭时 `Ctrl+S` 原样发送给设备。
+- 只作用于当前串口终端实例（`handleInput` 属于该终端自己的 Pseudoterminal），多终端并存不会互相干扰。
+
 ## 8. 文件与配置
 
 | 项 | 方案 |
@@ -141,6 +149,7 @@ context key：
 | 时间戳 | 开启后每行日志前加时间戳（默认关闭，下次开始记录时生效），占位符 `{YYYY}{MM}{DD}{HH}{mm}{ss}{SSS}`（`{SSS}`=毫秒） |
 | 配置项 | `serialPortTerminal.logTimestampEnabled`（boolean，默认 false） |
 | 配置项 | `serialPortTerminal.logTimestampFormat`（string，默认 `[{HH}:{mm}:{ss}.{SSS}] `） |
+| 配置项 | `serialPortTerminal.logShortcutsEnabled`（boolean，默认 false，开启后终端内 `Ctrl+S` 被拦截用于开始/停止记录，不会发送给设备） |
 | 默认目录 | 空时取 `os.homedir()/Documents/SerialPortTerminal/Log`（Windows：`C:\Users\{user}\Documents\SerialPortTerminal\Log`）；目录不存在时递归创建 |
 | 权限 | 写日志到文档目录属 workspace 外，实现时按需申请文件权限 |
 
@@ -183,6 +192,5 @@ classDiagram
 
 ## 10. 后续演进（本次不实现）
 
-- **快捷键**：为「开始保存 / 暂停保存 / 停止保存」绑定快捷键；
 - **文件分割**：按大小分割，超出后切分到同名文件夹；
 - **更多配置**：分割大小、时间戳开关与间隔、编码等。

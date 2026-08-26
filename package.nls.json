@@ -21,6 +21,7 @@
   "serialPortTerminal.logFilenameTemplate.patternError": "Filename cannot contain any of these characters: \\ / : * ? \" < > |",
   "serialPortTerminal.logTimestampEnabled.description": "Prepend a timestamp to each line of the saved log.",
   "serialPortTerminal.logTimestampFormat.description": "Timestamp format. Placeholders: {YYYY} year, {MM} month, {DD} day, {HH} hour, {mm} minute, {ss} second, {SSS} millisecond.",
+  "serialPortTerminal.logShortcutsEnabled.description": "Enable the Ctrl+S shortcut in the serial terminal to start/stop log recording. WARNING: when enabled, Ctrl+S is intercepted by the extension and is NOT sent to the device.",
   "serialPortTerminal.serialConfigPresets.description": "Preset parameter combinations offered when connecting or adding a quick config. Add, edit or remove entries freely.",
   "serialPortTerminal.serialConfigPresets.label.description": "Preset name shown in the picker (e.g. \"115200 8-N-1\")",
   "serialPortTerminal.serialConfigPresets.baudRate.description": "Baud rate (positive integer, e.g. 115200)",

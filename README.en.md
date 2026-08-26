@@ -17,7 +17,7 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🎯 **Smart connection** — highlight the active config, pin the last-used config, direct-connect by selecting a quick-config node
 - 🧩 **Preset manager** — gear button opens the preset list; a four-step wizard for add/edit, no hand-edited JSON
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
-- 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path
+- 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
 - 🌐 **Localization** — English / Simplified Chinese
 
@@ -65,6 +65,8 @@ The following commands require selecting a device or quick-config node in the de
 
 ## ⚙️ Configuration
 
+> ⚠️ **About the `Ctrl+S` shortcut**: `serialPortTerminal.logShortcutsEnabled` is disabled by default. When enabled, pressing `Ctrl+S` inside the serial terminal is intercepted to start/stop recording and is **NOT sent to the device**.
+
 | Setting | Default | Description |
 |---|---|---|
 | `serialPortTerminal.hotPlugEnabled` | `true` | Enable hot-plug detection |
@@ -74,6 +76,7 @@ The following commands require selecting a device or quick-config node in the de
 | `serialPortTerminal.logFilenameTemplate` | `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log` | Log filename template (placeholders: device name / date and time) |
 | `serialPortTerminal.logTimestampEnabled` | `false` | Prepend a timestamp to each log line (takes effect on the next recording) |
 | `serialPortTerminal.logTimestampFormat` | `[{HH}:{mm}:{ss}.{SSS}] ` | Timestamp format (placeholders: date and time with milliseconds) |
+| `serialPortTerminal.logShortcutsEnabled` | `false` | Enable the in-terminal `Ctrl+S` shortcut to start/stop recording (⚠️ when enabled, `Ctrl+S` is intercepted and not sent to the device) |
 
 ## 🗺️ Roadmap
 
@@ -81,7 +84,7 @@ The following commands require selecting a device or quick-config node in the de
 - Parser and character escaping (framing, invisible-character visualization)
 - Multi-consumer secondary menu management
 - Auto-restore on startup (last device and config)
-- Log enhancements: save/pause/stop shortcuts, size-based splitting
+- Log enhancements: size-based splitting
 
 ## 🛠️ Development
 
