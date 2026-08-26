@@ -133,4 +133,4 @@ classDiagram
 ## 7. 路线图
 
 - **M3**：SerialPortTerminal 作为默认 Consumer（已落地），输入增强（行尾符配置）与 Parser（Consumer 自决）演进；
-- **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口。
+- **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口（已实现）。

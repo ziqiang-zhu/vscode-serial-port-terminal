@@ -17,7 +17,7 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🎯 **Smart connection** — highlight the active config, pin the last-used config, direct-connect by selecting a quick-config node
 - 🧩 **Preset manager** — gear button opens the preset list; a four-step wizard for add/edit, no hand-edited JSON
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
-- 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second
+- 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, and stopping notifies the save path
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
 - 🌐 **Localization** — English / Simplified Chinese
 
@@ -78,7 +78,7 @@ The following commands require selecting a device or quick-config node in the de
 - Parser and character escaping (framing, invisible-character visualization)
 - Multi-consumer secondary menu management
 - Auto-restore on startup (last device and config)
-- Log enhancements: DataParser, save/pause/stop shortcuts, size-based splitting, timestamps, save notification, custom filename/timestamp format
+- Log enhancements: DataParser, save/pause/stop shortcuts, size-based splitting, timestamps, custom filename/timestamp format
 
 ## 🛠️ Development
 

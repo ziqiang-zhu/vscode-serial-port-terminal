@@ -35,7 +35,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 
   constructor(filePath: string);       // 记录目标文件路径，首次收到数据时才创建文件
   onData(data: Buffer): void;          // 未暂停时写文件（首次写入时惰性创建文件流）
-  onClosed(): void;                    // 关闭文件流（断开 / 停止时收尾）
+  onClosed(): void;                    // 关闭文件流；若有数据写入则提示「文件已保存到 <path>」
   pause(): void;                       // 暂停写入（仍注册、仍接收广播）
   resume(): void;                      // 恢复写入
   isPaused(): boolean;
@@ -45,7 +45,8 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 - `onData` 由 Connection 的数据流入口调用，调用顺序即串口到达顺序；
 - 首次收到数据时才创建文件（延迟创建），未收到数据即停止不产生空文件；
 - `pause` / `resume` 只切换内部标志，**不注销** Consumer；
-- `onClosed` 幂等：重复调用安全（文件流未创建或已关闭时短路）。
+- `onClosed` 幂等：重复调用安全（文件流未创建或已关闭时短路）；
+- 停止收尾时（无论「停止」按钮还是断开连接触发）若本次有数据写入，弹出「文件已保存到 <path>」提示。
 
 ## 5. 生命周期
 
@@ -72,6 +73,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 
 - **暂停不注销**：仍挂在 Connection 上，只是不写文件（开销可忽略，见 SerialPortConsumer设计.md「广播效率」讨论）；
 - **停止注销并销毁**：不影响 Terminal 的连接状态；
+- **停止收尾提示**：`onClosed()` 关闭文件流后，若本次有数据写入，弹出「文件已保存到 <path>」（点「停止」与断开连接两条路径都会触发）；
 - **断开 / 关终端为最终收尾**：LogRecorder 随 Connection 一起销毁。
 
 ## 6. 数据流
@@ -170,7 +172,6 @@ classDiagram
 
 ## 10. 后续演进（本次不实现）
 
-- **保存提示**：日志文件成功保存后，提示保存成功（可展示保存路径）；
 - **文件名自定义**：支持自定义日志文件名模板与时间戳格式（含时间分隔符号）；
 - **DataParser**：写入前经 Parser 处理，移除不可见符号与颜色信息，保证日志可读性；
 - **快捷键**：为「开始保存 / 暂停保存 / 停止保存」绑定快捷键；
