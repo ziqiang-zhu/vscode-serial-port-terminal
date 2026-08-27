@@ -54,7 +54,8 @@ HAL（Hardware Abstraction Layer，硬件抽象层）封装串口底层库，向
 | 成员 | 契约 |
 |---|---|
 | `close(): Promise<void>` | 关闭端口，销毁 Connection 前调用；Promise 化，调用方可 `await` 清理完成。实现应当容忍重复调用 |
-| `write(data: Buffer)` | 发送数据；不暴露底层返回值与回调，运行期错误经 `onError` 通道送达 |
+| `write(data: Buffer): boolean` | 发送数据，返回背压信号（`false` = 内部缓冲已满，调用方应暂停写入、等待 `onDrain`）；运行期错误经 `onError` 通道送达 |
+| `onDrain(listener)` | 订阅缓冲区排空事件（背压恢复：`write` 返回 `false` 后，收到 `drain` 再继续写入） |
 | `onData(listener)` | 订阅接收数据流；回调顺序**必须**与端口到达顺序一致 |
 | `onError(listener)` | 订阅运行期错误（意外断开等）；实现**必须**保证任何时点存在至少一个 error 监听，避免事件无订阅者导致进程异常 |
 

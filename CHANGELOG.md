@@ -1,5 +1,10 @@
 # 更新日志
 
+## [1.0.3]
+
+### 变更
+- HAL 暴露背压信号：`SerialPortHandle.write` 返回 `boolean`，新增 `onDrain` 事件，并经 Connection / Consumer 传播
+
 ## [1.0.2]
 
 ### 变更

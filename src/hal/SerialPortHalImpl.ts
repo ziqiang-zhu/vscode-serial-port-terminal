@@ -12,8 +12,12 @@ class SerialPortHandleImpl implements SerialPortHandle {
     });
   }
 
-  write(data: Buffer): void {
-    this.port.write(data);
+  write(data: Buffer): boolean {
+    return this.port.write(data);
+  }
+
+  onDrain(listener: () => void): void {
+    this.port.on('drain', listener);
   }
 
   onData(listener: (data: Buffer) => void): void {

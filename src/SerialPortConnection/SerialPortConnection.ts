@@ -48,8 +48,8 @@ export class SerialPortConnection implements SerialPortConsumerHost {
     }
   }
 
-  public send(data: Buffer): void {
-    this.handle.write(data);
+  public send(data: Buffer): boolean {
+    return this.handle.write(data);
   }
 
   public requestDisconnect(): void {

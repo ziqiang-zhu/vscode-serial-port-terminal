@@ -70,7 +70,7 @@ class SerialPortHandleImpl implements SerialPortHandle {
 
 - **构造时挂 noop error 监听**：句柄创建与上层订阅 `onError`（Connection 构造时）之间存在窗口，空监听器保证任何时点 error 事件均有订阅者；
 - **close 的 Promise 化**：底层 close 为回调式，Promise 化后销毁流程可 `await` 清理完成。关闭错误有意忽略（尽力而为语义：销毁路径不值得为关闭失败报错）；
-- **write 直通**：忽略底层返回的背压布尔值与错误回调。当前产品形态下发送错误最终以 'error' 事件浮现，经 `onError` 订阅者处理。
+- **write 直通并返回背压信号**：`write` 返回底层 `write` 的背压布尔值（`false` = 缓冲满），并新增 `onDrain` 透传 drain 事件；发送错误仍以 'error' 事件浮现，经 `onError` 订阅者处理。
 
 ## 4. 组件结构
 
@@ -82,7 +82,8 @@ classDiagram
     }
     class SerialPortHandleImpl {
         +close()
-        +write(data)
+        +write(data): boolean
+        +onDrain(listener)
         +onData(listener)
         +onError(listener)
         -port: SerialPort
@@ -98,5 +99,5 @@ classDiagram
 | 限制 | 现状 | 处理方向 |
 |---|---|---|
 | 打开失败原因未归一化 | 底层 Error 原样透传 | 在 reject 路径按 `error.message` 特征归类（ENOENT / EACCES / EBUSY 等），满足契约 3.4 的"明确原因"要求 |
-| write 无背压处理 | 忽略底层背压信号 | 数据泵送场景（多 Consumer 转发）落地前必须重新审视 |
+| write 背压信号未消费 | 句柄已暴露 `write(): boolean` 与 `onDrain`，但当前 Consumer 未使用 | 数据泵送类 Consumer 落地时实现「缓冲 + 等 drain」的完整背压处理 |
 | close 错误不可见 | 销毁路径有意忽略 | 可加 debug 级日志，避免"关闭失败导致端口泄漏"不可观测 |

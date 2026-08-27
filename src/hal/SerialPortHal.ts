@@ -19,7 +19,8 @@ export interface SerialPortOpenOptions {
 
 export interface SerialPortHandle {
   close(): Promise<void>;
-  write(data: Buffer): void;
+  write(data: Buffer): boolean;
+  onDrain(listener: () => void): void;
   onData(listener: (data: Buffer) => void): void;
   onError(listener: (error: Error) => void): void;
 }

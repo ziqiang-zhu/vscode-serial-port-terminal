@@ -4,7 +4,7 @@ export interface SerialPortConsumerHost {
   readonly path: string;
   readonly config: SerialConfig;
   readonly label: string | undefined;
-  send(data: Buffer): void;
+  send(data: Buffer): boolean;
   requestDisconnect(): void;
   addConsumer(consumer: SerialPortConsumer): void;
   removeConsumer(id: string): void;
@@ -23,8 +23,8 @@ export abstract class SerialPortConsumer {
     this.host = host;
   }
 
-  protected send(data: Buffer): void {
-    this.host?.send(data);
+  protected send(data: Buffer): boolean {
+    return this.host?.send(data) ?? false;
   }
 
   protected requestDisconnect(): void {
