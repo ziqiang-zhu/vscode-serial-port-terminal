@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { spawn } from 'child_process';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
 import { SerialPortLogRecorder } from '../SerialPortLogRecorder/SerialPortLogRecorder';
 
@@ -227,14 +228,21 @@ function resolveLogDirectory(): string {
 async function openLogDirectory(): Promise<void> {
   try {
     const directory = resolveLogDirectory();
-    fs.mkdirSync(directory, { recursive: true });
-    const opened = await vscode.env.openExternal(vscode.Uri.file(directory));
-    if (!opened) {
-      vscode.window.showErrorMessage(vscode.l10n.t('Failed to open log directory: {0}', directory));
-    }
+    await fs.promises.mkdir(directory, { recursive: true });
+    openDirectoryInOS(directory);
   } catch (error) {
     vscode.window.showErrorMessage(vscode.l10n.t('Failed to open log directory: {0}', `${error}`));
   }
+}
+
+function openDirectoryInOS(directory: string): void {
+  const command =
+    process.platform === 'win32' ? 'explorer.exe' :
+    process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const child = spawn(command, [directory]);
+  child.on('error', error => {
+    vscode.window.showErrorMessage(vscode.l10n.t('Failed to open log directory: {0}', `${error}`));
+  });
 }
 
 function getActiveInstance(): SerialPortTerminal | undefined {
