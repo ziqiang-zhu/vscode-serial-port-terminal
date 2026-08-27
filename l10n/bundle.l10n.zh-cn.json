@@ -58,5 +58,9 @@
   "Config name \"{0}\" already exists": "配置名称 \"{0}\" 已存在",
   "Invalid baud rate: {0}": "无效的波特率: {0}",
   "Invalid data bits: {0}": "无效的数据位: {0}",
-  "Invalid stop bits: {0}": "无效的停止位: {0}"
+  "Invalid stop bits: {0}": "无效的停止位: {0}",
+  "Enter a macro name": "输入宏名称",
+  "Enter the data to send (use \\r\\n for a line ending)": "输入要发送的数据（换行请用 \\r\\n）",
+  "Delete macro \"{0}\"?": "删除宏 \"{0}\"？",
+  "No active serial connection": "没有活动的串口连接"
 }

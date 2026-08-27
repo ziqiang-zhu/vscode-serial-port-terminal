@@ -95,6 +95,10 @@ export class SerialPortTerminal extends SerialPortConsumer {
   private hostPath = '';
   private logRecorder: SerialPortLogRecorder | undefined;
 
+  public get devicePath(): string {
+    return this.hostPath;
+  }
+
   public attach(host: SerialPortConsumerHost): void {
     super.attach(host);
     this.hostPath = host.path;
@@ -248,6 +252,10 @@ function openDirectoryInOS(directory: string): void {
 function getActiveInstance(): SerialPortTerminal | undefined {
   const terminal = vscode.window.activeTerminal;
   return terminal ? terminalInstances.get(terminal) : undefined;
+}
+
+export function getActiveSerialPortDevicePath(): string | undefined {
+  return getActiveInstance()?.devicePath;
 }
 
 function updateLogContext(instance: SerialPortTerminal | undefined): void {

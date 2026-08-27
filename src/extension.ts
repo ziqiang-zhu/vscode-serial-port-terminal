@@ -6,6 +6,7 @@ import { SerialPortTerminal, registerSerialPortLogCommands } from './SerialPortC
 import { SerialPortConfigStore } from './SerialPortConfig/SerialPortConfigStore';
 import { SerialPortDeviceManagerTreeView } from './view/SerialPortDeviceManagerTreeView';
 import { SerialPortPresetManager } from './view/SerialPortPresetManager';
+import { SerialPortMacroManager } from './SerialPortMacroSender/SerialPortMacroManager';
 
 export function activate(context: vscode.ExtensionContext) {
   const hal = new SerialPortHalImpl();
@@ -14,6 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
   const configStore = new SerialPortConfigStore(context.globalState);
   new SerialPortPresetManager(context);
   new SerialPortDeviceManagerTreeView(detector, connectionService, configStore, context);
+  new SerialPortMacroManager(connectionService, context.globalState, context);
   registerSerialPortLogCommands(context);
 }
 

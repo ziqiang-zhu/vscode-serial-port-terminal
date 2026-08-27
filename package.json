@@ -1,8 +1,8 @@
 {
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
-  "description": "An interactive serial port terminal (experiment)",
-  "version": "1.0.3",
+  "description": "An interactive serial port terminal",
+  "version": "1.1.0",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -46,6 +46,11 @@
           "name": "%serialPortDeviceList.View.title%",
           "icon": "$(device-desktop)",
           "initialSize": 50
+        },
+        {
+          "id": "serialPortMacroList",
+          "name": "%serialPortMacroList.View.title%",
+          "icon": "$(symbol-text)"
         }
       ]
     },
@@ -118,6 +123,24 @@
         "title": "%serialPortLog.openDirectory.title%",
         "category": "Serial Port Terminal",
         "icon": "$(folder-opened)"
+      },
+      {
+        "command": "serialPortMacro.add",
+        "title": "%serialPortMacro.add.title%",
+        "category": "Serial Port Terminal",
+        "icon": "$(add)"
+      },
+      {
+        "command": "serialPortMacro.send",
+        "title": "%serialPortMacro.send.title%",
+        "category": "Serial Port Terminal",
+        "icon": "$(play)"
+      },
+      {
+        "command": "serialPortMacro.remove",
+        "title": "%serialPortMacro.remove.title%",
+        "category": "Serial Port Terminal",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -156,6 +179,11 @@
           "command": "serialPortLog.stop",
           "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording",
           "group": "navigation"
+        },
+        {
+          "command": "serialPortMacro.add",
+          "when": "view == serialPortMacroList",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
@@ -180,6 +208,15 @@
         {
           "command": "serialPortQuickConfig.remove",
           "when": "view == serialPortDeviceList && viewItem == serialPortQuickConfig"
+        },
+        {
+          "command": "serialPortMacro.send",
+          "when": "view == serialPortMacroList && viewItem == serialPortMacro",
+          "group": "inline"
+        },
+        {
+          "command": "serialPortMacro.remove",
+          "when": "view == serialPortMacroList && viewItem == serialPortMacro"
         }
       ]
     },

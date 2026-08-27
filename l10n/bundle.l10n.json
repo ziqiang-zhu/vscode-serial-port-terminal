@@ -58,5 +58,9 @@
   "Config name \"{0}\" already exists": "Config name \"{0}\" already exists",
   "Invalid baud rate: {0}": "Invalid baud rate: {0}",
   "Invalid data bits: {0}": "Invalid data bits: {0}",
-  "Invalid stop bits: {0}": "Invalid stop bits: {0}"
+  "Invalid stop bits: {0}": "Invalid stop bits: {0}",
+  "Enter a macro name": "Enter a macro name",
+  "Enter the data to send (use \\r\\n for a line ending)": "Enter the data to send (use \\r\\n for a line ending)",
+  "Delete macro \"{0}\"?": "Delete macro \"{0}\"?",
+  "No active serial connection": "No active serial connection"
 }

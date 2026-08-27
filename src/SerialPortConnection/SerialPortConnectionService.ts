@@ -63,6 +63,10 @@ export class SerialPortConnectionService {
     return this.connections.get(path)?.config;
   }
 
+  public getConnection(path: string): SerialPortConnection | undefined {
+    return this.connections.get(path);
+  }
+
   private toOpenOptions(path: string, config: SerialConfig): SerialPortOpenOptions {
     return {
       path,
