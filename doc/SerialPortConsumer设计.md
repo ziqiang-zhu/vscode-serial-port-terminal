@@ -38,7 +38,7 @@ Consumer 注册时由 Connection 注入，是 Consumer 与连接之间的唯一�
 export abstract class SerialPortConsumer {
   abstract readonly id: string;          // 唯一标识（未来二级菜单的键）
   abstract readonly displayName: string; // 显示名（未来二级菜单展示）
-  abstract onData(data: Buffer): void;   // 接收数据，必须实现
+  onData?(data: Buffer): void;           // 可选：接收数据，仅需接收数据的 Consumer 实现（只发送不接收的可省略）
   abstract onClosed(): void;             // 连接销毁通知：可见类型提示断开并保留视图，不可见类型销毁资源
   onError?(error: Error): void;          // 可选：运行期错误
 
@@ -51,7 +51,7 @@ export abstract class SerialPortConsumer {
 ```
 
 - `attach` 后基类持有 host，子类经受保护的 `send` / `requestDisconnect` / `addConsumer` / `removeConsumer` 使用；
-- `onData` 由 Connection 的数据流入口调用，调用顺序即串口到达顺序；
+- `onData`（可选）由 Connection 的数据流入口调用，调用顺序即串口到达顺序；仅需接收数据的 Consumer 实现它，只发送不接收的 Consumer 可省略；
 - 基类不关心数据的解析、转义、配色 —— 那是各 Consumer 自身职责。
 
 ## 4. 注册与生命周期

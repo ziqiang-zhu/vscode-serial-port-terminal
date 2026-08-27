@@ -13,7 +13,7 @@ export interface SerialPortConsumerHost {
 export abstract class SerialPortConsumer {
   abstract readonly id: string;
   abstract readonly displayName: string;
-  abstract onData(data: Buffer): void;
+  onData?(data: Buffer): void;
   abstract onClosed(): void;
   onError?(error: Error): void;
 

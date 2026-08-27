@@ -22,7 +22,7 @@ export class SerialPortConnection implements SerialPortConsumerHost {
 
     this.handle.onData(data => {
       for (const consumer of this.consumers.values()) {
-        consumer.onData(data);
+        consumer.onData?.(data);
       }
     });
   }
