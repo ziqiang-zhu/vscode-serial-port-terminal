@@ -1,6 +1,6 @@
 # SerialPortMacroSender 设计
 
-> 状态：规划中 ｜ 目录：`src/SerialPortMacroSender/`（待实现） ｜ 上位文档：总体架构.md
+> 状态：已实现 ｜ 目录：`src/SerialPortMacroSender/` ｜ 上位文档：总体架构.md
 
 ## 1. 定位
 
@@ -129,3 +129,4 @@ classDiagram
 
 - **首版**：侧边栏树视图 + 新增 / 删除 / 发送 + globalState 存储 + 活动终端目标设备。
 - **后续**：宏编辑、行尾符统一配置（关联 M3-P2）、多设备目标选择器、宏分类 / 排序。
+- **待办**：快捷执行/宏 实现方式优化——组件结构（全局组件定位、生命周期与耦合）与存储方式（globalState 结构）复审调整。
