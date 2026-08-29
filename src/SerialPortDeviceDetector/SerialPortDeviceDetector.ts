@@ -92,10 +92,13 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
 
   public dispose(): void {
     this.stop();
+    this._onDidChangeDevices.dispose();
   }
 
   private get pollingIntervalSeconds(): number {
-    return vscode.workspace.getConfiguration('serialPortTerminal').get<number>('pollingInterval', 2);
+    const raw = vscode.workspace.getConfiguration('serialPortTerminal').get<number>('pollingInterval', 2);
+    // 钳制到 schema 允许的 1–15 秒，防止手改 settings.json 越界。
+    return Math.max(1, Math.min(15, raw));
   }
 
   private get hotPlugEnabled(): boolean {

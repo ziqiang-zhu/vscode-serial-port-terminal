@@ -3,7 +3,10 @@ import { SerialPortHal, SerialPortHandle, SerialPortInfo, SerialPortOpenOptions 
 
 class SerialPortHandleImpl implements SerialPortHandle {
   constructor(private readonly port: SerialPort) {
-    port.on('error', () => {});
+    // 兜底监听：防止无监听时 Node 因 unhandled 'error' 事件崩溃，同时保留错误可观测性。
+    port.on('error', (error) => {
+      console.error('[serial-port] port error:', error);
+    });
   }
 
   close(): Promise<void> {

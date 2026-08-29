@@ -2,10 +2,8 @@ import * as vscode from 'vscode';
 import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
 import { SerialPortPreset, SerialPortPresetEntry, readSerialPortPresets, saveSerialPortPresets, toPresetEntry } from '../SerialPortConfig/SerialPortPresets';
 
-const FRAME_FORMATS = [
-  '8-N-1', '8-N-2', '8-E-1', '8-E-2', '8-O-1', '8-O-2',
-  '7-N-1', '7-N-2', '7-E-1', '7-E-2', '7-O-1', '7-O-2'
-];
+// 由合法取值组合生成：数据位 5/6/7/8 × 校验 N/E/O/M/S × 停止位 1/1.5/2。
+const FRAME_FORMATS = buildFrameFormats();
 
 const FLOW_CONTROL_OPTIONS: { label: string; value: SerialConfig['flowControl'] }[] = [
   { label: vscode.l10n.t('None'), value: 'none' },
@@ -249,8 +247,35 @@ export class SerialPortPresetManager {
   }
 }
 
+function buildFrameFormats(): string[] {
+  const dataBits = [5, 6, 7, 8];
+  const parityLetters: { letter: string; parity: SerialConfig['parity'] }[] = [
+    { letter: 'N', parity: 'none' },
+    { letter: 'E', parity: 'even' },
+    { letter: 'O', parity: 'odd' },
+    { letter: 'M', parity: 'mark' },
+    { letter: 'S', parity: 'space' }
+  ];
+  const stopBits = [1, 1.5, 2];
+  const formats: string[] = [];
+  for (const data of dataBits) {
+    for (const { letter } of parityLetters) {
+      for (const stop of stopBits) {
+        formats.push(`${data}-${letter}-${stop}`);
+      }
+    }
+  }
+  return formats;
+}
+
 function parseFrameFormat(frame: string): { dataBits: number; parity: SerialConfig['parity']; stopBits: number } {
   const parts = frame.split('-');
-  const parity = parts[1] === 'E' ? 'even' : parts[1] === 'O' ? 'odd' : 'none';
+  const letter = parts[1];
+  const parity: SerialConfig['parity'] =
+    letter === 'E' ? 'even' :
+    letter === 'O' ? 'odd' :
+    letter === 'M' ? 'mark' :
+    letter === 'S' ? 'space' :
+    'none';
   return { dataBits: Number(parts[0]), parity, stopBits: Number(parts[2]) };
 }

@@ -2,6 +2,20 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.1.1]
+
+### 修复
+- 修复扩展停用时 `ConfigStore`/`SerialPortDeviceDetector` 的事件器与轮询定时器未释放的问题
+- 修复设备拔除时只销毁连接、不回写状态与状态事件的问题（统一经 `disconnect()` 单一入口）
+- 修复 HAL 空 error 监听静默吞错（改为兜底记录，错误可观测）
+- 修复 `SerialPortConfigStore` 未校验 parity/flowControl 的问题
+- 修复轮询间隔无代码层钳制的问题（现钳制到 1–15 秒）
+
+### 变更
+- 预设向导帧格式补齐为 60 种组合（数据位 5/6/7/8 × 校验 N/E/O/M/S × 停止位 1/1.5/2）
+- 设备字段缺失时的 `Unknown` 回退值本地化
+- 移除未使用的 `SerialConfig.schemaVersion` 字段
+
 ## [1.1.0]
 
 ### 新增

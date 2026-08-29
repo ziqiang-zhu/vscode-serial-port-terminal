@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { SerialPortInfo } from '../hal/SerialPortHal';
 import { SerialPortDeviceInterface, SerialPortDeviceStatus } from './SerialPortDeviceInterface';
 
@@ -22,23 +23,23 @@ export class SerialPortDeviceImpl implements SerialPortDeviceInterface {
   }
 
   get vendorId(): string {
-    return this.info.vendorId || 'Unknown';
+    return this.info.vendorId || vscode.l10n.t('Unknown');
   }
 
   get productId(): string {
-    return this.info.productId || 'Unknown';
+    return this.info.productId || vscode.l10n.t('Unknown');
   }
 
   get manufacturer(): string {
-    return this.info.manufacturer || 'Unknown';
+    return this.info.manufacturer || vscode.l10n.t('Unknown');
   }
 
   get serialNumber(): string {
-    return this.info.serialNumber || 'Unknown';
+    return this.info.serialNumber || vscode.l10n.t('Unknown');
   }
 
   get locationId(): string {
-    return this.info.locationId || 'Unknown';
+    return this.info.locationId || vscode.l10n.t('Unknown');
   }
 
   get identity(): string {

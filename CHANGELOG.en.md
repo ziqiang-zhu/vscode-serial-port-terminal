@@ -2,6 +2,20 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.1.1]
+
+### Fixed
+- Fix event emitters and the polling timer in `ConfigStore`/`SerialPortDeviceDetector` not being released on deactivation
+- Fix device removal destroying only the connection without resetting status or emitting status events (now routed through the single `disconnect()` entry)
+- Fix silently swallowed port errors in HAL (now logged for observability)
+- Fix missing parity/flowControl validation in `SerialPortConfigStore`
+- Clamp the polling interval to 1–15 seconds
+
+### Changed
+- Expand the preset wizard to all 60 frame-format combinations (data bits 5/6/7/8 × parity N/E/O/M/S × stop bits 1/1.5/2)
+- Localize the `Unknown` device-field fallback
+- Remove the unused `SerialConfig.schemaVersion` field
+
 ## [1.1.0]
 
 ### Added

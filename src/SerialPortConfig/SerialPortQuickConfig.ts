@@ -7,7 +7,6 @@ export interface SerialPortQuickConfig {
 }
 
 export interface SerialConfig {
-  schemaVersion: number;
   baudRate: number;
   dataBits: number;
   parity: 'none' | 'even' | 'odd' | 'mark' | 'space';

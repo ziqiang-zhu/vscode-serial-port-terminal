@@ -11,8 +11,10 @@ import { SerialPortMacroManager } from './SerialPortMacroSender/SerialPortMacroM
 export function activate(context: vscode.ExtensionContext) {
   const hal = new SerialPortHalImpl();
   const detector = new SerialPortDeviceDetector(hal, context);
+  context.subscriptions.push(detector);
   const connectionService = new SerialPortConnectionService(hal, detector, context, () => new SerialPortTerminal());
   const configStore = new SerialPortConfigStore(context.globalState);
+  context.subscriptions.push(configStore);
   new SerialPortPresetManager(context);
   new SerialPortDeviceManagerTreeView(detector, connectionService, configStore, context);
   new SerialPortMacroManager(connectionService, context.globalState, context);

@@ -26,7 +26,6 @@ export interface SerialPortQuickConfig {
 }
 
 export interface SerialConfig {
-  schemaVersion: number;
   baudRate: number;
   dataBits: number;
   parity: 'none' | 'even' | 'odd' | 'mark' | 'space';
@@ -36,7 +35,6 @@ export interface SerialConfig {
 ```
 
 - `id` 由 Store 生成（时间戳或递增号），名称变化不改变引用；
-- `schemaVersion` 预留结构迁移；
 - 流控只有 none / rtscts：serialport 不提供 DTR 流控，建模时即剔除，避免配置出无法兑现的参数。
 
 ## 4. 存储与持久化
@@ -112,7 +110,7 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 
 - **入口**：视图标题栏齿轮按钮 / 命令面板 `serialPortPreset.manage`；
 - **列表**：QuickPick 展示全部预设（label = 名称、description = 摘要、detail = 中文参数说明），顶部"＋ 新增预设"；回车进入编辑/删除菜单；
-- **新增/编辑向导（四步）**：名称（非空、去重校验）→ 波特率（正整数校验）→ 帧格式（12 种数据位-校验-停止位组合）→ 流控（无 / RTS/CTS）；编辑时预填当前值；
+- **新增/编辑向导（四步）**：名称（非空、去重校验）→ 波特率（正整数校验）→ 帧格式（数据位 5/6/7/8 × 校验 N/E/O/M/S × 停止位 1/1.5/2，共 60 种组合）→ 流控（无 / RTS/CTS）；编辑时预填当前值；
 - **删除**：modal 确认后移除；
 - **排序**：列表每行悬停显示行内 ↑/↓ 按钮（QuickPickItemButtons，首条隐藏上移、末条隐藏下移），点击即移动并即时重排，选择器保持打开，顺序随设置持久化；
 - **读写**：向导经 `saveSerialPortPresets()` 全量回写设置项（以校验通过的条目为准），**写入目标为 Global（用户设置）**——预设是用户级偏好，不随工作区漂移；注意 `update` 不指定目标时默认写工作区设置，未开工作区会直接抛错，因此必须显式指定；成功弹出提示（已新增/已更新/已删除），写入失败弹出错误提示；子级 Esc 返回列表、列表 Esc 退出；选择器（6.1/6.3）每次打开实时读取，改完立即生效。

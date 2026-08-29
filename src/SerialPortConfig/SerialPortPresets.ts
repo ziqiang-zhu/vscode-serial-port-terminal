@@ -78,7 +78,6 @@ function parsePreset(entry: unknown): SerialPortPreset | undefined {
   return {
     label: label.trim(),
     config: {
-      schemaVersion: 1,
       baudRate,
       dataBits,
       parity: parity as SerialConfig['parity'],

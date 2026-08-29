@@ -7,7 +7,6 @@ import { SerialPortConsumer } from './SerialPortConsumer';
 import { SerialPortConnection } from './SerialPortConnection';
 
 const DEFAULT_CONFIG: SerialConfig = {
-  schemaVersion: 1,
   baudRate: 115200,
   dataBits: 8,
   parity: 'none',
@@ -30,7 +29,7 @@ export class SerialPortConnectionService {
     context.subscriptions.push(
       detector.onDidChangeDevices(event => {
         for (const device of event.removed) {
-          void this.destroyConnection(device.path);
+          void this.disconnect(device);
         }
       })
     );

@@ -5,6 +5,8 @@ const STORAGE_KEY = 'serialPortQuickConfigs';
 const LAST_USED_KEY = 'serialPortLastUsedConfigs';
 const VALID_DATA_BITS = [5, 6, 7, 8];
 const VALID_STOP_BITS = [1, 1.5, 2];
+const VALID_PARITIES: SerialConfig['parity'][] = ['none', 'even', 'odd', 'mark', 'space'];
+const VALID_FLOW_CONTROLS: SerialConfig['flowControl'][] = ['none', 'rtscts'];
 
 export class SerialPortConfigStore {
   private _onDidChangeConfigs = new vscode.EventEmitter<string>();
@@ -108,6 +110,12 @@ export class SerialPortConfigStore {
     }
     if (!VALID_STOP_BITS.includes(config.stopBits)) {
       throw new Error(vscode.l10n.t('Invalid stop bits: {0}', config.stopBits));
+    }
+    if (!VALID_PARITIES.includes(config.parity)) {
+      throw new Error(vscode.l10n.t('Invalid parity: {0}', config.parity));
+    }
+    if (!VALID_FLOW_CONTROLS.includes(config.flowControl)) {
+      throw new Error(vscode.l10n.t('Invalid flow control: {0}', config.flowControl));
     }
   }
 
