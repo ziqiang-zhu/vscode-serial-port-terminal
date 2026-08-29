@@ -21,7 +21,7 @@ SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**�
 
 ### 3.1 显示（串口 → 终端）
 
-- attach 时创建终端并 `show()`；标题为 `<path> · <配置名>`（快捷配置连接）或 `<path> · <波特率>`（预设连接）；
+- attach 时创建终端并 `show()`；标题为 `<path> · <配置名>`（快捷配置连接）或 `<path> · <波特率>`（手动配置连接）；
 - `onData(data)` → `pty.writeText(data.toString('utf-8'))`；
 - `writeText` 执行换行归一化：`\n` → `\r\n`，保证设备只发 LF 时显示不跑偏。
 

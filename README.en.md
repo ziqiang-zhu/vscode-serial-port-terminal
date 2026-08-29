@@ -13,9 +13,9 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🚦 **Connection status** — disconnected / connecting / connected with visual feedback; failures roll back and show the cause
 - 🖥️ **Built-in terminal** — based on the VS Code Pseudoterminal; data is shown as-is, type and press Enter to send
 - 📜 **Log kept after disconnect** — the terminal panel stays open so you can review the session
-- ⚙️ **Quick configs** — store multiple named connection configs per device; add / rename / remove, hover for full details
+- ⚙️ **Quick configs** — global named connection configs reusable across devices (reference counting); add / rename / remove / reuse, hover for full details
 - 🎯 **Smart connection** — highlight the active config, pin the last-used config, direct-connect by selecting a quick-config node
-- 🧩 **Preset manager** — gear button opens the preset list; a four-step wizard for add/edit, no hand-edited JSON
+- 🧩 **Manual configuration** — configure parameters on the fly when connecting (baud rate / frame format from settings dropdowns), no presets needed
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
 - 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
@@ -29,11 +29,11 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 ## 🚀 Usage
 
 1. Click the serial manager icon in the activity bar to open the device list
-2. Click **Connect** on a device, then pick a saved config or a preset in the picker (not saved)
-   - Tip: select a quick-config node first, then connect, to use that config directly
-3. The terminal panel opens automatically — device data appears in real time; type and press Enter to send
-4. Disconnect: click **Disconnect** on the device, or close the terminal panel
-5. Logging: click **Save** in the terminal title bar to start recording; pause / resume / stop as needed
+2. Click **Connect** on a device, then pick a saved config or "Manual configuration" in the picker; this connects with a temporary config
+3. Right-click a device to save a quick config; select a quick-config node first and connect to use that config directly
+4. The terminal panel opens automatically — device data appears in real time; type and press Enter to send
+5. Disconnect: click **Disconnect** on the device, or close the terminal panel
+6. Logging: click **Save** in the terminal title bar to start recording; pause / resume / stop as needed, and a shortcut can be configured to start/stop
 
 ## ⌨️ Commands
 
@@ -44,7 +44,6 @@ The following commands can be run directly from the Command Palette (`Ctrl+Shift
 | Command ID | Title | Description |
 |---|---|---|
 | `serialPortDeviceList.refresh` | Refresh | Manually scan serial devices |
-| `serialPortPreset.manage` | Manage Presets... | Open the preset manager |
 | `serialPortLog.start` | Save Log | Start recording a log |
 | `serialPortLog.pause` | Pause | Pause log recording |
 | `serialPortLog.resume` | Resume | Resume log recording |
@@ -71,7 +70,8 @@ The following commands require selecting a device or quick-config node in the de
 |---|---|---|
 | `serialPortTerminal.hotPlugEnabled` | `true` | Enable hot-plug detection |
 | `serialPortTerminal.pollingInterval` | `2` | Polling interval in seconds, range 1–15 |
-| `serialPortTerminal.serialConfigPresets` | 8 common combos | Preset parameter combos offered when connecting or adding a config (edit via the "Manage Presets" UI) |
+| `serialPortTerminal.baudRates` | 8 common baud rates | Baud rates offered in the manual configuration picker |
+| `serialPortTerminal.frameFormats` | 10 common combos | Frame formats (data bits-parity-stop bits) offered in the manual configuration picker |
 | `serialPortTerminal.logDirectory` | empty | Log directory; empty uses the default (`Documents/SerialPortTerminal/Log`) |
 | `serialPortTerminal.logFilenameTemplate` | `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log` | Log filename template (placeholders: device name / date and time) |
 | `serialPortTerminal.logTimestampEnabled` | `false` | Prepend a timestamp to each log line (takes effect on the next recording) |

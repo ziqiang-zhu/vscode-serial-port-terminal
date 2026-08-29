@@ -75,7 +75,7 @@ connecting 态不匹配任何菜单，用于禁用操作。原"hasConfigs 按钮
 | 命令 | 转发目标 |
 |---|---|
 | `serialPortDeviceList.refresh` | `detector.scan()` |
-| `serialPortDevice.connect` | 选中该设备的配置子节点时直连该配置（跳过选择器）；否则弹参数选择器（已存配置[上次使用置顶] + 预设组合）；连接成功后 `configStore.setLastUsedConfig` |
+| `serialPortDevice.connect` | 选中该设备的配置子节点时直连该配置（跳过选择器）；否则弹参数选择器（手动配置参数 + 已存配置[上次使用置顶]）；连接成功后 `configStore.setLastUsedConfig` |
 | `serialPortDevice.disconnect` | `connectionService.disconnect(item.device)` |
 | `serialPortQuickConfig.add` | `configStore.add(identity, name, config)`（经两步向导收集输入） |
 | `serialPortQuickConfig.rename` | `configStore.rename(identity, id, name)` |
