@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SerialConfig, SerialPortQuickConfig } from './SerialPortQuickConfig';
+import { SerialConfig, SerialPortQuickConfig, serialConfigEquals } from './SerialPortQuickConfig';
 
 const POOL_KEY = 'serialPortQuickConfigs';
 const REFS_KEY = 'serialPortDeviceConfigRefs';
@@ -40,6 +40,7 @@ export class SerialPortConfigStore {
   add(identity: string, name: string, config: SerialConfig): SerialPortQuickConfig {
     const trimmedName = this.assertValidName(identity, name);
     this.assertValidConfig(config);
+    this.assertNoDuplicateParams(config);
     const quickConfig: SerialPortQuickConfig = { id: this.generateId(), name: trimmedName, config };
     this.writePool([...this.readPool(), quickConfig]);
     this.attachRef(identity, quickConfig.id);
@@ -180,6 +181,13 @@ export class SerialPortConfigStore {
       throw new Error(vscode.l10n.t('Config name "{0}" already exists', trimmed));
     }
     return trimmed;
+  }
+
+  private assertNoDuplicateParams(config: SerialConfig): void {
+    const duplicated = this.readPool().some(c => serialConfigEquals(c.config, config));
+    if (duplicated) {
+      throw new Error(vscode.l10n.t('A quick config with the same parameters already exists'));
+    }
   }
 
   private assertValidConfig(config: SerialConfig): void {

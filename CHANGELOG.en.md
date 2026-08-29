@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.2]
+
+### Fixed
+- Reject creating a quick config whose parameters duplicate an existing one (globally unique), so same-parameter configs are never conflated; reuse via "Choose existing quick config" instead
+
 ## [1.2.1]
 
 ### Added

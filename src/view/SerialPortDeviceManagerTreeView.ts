@@ -208,7 +208,12 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       if (!name) {
         return;
       }
-      this.configStore.add(identity, name, config);
+      try {
+        this.configStore.add(identity, name, config);
+      } catch (error) {
+        vscode.window.showErrorMessage(error instanceof Error ? error.message : `${error}`);
+        return;
+      }
     }
     await this.connectWithConfig(item, config);
   }
@@ -252,7 +257,12 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (!config) {
       return;
     }
-    this.configStore.add(identity, name, config);
+    try {
+      this.configStore.add(identity, name, config);
+    } catch (error) {
+      vscode.window.showErrorMessage(error instanceof Error ? error.message : `${error}`);
+      return;
+    }
     await this.treeView.reveal(item, { expand: true, focus: true });
   }
 
@@ -273,7 +283,12 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (!picked) {
       return;
     }
-    this.configStore.attach(identity, picked.configId);
+    try {
+      this.configStore.attach(identity, picked.configId);
+    } catch (error) {
+      vscode.window.showErrorMessage(error instanceof Error ? error.message : `${error}`);
+      return;
+    }
     await this.treeView.reveal(item, { expand: true, focus: true });
   }
  
