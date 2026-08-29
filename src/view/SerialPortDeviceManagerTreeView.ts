@@ -4,11 +4,12 @@ import { SerialPortConnectionService } from '../SerialPortConnection/SerialPortC
 import { SerialPortConfigStore } from '../SerialPortConfig/SerialPortConfigStore';
 import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary, serialConfigEquals } from '../SerialPortConfig/SerialPortQuickConfig';
 import { readSerialPortPresets } from '../SerialPortConfig/SerialPortPresets';
+import { pickSerialConfig } from '../SerialPortConfig/SerialPortConfigWizard';
 import { SerialPortDeviceTreeItem } from './SerialPortDeviceTreeItem';
 import { SerialPortQuickConfigTreeItem } from './SerialPortQuickConfigTreeItem';
 
 type ViewItem = SerialPortDeviceTreeItem | SerialPortQuickConfigTreeItem;
-type ConfigPickItem = vscode.QuickPickItem & { config?: SerialConfig; configName?: string };
+type ConfigPickItem = vscode.QuickPickItem & { config?: SerialConfig; configName?: string; manual?: boolean };
 
 export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<ViewItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<ViewItem | undefined | null | void>();
@@ -145,10 +146,6 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     const identity = item.device.identity;
     const saved = this.configStore.getConfigs(identity);
     const presets = readSerialPortPresets();
-    if (saved.length === 0 && presets.length === 0) {
-      vscode.window.showWarningMessage(vscode.l10n.t('No connectable parameters: add presets in settings or add a quick config for the device'));
-      return;
-    }
     const lastUsed = this.configStore.getLastUsedConfig(identity);
     const orderedSaved = lastUsed
       ? [...saved].sort(
@@ -156,7 +153,9 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
             Number(serialConfigEquals(lastUsed, b.config)) - Number(serialConfigEquals(lastUsed, a.config))
         )
       : saved;
-    const items: ConfigPickItem[] = [];
+    const items: ConfigPickItem[] = [
+      { label: vscode.l10n.t('$(settings-gear) Manual configuration'), manual: true }
+    ];
     if (orderedSaved.length > 0) {
       items.push({ label: vscode.l10n.t('Saved Configs'), kind: vscode.QuickPickItemKind.Separator });
       for (const quickConfig of orderedSaved) {
@@ -170,22 +169,60 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
         });
       }
     }
-    items.push({ label: vscode.l10n.t('Presets'), kind: vscode.QuickPickItemKind.Separator });
-    for (const preset of presets) {
-      items.push({
-        label: preset.label,
-        description: formatSerialConfigDescription(preset.config),
-        config: preset.config
-      });
+    if (presets.length > 0) {
+      items.push({ label: vscode.l10n.t('Presets'), kind: vscode.QuickPickItemKind.Separator });
+      for (const preset of presets) {
+        items.push({
+          label: preset.label,
+          description: formatSerialConfigDescription(preset.config),
+          config: preset.config
+        });
+      }
     }
     const picked = await vscode.window.showQuickPick(items, {
       placeHolder: vscode.l10n.t('Select connection parameters (baud rate/data bits/parity/stop bits/flow control)'),
       matchOnDescription: true
     });
-    if (!picked?.config) {
+    if (!picked) {
+      return;
+    }
+    if (picked.manual) {
+      await this.connectWithManualConfig(item, identity);
+      return;
+    }
+    if (!picked.config) {
       return;
     }
     await this.connectWithConfig(item, picked.config, picked.configName);
+  }
+
+  private async connectWithManualConfig(item: SerialPortDeviceTreeItem, identity: string): Promise<void> {
+    const config = await pickSerialConfig(this.configStore.getLastUsedConfig(identity));
+    if (!config) {
+      return;
+    }
+    const choice = await vscode.window.showQuickPick(
+      [
+        { label: vscode.l10n.t('Connect only this time'), value: 'connect' },
+        { label: vscode.l10n.t('Save as quick config'), value: 'save' }
+      ],
+      { placeHolder: vscode.l10n.t('Choose an action') }
+    );
+    if (!choice) {
+      return;
+    }
+    if (choice.value === 'save') {
+      const name = await vscode.window.showInputBox({
+        prompt: vscode.l10n.t('Enter a config name'),
+        value: vscode.l10n.t('Config {0}', this.configStore.getConfigs(identity).length + 1),
+        validateInput: value => this.validateConfigName(identity, value)
+      });
+      if (!name) {
+        return;
+      }
+      this.configStore.add(identity, name, config);
+    }
+    await this.connectWithConfig(item, config);
   }
 
   private async connectWithConfig(item: SerialPortDeviceTreeItem, config: SerialConfig, label?: string): Promise<void> {

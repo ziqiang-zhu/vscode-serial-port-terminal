@@ -2,6 +2,14 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.0]
+
+### Added
+- Manual configuration when connecting: a new "Manual configuration" entry at the top of the connection parameter selector opens a four-step wizard (baud rate → frame format → flow control → save option) for on-the-fly configuration and connecting, with an optional "save as quick config"
+
+### Changed
+- Mark the current frame format / flow control when editing a preset (implements "prefill current value when editing")
+
 ## [1.1.1]
 
 ### Fixed

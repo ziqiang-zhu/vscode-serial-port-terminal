@@ -1,14 +1,7 @@
 import * as vscode from 'vscode';
-import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
+import { formatSerialConfigDescription, formatSerialConfigSummary } from '../SerialPortConfig/SerialPortQuickConfig';
 import { SerialPortPreset, SerialPortPresetEntry, readSerialPortPresets, saveSerialPortPresets, toPresetEntry } from '../SerialPortConfig/SerialPortPresets';
-
-// 由合法取值组合生成：数据位 5/6/7/8 × 校验 N/E/O/M/S × 停止位 1/1.5/2。
-const FRAME_FORMATS = buildFrameFormats();
-
-const FLOW_CONTROL_OPTIONS: { label: string; value: SerialConfig['flowControl'] }[] = [
-  { label: vscode.l10n.t('None'), value: 'none' },
-  { label: vscode.l10n.t('RTS/CTS'), value: 'rtscts' }
-];
+import { pickSerialConfig } from '../SerialPortConfig/SerialPortConfigWizard';
 
 const MOVE_UP_BUTTON: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('arrow-up'), tooltip: vscode.l10n.t('Move up') };
 const MOVE_DOWN_BUTTON: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('arrow-down'), tooltip: vscode.l10n.t('Move down') };
@@ -143,34 +136,18 @@ export class SerialPortPresetManager {
     if (!name) {
       return;
     }
-    const baudRateText = await vscode.window.showInputBox({
-      prompt: vscode.l10n.t('Enter the baud rate (e.g. 115200, 9600)'),
-      value: String(existing?.preset.config.baudRate ?? 115200),
-      validateInput: value => this.validateBaudRate(value)
-    });
-    if (!baudRateText) {
+    const config = await pickSerialConfig(existing?.preset.config);
+    if (!config) {
       return;
     }
-    const frame = await vscode.window.showQuickPick(
-      FRAME_FORMATS.map(f => ({ label: f })),
-      { placeHolder: vscode.l10n.t('Select the frame format (data bits-parity-stop bits)') }
-    );
-    if (!frame) {
-      return;
-    }
-    const flowControl = await vscode.window.showQuickPick(FLOW_CONTROL_OPTIONS, { placeHolder: vscode.l10n.t('Select flow control') });
-    if (!flowControl) {
-      return;
-    }
-    const { dataBits, parity, stopBits } = parseFrameFormat(frame.label);
     const entries = readSerialPortPresets().map(toPresetEntry);
     const entry: SerialPortPresetEntry = {
       label: name.trim(),
-      baudRate: Number(baudRateText.trim()),
-      dataBits,
-      parity,
-      stopBits,
-      flowControl: flowControl.value
+      baudRate: config.baudRate,
+      dataBits: config.dataBits,
+      parity: config.parity,
+      stopBits: config.stopBits,
+      flowControl: config.flowControl
     };
     if (existing) {
       entries[existing.index] = entry;
@@ -238,44 +215,4 @@ export class SerialPortPresetManager {
     return undefined;
   }
 
-  private validateBaudRate(value: string): string | undefined {
-    const trimmed = value.trim();
-    if (!/^\d+$/.test(trimmed) || Number(trimmed) <= 0) {
-      return vscode.l10n.t('Enter a positive integer baud rate (e.g. 115200)');
-    }
-    return undefined;
-  }
-}
-
-function buildFrameFormats(): string[] {
-  const dataBits = [5, 6, 7, 8];
-  const parityLetters: { letter: string; parity: SerialConfig['parity'] }[] = [
-    { letter: 'N', parity: 'none' },
-    { letter: 'E', parity: 'even' },
-    { letter: 'O', parity: 'odd' },
-    { letter: 'M', parity: 'mark' },
-    { letter: 'S', parity: 'space' }
-  ];
-  const stopBits = [1, 1.5, 2];
-  const formats: string[] = [];
-  for (const data of dataBits) {
-    for (const { letter } of parityLetters) {
-      for (const stop of stopBits) {
-        formats.push(`${data}-${letter}-${stop}`);
-      }
-    }
-  }
-  return formats;
-}
-
-function parseFrameFormat(frame: string): { dataBits: number; parity: SerialConfig['parity']; stopBits: number } {
-  const parts = frame.split('-');
-  const letter = parts[1];
-  const parity: SerialConfig['parity'] =
-    letter === 'E' ? 'even' :
-    letter === 'O' ? 'odd' :
-    letter === 'M' ? 'mark' :
-    letter === 'S' ? 'space' :
-    'none';
-  return { dataBits: Number(parts[0]), parity, stopBits: Number(parts[2]) };
 }
