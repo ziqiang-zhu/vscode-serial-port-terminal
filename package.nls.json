@@ -7,7 +7,6 @@
   "serialPortQuickConfig.add.title": "Add Quick Config",
   "serialPortQuickConfig.rename.title": "Rename",
   "serialPortQuickConfig.remove.title": "Remove",
-  "serialPortPreset.manage.title": "Manage Presets...",
   "serialPortLog.start.title": "Save Log",
   "serialPortLog.pause.title": "Pause",
   "serialPortLog.resume.title": "Resume",
@@ -26,11 +25,6 @@
   "serialPortTerminal.logTimestampEnabled.description": "Prepend a timestamp to each line of the saved log.",
   "serialPortTerminal.logTimestampFormat.description": "Timestamp format. Placeholders: {YYYY} year, {MM} month, {DD} day, {HH} hour, {mm} minute, {ss} second, {SSS} millisecond.",
   "serialPortTerminal.logShortcutsEnabled.description": "Enable the Ctrl+S shortcut in the serial terminal to start/stop log recording. WARNING: when enabled, Ctrl+S is intercepted by the extension and is NOT sent to the device.",
-  "serialPortTerminal.serialConfigPresets.description": "Preset parameter combinations offered when connecting or adding a quick config. Add, edit or remove entries freely.",
-  "serialPortTerminal.serialConfigPresets.label.description": "Preset name shown in the picker (e.g. \"115200 8-N-1\")",
-  "serialPortTerminal.serialConfigPresets.baudRate.description": "Baud rate (positive integer, e.g. 115200)",
-  "serialPortTerminal.serialConfigPresets.dataBits.description": "Data bits (5/6/7/8)",
-  "serialPortTerminal.serialConfigPresets.parity.description": "Parity (none/even/odd/mark/space)",
-  "serialPortTerminal.serialConfigPresets.stopBits.description": "Stop bits (1/1.5/2)",
-  "serialPortTerminal.serialConfigPresets.flowControl.description": "Flow control (none/rtscts)"
+  "serialPortTerminal.baudRates.description": "Baud rates offered in the manual configuration picker (positive integers).",
+  "serialPortTerminal.frameFormats.description": "Frame formats (data bits-parity-stop bits) offered in the manual configuration picker, e.g. \"8-N-1\"."
 }

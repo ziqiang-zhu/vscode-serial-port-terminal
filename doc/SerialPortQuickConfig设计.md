@@ -1,20 +1,21 @@
 
 # SerialPortQuickConfig 设计
 
-> 状态：已实现（P1–P4 完成）—— 配置管理 UI、设备级参数选择（选中直连 / 选择器 / 手动配置）、当前连接高亮、上次使用置顶、预设管理 UI、终端标题带配置名 ｜ 目录：`src/SerialPortConfig/` ｜ 上位文档：总体架构.md
+> 状态：已实现 —— 全局快捷配置（引用计数复用）、设备级参数选择（选中直连 / 选择器 / 手动配置）、当前连接高亮、上次使用置顶、终端标题带配置名 ｜ 目录：`src/SerialPortConfig/` ｜ 上位文档：总体架构.md
 
 ## 1. 定位
 
-快捷配置是配置域组件：每台设备可以拥有多份**命名连接配置**（波特率、数据位、校验、停止位、流控），以设备子节点形式展示，用户选择其一发起连接。配置有身份（id）、名称与生命周期（增/改名/删），是独立于连接状态的一等公民。
+快捷配置是配置域组件：**全局命名连接配置**（波特率、数据位、校验、停止位、流控），经**每设备引用**（引用计数）复用——配置以「引用它的设备」的子节点形式展示。配置有身份（id）、名称与生命周期（增/改名/删/引用/去引用），是独立于连接状态的一等公民。
 
-配置域由 `SerialPortConfigStore` 承载：CRUD、持久化与变更事件；UI（TreeView）负责呈现与管理入口；连接服务只接受配置参数，不持有配置存储。
+配置域由 `SerialPortConfigStore` 承载：全局池 + 每设备引用 + 引用计数、持久化与变更事件；UI（TreeView）负责呈现与管理入口；连接服务只接受配置参数，不持有配置存储。
 
 ## 2. 设计目标
 
-- **与设备身份绑定**：配置集合按设备身份（退化链）存储，换口重插自动找回，不随路径漂移；
-- **与连接状态无关**：添加、重命名、删除不依赖当前是否连接；
+- **全局复用**：快捷配置存于全局池，多个设备可引用同一配置，引用计数控制生命周期；
+- **与连接状态无关**：添加、重命名、删除、引用不依赖当前是否连接；
 - **事件驱动**：配置变更经事件发布，视图重渲染走既有订阅模式；
-- **渐进实现**：按分阶段计划落地（见第 9 节），每一阶段独立可用。
+- **settings 驱动的手动配置**：波特率 / 帧格式取值来自 settings，单值时跳过对应下拉；
+- **无损迁移**：旧按设备分区格式升级时自动迁移，已存配置不丢。
 
 ## 3. 数据模型
 
@@ -39,21 +40,25 @@ export interface SerialConfig {
 
 ## 4. 存储与持久化
 
-- 存储键：`serialPortQuickConfigs`（globalState），结构 `Record<deviceIdentity, SerialPortQuickConfig[]>`；
-- 键为设备身份（退化链，见 SerialPortDeviceDetector设计.md「设备身份管理」）：配置跟随物理设备，COM 号复用/换口均不串味；
-- 设备消失时配置**保留**（拔除不等于失去配置）；
+- **全局池**：`serialPortQuickConfigs`（globalState），结构 `SerialPortQuickConfig[]`；
+- **每设备引用**：`serialPortDeviceConfigRefs`（globalState），结构 `Record<deviceIdentity, string[]>`（引用计数键）；
+- **引用计数**：`remove` 仅去引用；某配置被引用数归 0 时从全局池删除；
+- **迁移**：旧格式 `Record<identity, SerialPortQuickConfig[]>` 首次读取时无损迁移为「全局池 + 每设备引用」（按 id 去重入池、按原设备重建引用）；
 - 上次使用的配置：键 `serialPortLastUsedConfigs`（globalState），结构 `Record<deviceIdentity, SerialConfig>`，连接成功后由视图记录，选择器置顶用；
-- 预设组合不在此列：归 workspace 设置 `serialPortTerminal.serialConfigPresets`，随 settings.json 持久化并在设置界面编辑；
+- 设备消失时引用**保留**（拔除不等于失去配置）；
 - 全量读写即可：配置体量小，无需分片（扩展单进程运行，无并发问题）。
 
 ## 5. 配置仓库（SerialPortConfigStore）
 
 | 成员 | 契约 |
 |---|---|
-| `getConfigs(identity): SerialPortQuickConfig[]` | 查询某设备的配置集合，无则空数组 |
-| `add(identity, name, config): SerialPortQuickConfig` | 创建配置并持久化，随后发布变更事件 |
-| `rename(identity, id, newName): void` | 重命名，发布变更事件 |
-| `remove(identity, id): void` | 删除配置，发布变更事件 |
+| `getConfigs(identity): SerialPortQuickConfig[]` | 查询某设备引用的配置集合，无则空数组 |
+| `getAllConfigs(): SerialPortQuickConfig[]` | 全部全局配置 |
+| `getUnattachedConfigs(identity): SerialPortQuickConfig[]` | 未被该设备引用的全局配置（供「选择已存在快捷配置」） |
+| `add(identity, name, config): SerialPortQuickConfig` | 新建配置入全局池并引用，随后发布变更事件 |
+| `attach(identity, configId): void` | 引用已存在的全局配置（复用），发布变更事件 |
+| `rename(identity, id, newName): void` | 重命名（全局池内生效），发布变更事件 |
+| `remove(identity, id): void` | 去引用；引用数归 0 则从全局池删除，发布变更事件 |
 | `getLastUsedConfig(identity): SerialConfig \| undefined` | 该设备上次成功连接的配置 |
 | `setLastUsedConfig(identity, config): void` | 记录上次成功连接的配置（连接成功后由视图调用），静默持久化、不发布事件 |
 | `onDidChangeConfigs: Event<string /*identity*/>` | 配置变更事件，负载为受影响的设备身份 |
@@ -70,14 +75,12 @@ export interface SerialConfig {
 
 ```
 右键设备 → 添加快捷配置
-    ↓ showInputBox：配置名称（预填 "配置 N"，prompt 附命名示例，validateInput 校验非空、去重）
-    ↓ showQuickPick：预设组合（label = "115200 8-N-1" 等摘要，description = 中文参数说明
-      "波特率 115200 · 数据位 8 · 无校验 · 停止位 1 · 流控 无"，支持按说明搜索）
+    ↓ showQuickPick：$(add) 新建快捷配置 / $(link) 选择已存在快捷配置
+    ├─ 新建：showInputBox 名称 → 手动配置向导（波特率/帧格式/流控，见 6.6）→ Store.add
+    └─ 引用：showQuickPick 未被引用的全局配置 → Store.attach
     ↓
-Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
+onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 ```
-
-预设组合读取自设置项 `serialPortTerminal.serialConfigPresets`（数组，默认内置 8 个常用组合；运行时经 `readSerialPortPresets()` 解析校验，非法条目跳过并记录警告）。设置项是持久化载体，图形化编辑入口见 6.5；"自定义…" 项与完整五参数向导属 P2，P2 起用户自建的自定义组合并入候选列表。
 
 ### 6.2 重命名（已实现）
 
@@ -87,10 +90,10 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 
 连接按钮保留在设备上（配置子节点不设连接入口，原"按钮迁移"方案取消）：
 
-- 点击设备连接按钮 → 参数选择器（顶部「手动配置参数」项 + "保存的配置"分组 + "预设组合"分组）→ `connect(device, config)`，临时生效、不保存；
+- 点击设备连接按钮 → 参数选择器（顶部「手动配置参数」项 + "保存的配置"分组）→ `connect(device, config)`，临时生效、不保存；
 - **选中直连**：选中某配置子节点后再点该设备的连接按钮 → 直接用该配置连接，**跳过选择器**；未选中配置子节点（或选中的是其他设备的）时走选择器流程；
 - **上次使用置顶**：该设备上次成功连接的配置排在"保存的配置"分组首位并标注"上次使用"；
-- **手动配置参数**：选择器顶部「手动配置参数」项进入四步向导（波特率 → 帧格式 → 流控 → 保存选项），预填上次使用值，完成后连接（临时）并可选择保存为快捷配置（见 6.6）；
+- **手动配置参数**：选择器顶部「手动配置参数」项进入参数向导（波特率 → 帧格式 → 流控 → 保存选项），预填上次使用值，完成后连接（临时）并可选择保存为快捷配置（见 6.6）；
 - 连接参数由调用方随连接请求传入，Service 不查询存储（M6 自动恢复场景再评估注入 Store）。
 
 #### 6.3.1 当前连接高亮
@@ -99,42 +102,31 @@ Store.add → 持久化 → onDidChangeConfigs → 视图展开设备节点、�
 
 - **Service 侧**：SerialPortConnection 持有本次连接的 `config`，Service 暴露 `getConnectionConfig(path)` 只读查询；
 - **视图侧**：重渲染时（复用 `onDidChangeDeviceStatus` 事件流）对每个配置子节点做**值比较**（`serialConfigEquals`，五项全等，不依赖对象引用），命中的子节点图标换为 `radio-tower`、description 追加"当前连接"；设备行 description 追加参数摘要（如 `Arduino · 115200 8-N-1`）；
-- 断开后查询返回 undefined，高亮随同一事件流自动消失；用预设（非已存配置）连接时不命中任何子节点，自然无高亮。
+- 断开后查询返回 undefined，高亮随同一事件流自动消失；用未保存的手动参数连接时不命中任何子节点，自然无高亮。
 
 ### 6.4 删除（已实现）
 
 配置子节点右键 → 删除 → 确认（`showWarningMessage`，modal）→ Store.remove → 事件刷新。
 
-### 6.5 预设管理 UI（已实现）
+### 6.5 手动配置参数（已实现）
 
-设置项 `serialPortTerminal.serialConfigPresets` 的图形入口（避免用户手改 JSON），由 SerialPortPresetManager（`src/view/`）承载：
+连接选择器顶部提供「手动配置参数」入口，进入参数向导：
 
-- **入口**：视图标题栏齿轮按钮 / 命令面板 `serialPortPreset.manage`；
-- **列表**：QuickPick 展示全部预设（label = 名称、description = 摘要、detail = 中文参数说明），顶部"＋ 新增预设"；回车进入编辑/删除菜单；
-- **新增/编辑向导（四步）**：名称（非空、去重校验）→ 波特率（正整数校验）→ 帧格式（数据位 5/6/7/8 × 校验 N/E/O/M/S × 停止位 1/1.5/2，共 60 种组合）→ 流控（无 / RTS/CTS）；编辑时预填当前值；
-- **删除**：modal 确认后移除；
-- **排序**：列表每行悬停显示行内 ↑/↓ 按钮（QuickPickItemButtons，首条隐藏上移、末条隐藏下移），点击即移动并即时重排，选择器保持打开，顺序随设置持久化；
-- **读写**：向导经 `saveSerialPortPresets()` 全量回写设置项（以校验通过的条目为准），**写入目标为 Global（用户设置）**——预设是用户级偏好，不随工作区漂移；注意 `update` 不指定目标时默认写工作区设置，未开工作区会直接抛错，因此必须显式指定；成功弹出提示（已新增/已更新/已删除），写入失败弹出错误提示；子级 Esc 返回列表、列表 Esc 退出；选择器（6.1/6.3）每次打开实时读取，改完立即生效。
-
-### 6.6 手动配置参数（已实现）
-
-连接选择器顶部提供「手动配置参数」入口，进入四步参数向导（与预设管理向导共享参数选择逻辑）：
-
-1. **波特率**：`showInputBox`，预填「上次使用」值或 115200，正整数校验；
-2. **帧格式**：`showQuickPick`（数据位 5/6/7/8 × 校验 N/E/O/M/S × 停止位 1/1.5/2，共 60 种），预填上次值；
-3. **流控**：`showQuickPick`（无 / RTS/CTS），预填上次值；
+1. **波特率**：`showQuickPick`，取值来自 settings `serialPortTerminal.baudRates`（默认 8 个常用值），单值时跳过并直接选中；
+2. **帧格式**：`showQuickPick`，取值来自 settings `serialPortTerminal.frameFormats`（默认 10 个常用组合），单值时跳过并直接选中；
+3. **流控**：`showQuickPick`（无 / RTS/CTS）；
 4. **保存选项**：`showQuickPick`「仅本次连接 / 保存为快捷配置」；选保存则 `showInputBox` 输入配置名 → `Store.add`。
 
 - 完成后以所选参数 `connect(device, config)`（临时、不保存）；选保存则先 `Store.add` 落盘、随 `onDidChangeConfigs` 刷新树；
-- 参数选择逻辑与预设管理向导共享（提取 `pickSerialConfig()` 助手，帧格式/校验单点维护）；
+- 参数选择逻辑由 `pickSerialConfig()` 助手承载（见 SerialPortConfigWizard.ts）；
 - 上次使用值取自 `ConfigStore.getLastUsedConfig(identity)`。
 
 ## 7. 视图呈现
 
 ### 7.1 配置子节点
 
-- 设备节点有配置时变为可折叠（`TreeItemCollapsibleState`），子节点为各配置项；
-- 配置项呈现：label = 名称；description = 参数摘要（如 `115200 8-N-1`）；tooltip = 完整参数信息（悬浮显示基本信息）；当前连接的配置子节点高亮（`radio-tower` 图标 + "当前连接"标注，见 6.3.1）。
+- 设备节点有配置时变为可折叠（`TreeItemCollapsibleState`），子节点为**该设备引用的**各配置项；
+- 配置项呈现：label = 名称；description = 参数摘要（如 `115200 8-N-1`）；tooltip = 完整参数信息；当前连接的配置子节点高亮（`radio-tower` 图标 + "当前连接"标注，见 6.3.1）。
 
 ### 7.2 contextValue 约定
 
@@ -154,8 +146,7 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 
 ### 8.1 命令命名
 
-- 沿用规范：`serialPortQuickConfig.*` —— 配置级命令（添加、重命名、删除）；
-- `serialPortPreset.*` —— 预设管理级命令（`serialPortPreset.manage`），与设备无关、操作全局预设列表。
+- 沿用规范：`serialPortQuickConfig.*` —— 配置级命令（添加、重命名、删除）。
 
 ### 8.2 菜单设计
 
@@ -165,16 +156,10 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 | `view/item/context`（普通组） | 重命名 | 配置子节点右键 |
 | `view/item/context`（普通组） | 删除 | 配置子节点右键 |
 
-## 9. 分阶段实施计划
+## 9. 实现状态与待办
 
-| 阶段 | 内容 | 状态 |
-|---|---|---|
-| **P1** | 数据模型 + Store（持久化/事件）、添加向导（名称 + 设置驱动的预设组合，带中文参数说明）、配置子节点展示与 tooltip、重命名、删除（含确认）、设备级连接参数选择（已存配置 + 预设，临时不保存）、预设管理 UI（列表 + 行内排序 + 四步向导） | 已实现 |
-| **P2** | 当前连接高亮（6.3.1）、上次使用置顶 | 已实现（当前里程碑完成） |
-| **P3** | 终端标题附带配置名（快捷配置显示配置名，预设显示波特率） | 已实现 |
-| **P4** | 连接时手动配置参数：选择器顶部入口 + 四步参数向导（波特率/帧格式/流控/保存选项）+ 可选保存为快捷配置 | 已实现 |
-
-已取消/取代的项：编辑已有配置参数（内容简单，删除重建即可）；配置节点 inline 连接与设备级连接按钮迁移（连接入口统一保留在设备上，见 6.3）。注：早期「自定义参数向导」曾被预设管理 UI 取代，现以「手动配置参数」（P4，见 6.6）重新引入。
+- **已实现**：数据模型 + Store（全局池 / 每设备引用 / 引用计数 / 迁移）、添加（新建 / 引用）、重命名、删除、设备级连接参数选择、当前连接高亮、上次使用置顶、手动配置参数（settings 下拉、单值跳过）、终端标题带配置名。
+- **已移除**：预设功能（`serialPortTerminal.serialConfigPresets` 与预设管理 UI）。
 
 ## 10. 组件结构
 
@@ -182,7 +167,10 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 classDiagram
     class SerialPortConfigStore {
         +getConfigs(identity)
+        +getAllConfigs()
+        +getUnattachedConfigs(identity)
         +add(identity, name, config)
+        +attach(identity, configId)
         +rename(identity, id, newName)
         +remove(identity, id)
         +onDidChangeConfigs
@@ -192,11 +180,15 @@ classDiagram
         +name
         +config: SerialConfig
     }
+    class SerialPortConfigWizard {
+        +pickSerialConfig(current?)
+    }
     class SerialPortDeviceManagerTreeView {
         +配置子节点渲染
         +订阅 onDidChangeConfigs
         +注册配置命令
     }
-    SerialPortConfigStore --> SerialPortQuickConfig : 持有
+    SerialPortConfigStore --> SerialPortQuickConfig : 全局池 + 引用
     SerialPortDeviceManagerTreeView --> SerialPortConfigStore : 订阅 + CRUD
+    SerialPortDeviceManagerTreeView --> SerialPortConfigWizard : 手动配置
 ```

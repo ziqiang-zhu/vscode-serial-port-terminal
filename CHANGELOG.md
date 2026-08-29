@@ -2,6 +2,16 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.2.1]
+
+### 新增
+- 快捷配置全局化：配置存于全局池，可跨设备复用（引用计数管理生命周期）；添加快捷配置支持「新建」或「选择已存在快捷配置」
+
+### 变更
+- 移除预设功能（`serialPortTerminal.serialConfigPresets` 与预设管理界面）
+- 手动配置参数改为 settings 驱动：波特率/帧格式改为下拉（新增 `serialPortTerminal.baudRates` / `serialPortTerminal.frameFormats`，单值时跳过）
+- 旧「按设备分区」的已存配置自动无损迁移为「全局池 + 每设备引用」格式
+
 ## [1.2.0]
 
 ### 新增

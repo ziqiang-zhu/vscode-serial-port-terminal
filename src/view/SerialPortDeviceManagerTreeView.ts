@@ -3,7 +3,6 @@ import { SerialPortDeviceDetector, SerialPortDevicesChangeEvent } from '../Seria
 import { SerialPortConnectionService } from '../SerialPortConnection/SerialPortConnectionService';
 import { SerialPortConfigStore } from '../SerialPortConfig/SerialPortConfigStore';
 import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary, serialConfigEquals } from '../SerialPortConfig/SerialPortQuickConfig';
-import { readSerialPortPresets } from '../SerialPortConfig/SerialPortPresets';
 import { pickSerialConfig } from '../SerialPortConfig/SerialPortConfigWizard';
 import { SerialPortDeviceTreeItem } from './SerialPortDeviceTreeItem';
 import { SerialPortQuickConfigTreeItem } from './SerialPortQuickConfigTreeItem';
@@ -145,7 +144,6 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     }
     const identity = item.device.identity;
     const saved = this.configStore.getConfigs(identity);
-    const presets = readSerialPortPresets();
     const lastUsed = this.configStore.getLastUsedConfig(identity);
     const orderedSaved = lastUsed
       ? [...saved].sort(
@@ -166,16 +164,6 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
           detail: formatSerialConfigDescription(quickConfig.config),
           config: quickConfig.config,
           configName: quickConfig.name
-        });
-      }
-    }
-    if (presets.length > 0) {
-      items.push({ label: vscode.l10n.t('Presets'), kind: vscode.QuickPickItemKind.Separator });
-      for (const preset of presets) {
-        items.push({
-          label: preset.label,
-          description: formatSerialConfigDescription(preset.config),
-          config: preset.config
         });
       }
     }
@@ -234,6 +222,24 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
 
   private async addQuickConfig(item: SerialPortDeviceTreeItem): Promise<void> {
     const identity = item.device.identity;
+    const action = await vscode.window.showQuickPick(
+      [
+        { label: vscode.l10n.t('$(add) New quick config'), value: 'new' },
+        { label: vscode.l10n.t('$(link) Choose existing quick config'), value: 'attach' }
+      ],
+      { placeHolder: vscode.l10n.t('Add quick config') }
+    );
+    if (!action) {
+      return;
+    }
+    if (action.value === 'attach') {
+      await this.attachQuickConfig(item, identity);
+    } else {
+      await this.createQuickConfig(item, identity);
+    }
+  }
+
+  private async createQuickConfig(item: SerialPortDeviceTreeItem, identity: string): Promise<void> {
     const name = await vscode.window.showInputBox({
       prompt: vscode.l10n.t('Enter a config name'),
       value: vscode.l10n.t('Config {0}', this.configStore.getConfigs(identity).length + 1),
@@ -242,23 +248,32 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (!name) {
       return;
     }
-    const presets = readSerialPortPresets();
-    if (presets.length === 0) {
-      vscode.window.showWarningMessage(vscode.l10n.t('No presets available: add some in settings (serialPortTerminal.serialConfigPresets)'));
+    const config = await pickSerialConfig();
+    if (!config) {
       return;
     }
-    const preset = await vscode.window.showQuickPick(
-      presets.map(p => ({
-        label: p.label,
-        description: formatSerialConfigDescription(p.config),
-        config: p.config
+    this.configStore.add(identity, name, config);
+    await this.treeView.reveal(item, { expand: true, focus: true });
+  }
+
+  private async attachQuickConfig(item: SerialPortDeviceTreeItem, identity: string): Promise<void> {
+    const unattached = this.configStore.getUnattachedConfigs(identity);
+    if (unattached.length === 0) {
+      vscode.window.showInformationMessage(vscode.l10n.t('No existing quick configs to reuse'));
+      return;
+    }
+    const picked = await vscode.window.showQuickPick(
+      unattached.map(c => ({
+        label: c.name,
+        description: formatSerialConfigDescription(c.config),
+        configId: c.id
       })),
-      { placeHolder: vscode.l10n.t('Select a preset parameter combo (baud rate/data bits/parity/stop bits/flow control)'), matchOnDescription: true }
+      { placeHolder: vscode.l10n.t('Choose an existing quick config'), matchOnDescription: true }
     );
-    if (!preset) {
+    if (!picked) {
       return;
     }
-    this.configStore.add(identity, name, preset.config);
+    this.configStore.attach(identity, picked.configId);
     await this.treeView.reveal(item, { expand: true, focus: true });
   }
  

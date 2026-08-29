@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { SerialConfig, SerialPortQuickConfig } from './SerialPortQuickConfig';
 
-const STORAGE_KEY = 'serialPortQuickConfigs';
+const POOL_KEY = 'serialPortQuickConfigs';
+const REFS_KEY = 'serialPortDeviceConfigRefs';
 const LAST_USED_KEY = 'serialPortLastUsedConfigs';
 const VALID_DATA_BITS = [5, 6, 7, 8];
 const VALID_STOP_BITS = [1, 1.5, 2];
@@ -12,59 +13,65 @@ export class SerialPortConfigStore {
   private _onDidChangeConfigs = new vscode.EventEmitter<string>();
   readonly onDidChangeConfigs = this._onDidChangeConfigs.event;
 
-  private configs: Record<string, SerialPortQuickConfig[]> | undefined;
+  private pool: SerialPortQuickConfig[] | undefined;
+  private refs: Record<string, string[]> | undefined;
 
-  constructor(private readonly storage: vscode.Memento) {}
+  constructor(private readonly storage: vscode.Memento) {
+    this.migrate();
+  }
 
   getConfigs(identity: string): SerialPortQuickConfig[] {
-    return this.read()[identity] ?? [];
+    const ids = this.readRefs()[identity] ?? [];
+    const pool = this.readPool();
+    return ids
+      .map(id => pool.find(c => c.id === id))
+      .filter((c): c is SerialPortQuickConfig => c !== undefined);
+  }
+
+  getAllConfigs(): SerialPortQuickConfig[] {
+    return [...this.readPool()];
+  }
+
+  getUnattachedConfigs(identity: string): SerialPortQuickConfig[] {
+    const attached = new Set(this.readRefs()[identity] ?? []);
+    return this.readPool().filter(c => !attached.has(c.id));
   }
 
   add(identity: string, name: string, config: SerialConfig): SerialPortQuickConfig {
     const trimmedName = this.assertValidName(identity, name);
     this.assertValidConfig(config);
     const quickConfig: SerialPortQuickConfig = { id: this.generateId(), name: trimmedName, config };
-    const all = this.read();
-    const deviceConfigs = all[identity] ?? [];
-    deviceConfigs.push(quickConfig);
-    all[identity] = deviceConfigs;
-    void this.storage.update(STORAGE_KEY, all);
+    this.writePool([...this.readPool(), quickConfig]);
+    this.attachRef(identity, quickConfig.id);
     this._onDidChangeConfigs.fire(identity);
     return quickConfig;
   }
 
+  attach(identity: string, configId: string): void {
+    if (!this.readPool().some(c => c.id === configId)) {
+      throw new Error(vscode.l10n.t('Config not found'));
+    }
+    this.attachRef(identity, configId);
+    this._onDidChangeConfigs.fire(identity);
+  }
+
   rename(identity: string, id: string, newName: string): void {
-    const all = this.read();
-    const deviceConfigs = all[identity] ?? [];
-    const index = deviceConfigs.findIndex(c => c.id === id);
+    const pool = this.readPool();
+    const index = pool.findIndex(c => c.id === id);
     if (index < 0) {
       return;
     }
-    const current = deviceConfigs[index];
+    const current = pool[index];
     if (!current) {
       return;
     }
-    deviceConfigs[index] = {
-      id: current.id,
-      config: current.config,
-      name: this.assertValidName(identity, newName, id)
-    };
-    void this.storage.update(STORAGE_KEY, all);
+    pool[index] = { id: current.id, config: current.config, name: this.assertValidName(identity, newName, id) };
+    this.writePool(pool);
     this._onDidChangeConfigs.fire(identity);
   }
 
   remove(identity: string, id: string): void {
-    const all = this.read();
-    const deviceConfigs = all[identity] ?? [];
-    const index = deviceConfigs.findIndex(c => c.id === id);
-    if (index < 0) {
-      return;
-    }
-    deviceConfigs.splice(index, 1);
-    if (deviceConfigs.length === 0) {
-      delete all[identity];
-    }
-    void this.storage.update(STORAGE_KEY, all);
+    this.detachRef(identity, id);
     this._onDidChangeConfigs.fire(identity);
   }
 
@@ -82,11 +89,85 @@ export class SerialPortConfigStore {
     this._onDidChangeConfigs.dispose();
   }
 
-  private read(): Record<string, SerialPortQuickConfig[]> {
-    if (!this.configs) {
-      this.configs = this.storage.get<Record<string, SerialPortQuickConfig[]>>(STORAGE_KEY) ?? {};
+  private attachRef(identity: string, id: string): void {
+    const refs = this.readRefs();
+    const ids = refs[identity] ?? [];
+    if (!ids.includes(id)) {
+      ids.push(id);
+      refs[identity] = ids;
+      this.writeRefs(refs);
     }
-    return this.configs;
+  }
+
+  private detachRef(identity: string, id: string): void {
+    const refs = this.readRefs();
+    const ids = refs[identity];
+    if (!ids) {
+      return;
+    }
+    const next = ids.filter(x => x !== id);
+    if (next.length === 0) {
+      delete refs[identity];
+    } else {
+      refs[identity] = next;
+    }
+    this.writeRefs(refs);
+    const stillReferenced = Object.values(refs).some(list => list.includes(id));
+    if (!stillReferenced) {
+      this.writePool(this.readPool().filter(c => c.id !== id));
+    }
+  }
+
+  private readPool(): SerialPortQuickConfig[] {
+    if (!this.pool) {
+      const raw = this.storage.get<unknown>(POOL_KEY);
+      this.pool = Array.isArray(raw) ? (raw as SerialPortQuickConfig[]) : [];
+    }
+    return this.pool;
+  }
+
+  private writePool(pool: SerialPortQuickConfig[]): void {
+    this.pool = pool;
+    void this.storage.update(POOL_KEY, pool);
+  }
+
+  private readRefs(): Record<string, string[]> {
+    if (!this.refs) {
+      this.refs = this.storage.get<Record<string, string[]>>(REFS_KEY) ?? {};
+    }
+    return this.refs;
+  }
+
+  private writeRefs(refs: Record<string, string[]>): void {
+    this.refs = refs;
+    void this.storage.update(REFS_KEY, refs);
+  }
+
+  // 旧格式（Record<identity, SerialPortQuickConfig[]>）→ 新格式（全局池 + 每设备引用）无损迁移。
+  private migrate(): void {
+    const raw = this.storage.get<unknown>(POOL_KEY);
+    if (Array.isArray(raw) || raw === undefined) {
+      return;
+    }
+    const old = raw as Record<string, SerialPortQuickConfig[]>;
+    const pool: SerialPortQuickConfig[] = [];
+    const byId = new Map<string, SerialPortQuickConfig>();
+    const refs: Record<string, string[]> = {};
+    for (const [identity, configs] of Object.entries(old)) {
+      const ids: string[] = [];
+      for (const config of configs) {
+        if (!byId.has(config.id)) {
+          byId.set(config.id, config);
+          pool.push(config);
+        }
+        ids.push(config.id);
+      }
+      refs[identity] = ids;
+    }
+    this.pool = pool;
+    this.refs = refs;
+    void this.storage.update(POOL_KEY, pool);
+    void this.storage.update(REFS_KEY, refs);
   }
 
   private assertValidName(identity: string, name: string, excludeId?: string): string {

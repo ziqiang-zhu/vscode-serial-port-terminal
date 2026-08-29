@@ -2,6 +2,16 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.1]
+
+### Added
+- Global quick configs: configs live in a global pool and can be reused across devices (reference counting manages the lifecycle); adding a quick config supports "new" or "reuse an existing quick config"
+
+### Changed
+- Remove presets (`serialPortTerminal.serialConfigPresets` and the preset management UI)
+- Manual configuration is now settings-driven: baud rate / frame format are dropdowns (new `serialPortTerminal.baudRates` / `serialPortTerminal.frameFormats`; skipped when there is a single value)
+- Migrate legacy per-device configs losslessly to the new "global pool + per-device references" format
+
 ## [1.2.0]
 
 ### Added
