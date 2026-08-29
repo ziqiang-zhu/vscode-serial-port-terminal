@@ -123,11 +123,14 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
 
   getChildren(element?: ViewItem): Thenable<ViewItem[]> {
     if (element instanceof SerialPortDeviceTreeItem) {
-      return Promise.resolve(
-        this.configStore
-          .getConfigs(element.device.identity)
-          .map(config => new SerialPortQuickConfigTreeItem(element.device, config))
-      );
+      const identity = element.device.identity;
+      const global = this.configStore
+        .getGlobalConfigs(identity)
+        .map(config => new SerialPortQuickConfigTreeItem(element.device, config));
+      const legacy = this.configStore
+        .getLegacyConfigs(identity)
+        .map(config => new SerialPortQuickConfigTreeItem(element.device, config, true));
+      return Promise.resolve([...global, ...legacy]);
     }
     return Promise.resolve([...this.items.values()]);
   }
@@ -324,7 +327,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (!trimmed) {
       return vscode.l10n.t('Name cannot be empty');
     }
-    if (this.configStore.getConfigs(identity).some(c => c.id !== excludeId && c.name === trimmed)) {
+    if (this.configStore.getGlobalConfigs(identity).some(c => c.id !== excludeId && c.name === trimmed)) {
       return vscode.l10n.t('Name "{0}" already exists', trimmed);
     }
     return undefined;

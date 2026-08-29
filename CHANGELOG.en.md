@@ -2,6 +2,15 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.3]
+
+### Fixed
+- Fix quick configs being lost, or new same-parameter configs being falsely rejected with "config already exists", after upgrading from an older version: legacy configs are kept as-is (still shown under each device, visible and deletable) and are no longer migrated
+- Support both legacy storage shapes: the per-device object from v1.2.0 and earlier, and the global array produced by the v1.2.1/1.2.2 migration; each shape is parsed on read so legacy configs remain visible and deletable after upgrading to v1.2.3
+
+### Changed
+- Split quick config storage into two keys: legacy `serialPortQuickConfigs` (per-device) stays read-only for display and deletion; new configs go into `serialPortQuickConfigPool` (global pool) + `serialPortDeviceConfigRefs` (per-device references), with no conflict and no version marker
+
 ## [1.2.2]
 
 ### Fixed

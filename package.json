@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -196,7 +196,7 @@
         },
         {
           "command": "serialPortQuickConfig.remove",
-          "when": "view == serialPortDeviceList && viewItem == serialPortQuickConfig"
+          "when": "view == serialPortDeviceList && viewItem =~ /^serialPortQuickConfig/"
         },
         {
           "command": "serialPortMacro.send",
