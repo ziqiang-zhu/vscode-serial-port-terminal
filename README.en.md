@@ -62,6 +62,16 @@ The following commands require selecting a device or quick-config node in the de
 | `serialPortQuickConfig.rename` | Rename | Rename the selected quick config |
 | `serialPortQuickConfig.remove` | Remove | Delete the selected quick config |
 
+### Macro Commands (sidebar "Commands / Macros" view)
+
+The following commands operate in the "Commands / Macros" view, triggered via the title-bar button, inline button, or context menu:
+
+| Command ID | Title | Description |
+|---|---|---|
+| `serialPortMacro.add` | Add Macro | Add a macro via the view title-bar button |
+| `serialPortMacro.send` | Send Macro | Send the selected macro to the active serial device |
+| `serialPortMacro.remove` | Remove Macro | Delete the selected macro |
+
 ## ⚙️ Configuration
 
 > ⚠️ **About the `Ctrl+S` shortcut**: `serialPortTerminal.logShortcutsEnabled` is disabled by default. When enabled, pressing `Ctrl+S` inside the serial terminal is intercepted to start/stop recording and is **NOT sent to the device**.

@@ -66,7 +66,8 @@ classDiagram
 |---|---|
 | `serialPortDevice.disconnected` | 未连接（设备级连接按钮显示于此态，有/无快捷配置一致） |
 | `serialPortDevice.connecting` / `serialPortDevice.connected` | 与配置无关，维持不变 |
-| `serialPortQuickConfig` | 配置子节点（重命名/删除菜单匹配此值） |
+| `serialPortQuickConfig` | 新配置子节点（重命名/删除菜单匹配此值） |
+| `serialPortQuickConfigLegacy` | 旧版本配置子节点（仅删除菜单匹配，不提供重命名、不高亮当前连接） |
 
 connecting 态不匹配任何菜单，用于禁用操作。原"hasConfigs 按钮迁移"方案已取消：连接入口统一保留在设备上（见 SerialPortQuickConfig设计.md 6.3）。
 

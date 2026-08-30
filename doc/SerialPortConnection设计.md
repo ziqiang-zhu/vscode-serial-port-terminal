@@ -103,7 +103,7 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 | 数据 | 键 | 是否持久化 | 说明 |
 |---|---|---|---|
 | 设备列表 | —— | 否 | 硬件事实，每次启动重新枚举 |
-| 命名配置集合（SerialPortQuickConfig[]） | 设备身份 | 是 | 用户配置，换口重插自动找回，归 ConfigStore 管理 |
+| 命名配置集合（SerialPortQuickConfig[]） | 全局池 `serialPortQuickConfigPool` + 每设备引用 `serialPortDeviceConfigRefs`（引用键=设备身份） | 是 | 用户配置，全局池复用/引用计数，换口重插按身份找回，归 ConfigStore 管理 |
 | 上次使用配置（SerialConfig） | 设备身份 | 是 | 选择器置顶"上次使用"（已实现）；启动后自动恢复连接仍属 M6 |
 | 当前连接状态 | 路径 | 否 | 随进程结束而失效 |
 

@@ -62,6 +62,16 @@
 | `serialPortQuickConfig.rename` | 重命名 | 重命名选中的快捷配置 |
 | `serialPortQuickConfig.remove` | 删除 | 删除选中的快捷配置 |
 
+### 宏命令（侧边栏「命令/宏」视图）
+
+以下命令在「命令/宏」视图中操作，经标题栏按钮、行内按钮或右键菜单触发：
+
+| 命令 ID | 名称 | 说明 |
+|---|---|---|
+| `serialPortMacro.add` | 新增宏 | 在「命令/宏」视图标题栏新增一个宏 |
+| `serialPortMacro.send` | 发送宏 | 将选中的宏发送到当前活动串口设备 |
+| `serialPortMacro.remove` | 删除宏 | 删除选中的宏 |
+
 ## ⚙️ 配置
 
 > ⚠️ **关于 `Ctrl+S` 快捷键**：`serialPortTerminal.logShortcutsEnabled` 默认关闭。开启后，在串口终端内按 `Ctrl+S` 会被扩展拦截用于开始/停止记录，**不会发送给设备**（设备端收不到该按键）。
