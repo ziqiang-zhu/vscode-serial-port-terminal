@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { SerialPortConsumer } from '../../SerialPortConnection/SerialPortConsumer';
 import { SerialPortLogDataParser } from './SerialPortLogDataParser';
@@ -11,9 +12,14 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
   private paused = false;
   private fileCreated = false;
   private readonly dataParser = new SerialPortLogDataParser();
+  private readonly maxBytes: number;
+  private segmentIndex = 0;
+  private segmentBytes = 0;
 
-  constructor(private readonly filePath: string) {
+  constructor(private readonly baseFilePath: string) {
     super();
+    const maxKb = vscode.workspace.getConfiguration('serialPortTerminal').get<number>('logMaxFileSize', 0);
+    this.maxBytes = Number.isFinite(maxKb) && maxKb > 0 ? maxKb * 1024 : 0;
   }
 
   onData(data: Buffer): void {
@@ -26,6 +32,10 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
     }
     this.ensureStream();
     this.stream?.write(processed);
+    this.segmentBytes += processed.length;
+    if (this.maxBytes > 0 && this.segmentBytes >= this.maxBytes) {
+      this.rotate();
+    }
   }
 
   onClosed(): void {
@@ -54,16 +64,32 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
     if (this.stream) {
       return;
     }
-    this.stream = fs.createWriteStream(this.filePath, { flags: 'a' });
+    this.stream = fs.createWriteStream(this.currentSegmentPath(), { flags: 'a' });
     this.stream.on('error', () => {});
     this.fileCreated = true;
+  }
+
+  private rotate(): void {
+    this.closeStream();
+    this.segmentIndex += 1;
+    this.segmentBytes = 0;
+  }
+
+  private currentSegmentPath(): string {
+    if (this.segmentIndex === 0) {
+      return this.baseFilePath;
+    }
+    const ext = path.extname(this.baseFilePath);
+    const stem = ext ? this.baseFilePath.slice(0, -ext.length) : this.baseFilePath;
+    const number = String(this.segmentIndex + 1).padStart(3, '0');
+    return `${stem}_${number}${ext}`;
   }
 
   private notifySaved(): void {
     if (!this.fileCreated) {
       return;
     }
-    void vscode.window.showInformationMessage(vscode.l10n.t('File saved to: {0}', this.filePath));
+    void vscode.window.showInformationMessage(vscode.l10n.t('File saved to: {0}', this.baseFilePath));
   }
 
   private closeStream(): void {

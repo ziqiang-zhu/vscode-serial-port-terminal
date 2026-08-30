@@ -13,9 +13,9 @@ SerialPortLogRecorder 是日志记录 Consumer：把串口**接收**的原始字
 
 - **独立数据流**：作为 Consumer 注册到 Connection，直接接收广播的 `onData`，不经 Terminal 转发；
 - **生命周期托管**：创建 / 暂停 / 继续 / 停止均由 Terminal 发起；断开或关闭终端时随 Connection 销毁自动收尾；
-- **流式写入**：用 `fs.createWriteStream` 追加写入，为后续「按大小分割」留余地；
+- **流式写入**：用 `fs.createWriteStream` 追加写入，支持按大小分割（见 8.1）；
 - **可配置目录**：保存目录可配置，默认落在 Windows 文档目录；
-- **最小实现**：第一阶段只落盘原始字节流，转义、分割、时间戳等留待后续。
+- **最小实现**：落盘原始字节流；ANSI 剥离、每行时间戳、按大小分割等已实现（见 6 数据流与 8 文件与配置）。
 
 ## 3. 模块关系
 
@@ -33,9 +33,9 @@ class SerialPortLogRecorder extends SerialPortConsumer {
   readonly id = 'serialPortLogRecorder';
   readonly displayName = 'Serial Port Log Recorder';
 
-  constructor(filePath: string);       // 记录目标文件路径，首次收到数据时才创建文件
-  onData(data: Buffer): void;          // 未暂停时写文件（首次写入时惰性创建文件流）
-  onClosed(): void;                    // 关闭文件流；若有数据写入则提示「文件已保存到 <path>」
+  constructor(baseFilePath: string);   // 记录目标「主体」文件路径（分段时派生 _002/_003…），首次收到数据时才创建文件
+  onData(data: Buffer): void;          // 未暂停时写文件；累计超过大小阈值则滚动到下一段
+  onClosed(): void;                    // 关闭文件流；若有数据写入则提示「文件已保存到 <主体文件路径>」
   pause(): void;                       // 暂停写入（仍注册、仍接收广播）
   resume(): void;                      // 恢复写入
   isPaused(): boolean;
@@ -140,12 +140,20 @@ context key：
 
 ## 8. 文件与配置
 
+### 8.1 文件分割（按大小）
+
+- **开关**：`logMaxFileSize` = `0`（默认）为不分割；设为 ≥1（单位 KB）时启用分割，最小阈值 1KB（建议 32768 = 32MB）；
+- **命名**：主体 + 编号，平铺同目录、不建文件夹 —— `COM3_20250112_153045.log`（第 1 段，无编号）、`COM3_20250112_153045_002.log`、`_003.log`…（编号 3 位零填充，插在扩展名前）；
+- **触发**：启用时每段累计写盘字节数超过阈值（KB→字节）即关闭当前流、段号 +1、开下一段、计数清零；按 chunk 边界分割（原始字节流跨行切可接受，单块超阈值时整块写入再切）；
+- **通知**：保持不变，始终提示「文件已保存到 <主体文件路径>」（即第 1 段路径，不含分段编号），不额外提示段数。
+
 | 项 | 方案 |
 |---|---|
 | 写入 | `fs.createWriteStream`（流式追加，首次收到数据时才创建文件） |
 | 文件名 | 由模板生成，默认 `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log`，如 `COM3_20250112_153045.log`；占位符：`{device}`=设备名、`{YYYY}{MM}{DD}{HH}{mm}{ss}`=时间戳；替换后清洗非法字符 `\ / : * ? " < > \|` 为 `_` |
 | 配置项 | `serialPortTerminal.logDirectory`（string，默认空） |
 | 配置项 | `serialPortTerminal.logFilenameTemplate`（string，默认 `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log`，设置界面经 `pattern` 校验非法字符） |
+| 配置项 | `serialPortTerminal.logMaxFileSize`（integer，单位 KB，默认 `0`=不分割，`minimum: 0`；≥1 时启用，建议 `32768`=32MB） |
 | 时间戳 | 开启后每行日志前加时间戳（默认关闭，下次开始记录时生效），占位符 `{YYYY}{MM}{DD}{HH}{mm}{ss}{SSS}`（`{SSS}`=毫秒） |
 | 配置项 | `serialPortTerminal.logTimestampEnabled`（boolean，默认 false） |
 | 配置项 | `serialPortTerminal.logTimestampFormat`（string，默认 `[{HH}:{mm}:{ss}.{SSS}] `） |
@@ -175,6 +183,8 @@ classDiagram
         +resume()
         -stream: WriteStream
         -paused: boolean
+        -segmentIndex: number
+        -segmentBytes: number
     }
     class SerialPortLogDataParser {
         +process(data): Buffer
@@ -192,5 +202,4 @@ classDiagram
 
 ## 10. 后续演进（本次不实现）
 
-- **文件分割**：按大小分割，超出后切分到同名文件夹；
-- **更多配置**：分割大小、时间戳开关与间隔、编码等。
+- **编码配置**：日志文件字符编码可选（当前固定 UTF-8）。

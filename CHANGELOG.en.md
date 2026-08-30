@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.4]
+
+### Added
+- Split logs by size: new `serialPortTerminal.logMaxFileSize` (integer, in KB, default `0` = no splitting); when set to 1 or more, oversized logs are split into numbered files (`xxx.log`, `xxx_002.log`…, flat in the same directory, and the saved notification keeps showing the base file name)
+
 ## [1.2.3]
 
 ### Fixed

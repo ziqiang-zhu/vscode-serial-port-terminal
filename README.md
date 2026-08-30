@@ -84,6 +84,7 @@
 | `serialPortTerminal.frameFormats` | 10 个常用组合 | 手动配置时可选的帧格式（数据位-校验-停止位）列表 |
 | `serialPortTerminal.logDirectory` | 空 | 日志保存目录，留空使用默认（`Documents/SerialPortTerminal/Log`） |
 | `serialPortTerminal.logFilenameTemplate` | `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log` | 日志文件名模板（占位符：设备名 / 年月日时分秒） |
+| `serialPortTerminal.logMaxFileSize` | `0` | 单个日志文件最大大小（KB），`0` = 不分割；≥1 时超限自动分割为带编号文件 |
 | `serialPortTerminal.logTimestampEnabled` | `false` | 是否在每行日志前加时间戳（下次开始记录时生效） |
 | `serialPortTerminal.logTimestampFormat` | `[{HH}:{mm}:{ss}.{SSS}] ` | 时间戳格式（占位符：年月日时分秒毫秒） |
 | `serialPortTerminal.logShortcutsEnabled` | `false` | 启用终端内 `Ctrl+S` 快捷键开始/停止记录（⚠️ 启用后 `Ctrl+S` 被拦截，不发送给设备） |
@@ -94,7 +95,7 @@
 - Parser 与字符转义（分帧、不可见字符可视化）
 - 多 Consumer 二级菜单管理
 - 启动自动恢复（上次设备与配置）
-- 日志增强：按大小分割、更多配置（分割大小、时间戳开关/间隔、编码）
+- 日志增强：编码配置（当前固定 UTF-8）
 
 ## 🛠️ 开发
 

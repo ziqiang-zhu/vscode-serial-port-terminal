@@ -84,6 +84,7 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 | `serialPortTerminal.frameFormats` | 10 common combos | Frame formats (data bits-parity-stop bits) offered in the manual configuration picker |
 | `serialPortTerminal.logDirectory` | empty | Log directory; empty uses the default (`Documents/SerialPortTerminal/Log`) |
 | `serialPortTerminal.logFilenameTemplate` | `{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log` | Log filename template (placeholders: device name / date and time) |
+| `serialPortTerminal.logMaxFileSize` | `0` | Maximum size of a single log file in KB; `0` disables splitting, `≥1` splits oversized logs into numbered files |
 | `serialPortTerminal.logTimestampEnabled` | `false` | Prepend a timestamp to each log line (takes effect on the next recording) |
 | `serialPortTerminal.logTimestampFormat` | `[{HH}:{mm}:{ss}.{SSS}] ` | Timestamp format (placeholders: date and time with milliseconds) |
 | `serialPortTerminal.logShortcutsEnabled` | `false` | Enable the in-terminal `Ctrl+S` shortcut to start/stop recording (⚠️ when enabled, `Ctrl+S` is intercepted and not sent to the device) |
@@ -94,7 +95,7 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 - Parser and character escaping (framing, invisible-character visualization)
 - Multi-consumer secondary menu management
 - Auto-restore on startup (last device and config)
-- Log enhancements: size-based splitting
+- Log enhancements: configurable encoding (currently fixed to UTF-8)
 
 ## 🛠️ Development
 

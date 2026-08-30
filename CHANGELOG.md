@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.2.4]
+
+### 新增
+- 日志按大小分割：新增 `serialPortTerminal.logMaxFileSize`（整数，单位 KB，默认 `0` = 不分割），设为 ≥1 时，超出该大小的日志自动分割为带编号文件（`xxx.log`、`xxx_002.log`…，平铺同目录，保存提示仍显示主体文件名）
+
 ## [1.2.3]
 
 ### 修复

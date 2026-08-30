@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -235,6 +235,12 @@
           "pattern": "^[^\\\\/:*?\"<>|]+$",
           "patternErrorMessage": "%serialPortTerminal.logFilenameTemplate.patternError%",
           "description": "%serialPortTerminal.logFilenameTemplate.description%"
+        },
+        "serialPortTerminal.logMaxFileSize": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "%serialPortTerminal.logMaxFileSize.description%"
         },
         "serialPortTerminal.logTimestampEnabled": {
           "type": "boolean",
