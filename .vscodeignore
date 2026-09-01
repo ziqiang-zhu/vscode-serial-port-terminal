@@ -2,6 +2,7 @@
 src/**
 doc/**
 scripts/**
+images/logo_design.pptx
 
 # Dev and build config
 .vscode/**
