@@ -5,10 +5,12 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
 import { SerialPortLogRecorder } from '../SerialPortLogRecorder/SerialPortLogRecorder';
+import { SerialPortAgentBridge } from '../SerialPortAgentBridge/SerialPortAgentBridge';
 
 const CONTEXT_FOCUS = 'serialPortTerminal.focus';
 const CONTEXT_RECORDING = 'serialPortTerminal.recording';
 const CONTEXT_PAUSED = 'serialPortTerminal.paused';
+const CONTEXT_AGENT_BRIDGE = 'serialPortTerminal.agentBridgeActive';
 
 const terminalInstances = new Map<vscode.Terminal, SerialPortTerminal>();
 
@@ -94,6 +96,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
   private pty: SerialPortPseudoTerminal | undefined;
   private hostPath = '';
   private logRecorder: SerialPortLogRecorder | undefined;
+  private agentBridge: SerialPortAgentBridge | undefined;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -122,6 +125,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
   onClosed(): void {
     this.pty?.notifyDisconnected(this.hostPath);
     this.logRecorder = undefined;
+    this.agentBridge = undefined;
     this.detachTerminal();
   }
 
@@ -173,6 +177,69 @@ export class SerialPortTerminal extends SerialPortConsumer {
 
   isPaused(): boolean {
     return this.logRecorder?.isPaused() ?? false;
+  }
+
+  async startBridge(): Promise<void> {
+    if (this.agentBridge) {
+      return;
+    }
+    const port = await this.pickAgentBridgePort();
+    if (port === undefined) {
+      return;
+    }
+    const bridge = new SerialPortAgentBridge(this.getAgentBridgeHost(), port);
+    this.agentBridge = bridge;
+    this.addConsumer(bridge);
+    refreshLogContext();
+    try {
+      const address = await bridge.listen();
+      void vscode.window.showInformationMessage(
+        vscode.l10n.t('Agent Bridge listening at {0}', `${address.host}:${address.port}`)
+      );
+    } catch (error) {
+      this.agentBridge = undefined;
+      this.removeConsumer(bridge.id);
+      refreshLogContext();
+      void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
+    }
+  }
+
+  stopBridge(): void {
+    if (!this.agentBridge) {
+      return;
+    }
+    const bridge = this.agentBridge;
+    this.agentBridge = undefined;
+    this.removeConsumer(bridge.id);
+    refreshLogContext();
+  }
+
+  isBridgeActive(): boolean {
+    return this.agentBridge !== undefined;
+  }
+
+  private getAgentBridgeHost(): string {
+    const host = vscode.workspace.getConfiguration('serialPortTerminal').get<string>('agentBridge.host', '127.0.0.1');
+    return host && host.trim() ? host : '127.0.0.1';
+  }
+
+  private async pickAgentBridgePort(): Promise<number | undefined> {
+    const configured = vscode.workspace.getConfiguration('serialPortTerminal').get<number[]>('agentBridge.ports', [2000]);
+    const ports = (configured ?? [])
+      .map(p => Number(p))
+      .filter(p => Number.isInteger(p) && p >= 1 && p <= 65535);
+    if (ports.length === 0) {
+      void vscode.window.showErrorMessage(vscode.l10n.t('No Agent Bridge port configured'));
+      return undefined;
+    }
+    if (ports.length === 1) {
+      return ports[0];
+    }
+    const picked = await vscode.window.showQuickPick(
+      ports.map(p => ({ label: String(p) })),
+      { placeHolder: vscode.l10n.t('Select Agent Bridge port') }
+    );
+    return picked ? Number(picked.label) : undefined;
   }
 
   private detachTerminal(): void {
@@ -262,6 +329,7 @@ function updateLogContext(instance: SerialPortTerminal | undefined): void {
   void vscode.commands.executeCommand('setContext', CONTEXT_FOCUS, instance !== undefined);
   void vscode.commands.executeCommand('setContext', CONTEXT_RECORDING, instance?.isRecording() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_PAUSED, instance?.isPaused() ?? false);
+  void vscode.commands.executeCommand('setContext', CONTEXT_AGENT_BRIDGE, instance?.isBridgeActive() ?? false);
 }
 
 function refreshLogContext(): void {
@@ -277,6 +345,8 @@ export function registerSerialPortLogCommands(context: vscode.ExtensionContext):
     vscode.commands.registerCommand('serialPortLog.pause', () => getActiveInstance()?.pauseLog()),
     vscode.commands.registerCommand('serialPortLog.resume', () => getActiveInstance()?.resumeLog()),
     vscode.commands.registerCommand('serialPortLog.stop', () => getActiveInstance()?.stopLog()),
+    vscode.commands.registerCommand('serialPortAgentBridge.start', () => void getActiveInstance()?.startBridge()),
+    vscode.commands.registerCommand('serialPortAgentBridge.stop', () => getActiveInstance()?.stopBridge()),
     vscode.window.onDidChangeActiveTerminal(terminal => {
       updateLogContext(terminal ? terminalInstances.get(terminal) : undefined);
     }),

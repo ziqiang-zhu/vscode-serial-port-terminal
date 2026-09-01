@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.5]
+
+### Added
+- Add AgentBridge: bridge a serial connection to a local TCP port so external AI agents can read/write the embedded serial console (multi-client, real-time raw byte passthrough, on-demand terminal title-bar toggle, configurable port)
+
 ## [1.2.4]
 
 ### Added
