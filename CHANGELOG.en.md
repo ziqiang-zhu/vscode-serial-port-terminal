@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.6]
+
+### Added
+- AgentBridge UI and config: add "Start / Stop Agent Bridge" buttons to the terminal title bar (`$(broadcast)` / `$(record)` icons), and new settings `serialPortTerminal.agentBridge.host` (default `127.0.0.1`) and `serialPortTerminal.agentBridge.ports` (default `[2000]`)
+
 ## [1.2.5]
 
 ### Added

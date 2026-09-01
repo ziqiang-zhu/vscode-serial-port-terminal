@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -135,6 +135,18 @@
         "title": "%serialPortMacro.remove.title%",
         "category": "Serial Port Terminal",
         "icon": "$(trash)"
+      },
+      {
+        "command": "serialPortAgentBridge.start",
+        "title": "%serialPortAgentBridge.start.title%",
+        "category": "Serial Port Terminal",
+        "icon": "$(broadcast)"
+      },
+      {
+        "command": "serialPortAgentBridge.stop",
+        "title": "%serialPortAgentBridge.stop.title%",
+        "category": "Serial Port Terminal",
+        "icon": "$(record)"
       }
     ],
     "menus": {
@@ -172,6 +184,16 @@
         {
           "command": "serialPortMacro.add",
           "when": "view == serialPortMacroList",
+          "group": "navigation"
+        },
+        {
+          "command": "serialPortAgentBridge.start",
+          "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.agentBridgeActive",
+          "group": "navigation"
+        },
+        {
+          "command": "serialPortAgentBridge.stop",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.agentBridgeActive",
           "group": "navigation"
         }
       ],
@@ -256,6 +278,17 @@
           "type": "boolean",
           "default": false,
           "description": "%serialPortTerminal.logShortcutsEnabled.description%"
+        },
+        "serialPortTerminal.agentBridge.host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "%serialPortTerminal.agentBridge.host.description%"
+        },
+        "serialPortTerminal.agentBridge.ports": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "default": [2000],
+          "description": "%serialPortTerminal.agentBridge.ports.description%"
         },
         "serialPortTerminal.baudRates": {
           "type": "array",

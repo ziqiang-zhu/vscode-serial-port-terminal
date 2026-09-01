@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.2.6]
+
+### 新增
+- AgentBridge 界面与配置：终端标题栏新增「开启 / 停止 Agent Bridge」按钮（`$(broadcast)` / `$(record)` 图标），新增配置 `serialPortTerminal.agentBridge.host`（默认 `127.0.0.1`）与 `serialPortTerminal.agentBridge.ports`（默认 `[2000]`）
+
 ## [1.2.5]
 
 ### 新增
