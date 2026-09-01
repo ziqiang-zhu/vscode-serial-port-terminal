@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.9]
+
+### Fixed
+- Fix terminal title-bar button reordering: assign explicit `navigation@6/7/8` group orders to the AgentBridge and log buttons so they sit to the right of the native terminal actions and no longer conflict with other extensions' button ordering
+
 ## [1.2.8]
 
 ### Added

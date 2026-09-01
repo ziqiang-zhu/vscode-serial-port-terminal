@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal with an AI-agent TCP bridge",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -162,38 +162,38 @@
           "group": "navigation"
         },
         {
-          "command": "serialPortLog.start",
-          "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.recording",
-          "group": "navigation"
-        },
-        {
-          "command": "serialPortLog.pause",
-          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && !serialPortTerminal.paused",
-          "group": "navigation"
-        },
-        {
-          "command": "serialPortLog.resume",
-          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && serialPortTerminal.paused",
-          "group": "navigation"
-        },
-        {
-          "command": "serialPortLog.stop",
-          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording",
-          "group": "navigation"
-        },
-        {
-          "command": "serialPortMacro.add",
-          "when": "view == serialPortMacroList",
-          "group": "navigation"
-        },
-        {
           "command": "serialPortAgentBridge.start",
           "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.agentBridgeActive",
-          "group": "navigation"
+          "group": "navigation@6"
         },
         {
           "command": "serialPortAgentBridge.stop",
           "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.agentBridgeActive",
+          "group": "navigation@6"
+        },
+        {
+          "command": "serialPortLog.start",
+          "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.recording",
+          "group": "navigation@7"
+        },
+        {
+          "command": "serialPortLog.pause",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && !serialPortTerminal.paused",
+          "group": "navigation@7"
+        },
+        {
+          "command": "serialPortLog.resume",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && serialPortTerminal.paused",
+          "group": "navigation@7"
+        },
+        {
+          "command": "serialPortLog.stop",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording",
+          "group": "navigation@8"
+        },
+        {
+          "command": "serialPortMacro.add",
+          "when": "view == serialPortMacroList",
           "group": "navigation"
         }
       ],
