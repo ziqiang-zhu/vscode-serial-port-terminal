@@ -19,6 +19,7 @@
 - 🏷️ **终端标题带配置名** —— 显示设备路径 + 配置名（或波特率）
 - 💾 **日志保存** —— 终端标题栏「保存/暂停/停止」，有数据才建文件，文件名精确到秒，剥离 ANSI 转义序列（颜色码等）、可选每行时间戳，停止时提示保存路径；可选快捷键 `Ctrl+S`（开始/停止，默认关闭）
 - 📂 **打开日志目录** —— 设备列表标题栏一键在系统文件管理器中打开日志目录
+- 🤖 **AgentBridge** —— 终端标题栏一键把串口桥接到本机 TCP 端口，供外部 AI Agent 读写嵌入式串口终端（多客户端、实时透传）
 - 🌐 **本地化** —— 支持英文 / 简体中文
 
 ## 📦 安装
@@ -49,6 +50,8 @@
 | `serialPortLog.resume` | 继续 | 继续记录日志 |
 | `serialPortLog.stop` | 停止 | 停止记录日志 |
 | `serialPortLog.openDirectory` | 打开日志目录 | 在系统文件管理器中打开日志目录 |
+| `serialPortAgentBridge.start` | 开启 Agent Bridge | 把当前串口桥接到本机 TCP 端口 |
+| `serialPortAgentBridge.stop` | 停止 Agent Bridge | 停止当前串口的 Agent Bridge 桥接 |
 
 ### 设备 / 配置上下文命令
 
@@ -88,6 +91,8 @@
 | `serialPortTerminal.logTimestampEnabled` | `false` | 是否在每行日志前加时间戳（下次开始记录时生效） |
 | `serialPortTerminal.logTimestampFormat` | `[{HH}:{mm}:{ss}.{SSS}] ` | 时间戳格式（占位符：年月日时分秒毫秒） |
 | `serialPortTerminal.logShortcutsEnabled` | `false` | 启用终端内 `Ctrl+S` 快捷键开始/停止记录（⚠️ 启用后 `Ctrl+S` 被拦截，不发送给设备） |
+| `serialPortTerminal.agentBridge.host` | `127.0.0.1` | Agent Bridge 监听地址（默认仅本机） |
+| `serialPortTerminal.agentBridge.ports` | `[2000]` | Agent Bridge 候选端口列表（启动时下拉选择，单值直接使用） |
 
 ## 🗺️ 待开发计划
 

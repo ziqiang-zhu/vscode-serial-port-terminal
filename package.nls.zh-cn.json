@@ -16,6 +16,8 @@
   "serialPortMacro.add.title": "新增宏",
   "serialPortMacro.send.title": "发送宏",
   "serialPortMacro.remove.title": "删除宏",
+  "serialPortAgentBridge.start.title": "开启 Agent Bridge",
+  "serialPortAgentBridge.stop.title": "停止 Agent Bridge",
   "serialPortTerminal.configuration.title": "串口终端",
   "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）",
   "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）",
@@ -26,6 +28,8 @@
   "serialPortTerminal.logTimestampFormat.description": "时间戳格式。可用占位符：{YYYY} 年、{MM} 月、{DD} 日、{HH} 时、{mm} 分、{ss} 秒、{SSS} 毫秒。",
   "serialPortTerminal.logMaxFileSize.description": "单个日志文件的最大大小（KB）。设为 0 表示不分割；设为 ≥1 时，超出该大小的日志会分割为带编号的文件（如 \"..._002.log\"）。",
   "serialPortTerminal.logShortcutsEnabled.description": "在串口终端中启用 Ctrl+S 快捷键以开始/停止记录日志。⚠️ 注意：启用后 Ctrl+S 会被扩展拦截，不会发送给设备。",
+  "serialPortTerminal.agentBridge.host.description": "Agent Bridge 的监听地址（默认仅本机 127.0.0.1）。",
+  "serialPortTerminal.agentBridge.ports.description": "Agent Bridge 的候选端口列表；启动时下拉选择，单值时直接使用。",
   "serialPortTerminal.baudRates.description": "手动配置时可选的波特率列表（正整数）。",
   "serialPortTerminal.frameFormats.description": "手动配置时可选的帧格式（数据位-校验-停止位）列表，如 \"8-N-1\"。"
 }

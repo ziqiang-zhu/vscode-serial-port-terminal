@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.7]
+
+### Changed
+- AgentBridge localization and docs: add English and Chinese strings for command titles, setting descriptions, and runtime messages; update the README and mark the design as implemented
+
 ## [1.2.6]
 
 ### Added

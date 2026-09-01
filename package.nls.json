@@ -16,6 +16,8 @@
   "serialPortMacro.add.title": "Add Macro",
   "serialPortMacro.send.title": "Send Macro",
   "serialPortMacro.remove.title": "Remove Macro",
+  "serialPortAgentBridge.start.title": "Start Agent Bridge",
+  "serialPortAgentBridge.stop.title": "Stop Agent Bridge",
   "serialPortTerminal.configuration.title": "Serial Port Terminal",
   "serialPortTerminal.pollingInterval.description": "Hot-plug polling interval in seconds.",
   "serialPortTerminal.hotPlugEnabled.description": "Enable hot-plug detection (periodic polling of serial devices).",
@@ -26,6 +28,8 @@
   "serialPortTerminal.logTimestampFormat.description": "Timestamp format. Placeholders: {YYYY} year, {MM} month, {DD} day, {HH} hour, {mm} minute, {ss} second, {SSS} millisecond.",
   "serialPortTerminal.logMaxFileSize.description": "Maximum size of a single log file in KB. Set to 0 to disable splitting; when set to 1 or more, oversized logs are split into numbered files (e.g. \"..._002.log\").",
   "serialPortTerminal.logShortcutsEnabled.description": "Enable the Ctrl+S shortcut in the serial terminal to start/stop log recording. WARNING: when enabled, Ctrl+S is intercepted by the extension and is NOT sent to the device.",
+  "serialPortTerminal.agentBridge.host.description": "Listening address for Agent Bridge. Default is localhost only (127.0.0.1).",
+  "serialPortTerminal.agentBridge.ports.description": "Candidate ports for Agent Bridge. When starting, a picker lets you choose one (a single value is used directly).",
   "serialPortTerminal.baudRates.description": "Baud rates offered in the manual configuration picker (positive integers).",
   "serialPortTerminal.frameFormats.description": "Frame formats (data bits-parity-stop bits) offered in the manual configuration picker, e.g. \"8-N-1\"."
 }

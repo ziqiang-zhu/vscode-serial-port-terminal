@@ -58,5 +58,9 @@
   "Enter a macro name": "Enter a macro name",
   "Enter the data to send (use \\r\\n for a line ending)": "Enter the data to send (use \\r\\n for a line ending)",
   "Delete macro \"{0}\"?": "Delete macro \"{0}\"?",
-  "No active serial connection": "No active serial connection"
+  "No active serial connection": "No active serial connection",
+  "Agent Bridge listening at {0}": "Agent Bridge listening at {0}",
+  "Failed to start Agent Bridge: {0}": "Failed to start Agent Bridge: {0}",
+  "No Agent Bridge port configured": "No Agent Bridge port configured",
+  "Select Agent Bridge port": "Select Agent Bridge port"
 }

@@ -19,6 +19,7 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
 - 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
+- 🤖 **AgentBridge** — one-click in the terminal title bar bridges the serial port to a local TCP port so external AI agents can read/write the embedded serial console (multi-client, real-time passthrough)
 - 🌐 **Localization** — English / Simplified Chinese
 
 ## 📦 Installation
@@ -49,6 +50,8 @@ The following commands can be run directly from the Command Palette (`Ctrl+Shift
 | `serialPortLog.resume` | Resume | Resume log recording |
 | `serialPortLog.stop` | Stop | Stop log recording |
 | `serialPortLog.openDirectory` | Open Log Directory | Open the log directory in the system file manager |
+| `serialPortAgentBridge.start` | Start Agent Bridge | Bridge the current serial port to a local TCP port |
+| `serialPortAgentBridge.stop` | Stop Agent Bridge | Stop the Agent Bridge for the current serial port |
 
 ### Device / Config Context Commands
 
@@ -88,6 +91,8 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 | `serialPortTerminal.logTimestampEnabled` | `false` | Prepend a timestamp to each log line (takes effect on the next recording) |
 | `serialPortTerminal.logTimestampFormat` | `[{HH}:{mm}:{ss}.{SSS}] ` | Timestamp format (placeholders: date and time with milliseconds) |
 | `serialPortTerminal.logShortcutsEnabled` | `false` | Enable the in-terminal `Ctrl+S` shortcut to start/stop recording (⚠️ when enabled, `Ctrl+S` is intercepted and not sent to the device) |
+| `serialPortTerminal.agentBridge.host` | `127.0.0.1` | Agent Bridge listening address (localhost only by default) |
+| `serialPortTerminal.agentBridge.ports` | `[2000]` | Candidate ports for Agent Bridge (picker shown when starting, a single value is used directly) |
 
 ## 🗺️ Roadmap
 

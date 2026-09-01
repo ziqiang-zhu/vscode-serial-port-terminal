@@ -1,6 +1,6 @@
 # SerialPortAgentBridge 设计
 
-> 状态：设计中 ｜ 目录：`src/SerialPortConsumer/SerialPortAgentBridge/` ｜ 规范：SerialPortConsumer设计.md ｜ 上位文档：总体架构.md
+> 状态：已实现 ｜ 目录：`src/SerialPortConsumer/SerialPortAgentBridge/` ｜ 规范：SerialPortConsumer设计.md ｜ 上位文档：总体架构.md
 
 ## 1. 定位
 
@@ -128,13 +128,3 @@ classDiagram
   - 客户端接入提示：连接/断开时在终端或状态栏提示客户端数变化；
   - 行尾归一化：CR / LF / CRLF（关联 M3-P2）；
   - **不在范围**：headless（AgentBridge 依附 Terminal，无独立无终端形态）。
-
-## 11. 实施待办（完成后逐项删除）
-
-- [ ] 实现 `SerialPortAgentBridge` Consumer：`net.Server` + `Set<Socket>` 多客户端广播、`listen()`/`onData()`/`onClosed()`
-- [ ] `SerialPortTerminal` 增加 `startBridge()`/`stopBridge()`、端口 QuickPick（读 `agentBridge.ports`，单值跳过）、context key 更新
-- [ ] `package.json`：命令 `serialPortAgentBridge.start`（icon `$(broadcast)`）/ `serialPortAgentBridge.stop`（icon `$(record)`）+ 菜单 + 配置 `agentBridge.host`/`agentBridge.ports`
-- [ ] `package.nls.json` / `package.nls.zh-cn.json`：命令标题 + 配置描述
-- [ ] `l10n/bundle.l10n.json` / `bundle.l10n.zh-cn.json`：运行期文案（启动回显、端口占用、客户端数）
-- [ ] `README.md` / `README.en.md`：功能 + 配置 + 命令
-- [ ] （提交时）更新版本号 + CHANGELOG
