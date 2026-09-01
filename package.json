@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {

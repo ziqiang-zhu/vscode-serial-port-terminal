@@ -62,5 +62,7 @@
   "Agent Bridge listening at {0}": "Agent Bridge listening at {0}",
   "Failed to start Agent Bridge: {0}": "Failed to start Agent Bridge: {0}",
   "No Agent Bridge port configured": "No Agent Bridge port configured",
-  "Select Agent Bridge port": "Select Agent Bridge port"
+  "Select Agent Bridge port": "Select Agent Bridge port",
+  "Agent Bridge: {0} (click to copy)": "Agent Bridge: {0} (click to copy)",
+  "Agent Bridge address copied: {0}": "Agent Bridge address copied: {0}"
 }

@@ -97,6 +97,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
   private hostPath = '';
   private logRecorder: SerialPortLogRecorder | undefined;
   private agentBridge: SerialPortAgentBridge | undefined;
+  private agentBridgeAddress: string | undefined;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -126,6 +127,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
     this.pty?.notifyDisconnected(this.hostPath);
     this.logRecorder = undefined;
     this.agentBridge = undefined;
+    this.agentBridgeAddress = undefined;
     this.detachTerminal();
   }
 
@@ -193,11 +195,14 @@ export class SerialPortTerminal extends SerialPortConsumer {
     refreshLogContext();
     try {
       const address = await bridge.listen();
+      this.agentBridgeAddress = `${address.host}:${address.port}`;
+      refreshLogContext();
       void vscode.window.showInformationMessage(
         vscode.l10n.t('Agent Bridge listening at {0}', `${address.host}:${address.port}`)
       );
     } catch (error) {
       this.agentBridge = undefined;
+      this.agentBridgeAddress = undefined;
       this.removeConsumer(bridge.id);
       refreshLogContext();
       void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
@@ -210,12 +215,17 @@ export class SerialPortTerminal extends SerialPortConsumer {
     }
     const bridge = this.agentBridge;
     this.agentBridge = undefined;
+    this.agentBridgeAddress = undefined;
     this.removeConsumer(bridge.id);
     refreshLogContext();
   }
 
   isBridgeActive(): boolean {
     return this.agentBridge !== undefined;
+  }
+
+  getAgentBridgeAddress(): string | undefined {
+    return this.agentBridgeAddress;
   }
 
   private getAgentBridgeHost(): string {
@@ -325,11 +335,28 @@ export function getActiveSerialPortDevicePath(): string | undefined {
   return getActiveInstance()?.devicePath;
 }
 
+let agentBridgeStatusBarItem: vscode.StatusBarItem | undefined;
+
+function updateAgentBridgeStatus(address: string | undefined): void {
+  if (!agentBridgeStatusBarItem) {
+    return;
+  }
+  if (address) {
+    agentBridgeStatusBarItem.text = `$(record) AgentBridge ${address}`;
+    agentBridgeStatusBarItem.tooltip = vscode.l10n.t('Agent Bridge: {0} (click to copy)', address);
+    agentBridgeStatusBarItem.command = 'serialPortAgentBridge.copyAddress';
+    agentBridgeStatusBarItem.show();
+  } else {
+    agentBridgeStatusBarItem.hide();
+  }
+}
+
 function updateLogContext(instance: SerialPortTerminal | undefined): void {
   void vscode.commands.executeCommand('setContext', CONTEXT_FOCUS, instance !== undefined);
   void vscode.commands.executeCommand('setContext', CONTEXT_RECORDING, instance?.isRecording() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_PAUSED, instance?.isPaused() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_AGENT_BRIDGE, instance?.isBridgeActive() ?? false);
+  updateAgentBridgeStatus(instance?.getAgentBridgeAddress());
 }
 
 function refreshLogContext(): void {
@@ -337,6 +364,9 @@ function refreshLogContext(): void {
 }
 
 export function registerSerialPortLogCommands(context: vscode.ExtensionContext): void {
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  agentBridgeStatusBarItem = statusBarItem;
+  context.subscriptions.push(statusBarItem);
   context.subscriptions.push(
     vscode.commands.registerCommand('serialPortLog.openDirectory', () => {
       void openLogDirectory();
@@ -347,6 +377,13 @@ export function registerSerialPortLogCommands(context: vscode.ExtensionContext):
     vscode.commands.registerCommand('serialPortLog.stop', () => getActiveInstance()?.stopLog()),
     vscode.commands.registerCommand('serialPortAgentBridge.start', () => void getActiveInstance()?.startBridge()),
     vscode.commands.registerCommand('serialPortAgentBridge.stop', () => getActiveInstance()?.stopBridge()),
+    vscode.commands.registerCommand('serialPortAgentBridge.copyAddress', () => {
+      const address = getActiveInstance()?.getAgentBridgeAddress();
+      if (address) {
+        void vscode.env.clipboard.writeText(address);
+        void vscode.window.showInformationMessage(vscode.l10n.t('Agent Bridge address copied: {0}', address));
+      }
+    }),
     vscode.window.onDidChangeActiveTerminal(terminal => {
       updateLogContext(terminal ? terminalInstances.get(terminal) : undefined);
     }),

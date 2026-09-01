@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.8]
+
+### Added
+- AgentBridge status bar: show the listening address (`host:port`) persistently in the status bar while the bridge is running, click to copy, and follow the active terminal (per-terminal)
+
 ## [1.2.7]
 
 ### Changed

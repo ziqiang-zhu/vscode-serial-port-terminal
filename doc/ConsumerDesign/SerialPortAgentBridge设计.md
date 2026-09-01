@@ -81,7 +81,8 @@ class SerialPortAgentBridge extends SerialPortConsumer {
   - 未启动：`$(broadcast)` 图标按钮「开启 Agent Bridge」，点击开启；
   - 已启动：`$(record)` 图标按钮「停止 Agent Bridge」，作为「已开启」状态指示，点击关闭；
 - **context key**：`serialPortTerminal.agentBridgeActive`（是否运行）、`serialPortTerminal.agentBridgeClients`（当前客户端数，用于状态展示）；
-- **回显**：启动成功后 `showInformationMessage` 显示 `host:port`（如 `127.0.0.1:2000`）。
+- **回显**：启动成功后 `showInformationMessage` 显示 `host:port`（如 `127.0.0.1:2000`）；
+- **状态栏持久显示**：桥运行时状态栏常驻 `$(record) AgentBridge <host:port>`，点击复制地址到剪贴板；桥停止 / 断开时隐藏。状态跟随**活动终端**——每个终端独立记录自己的地址，切换终端时状态栏随之切换（活动终端无桥则隐藏）。
 
 ## 8. 配置
 
