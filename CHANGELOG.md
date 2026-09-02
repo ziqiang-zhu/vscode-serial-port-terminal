@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.3.1]
+
+### 变更
+- AgentBridge 转发给客户端的字符流剥离 ANSI 转义序列
+
 ## [1.3.0]
 
 ### 变更

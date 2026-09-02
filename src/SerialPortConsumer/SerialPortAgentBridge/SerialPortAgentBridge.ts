@@ -1,5 +1,6 @@
 import * as net from 'net';
 import { SerialPortConsumer } from '../../SerialPortConnection/SerialPortConsumer';
+import { SerialPortAnsiStripper } from '../SerialPortDataParsers/SerialPortAnsiStripper';
 
 export interface AgentBridgeAddress {
   host: string;
@@ -13,6 +14,7 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
   private readonly server: net.Server;
   private readonly sockets = new Set<net.Socket>();
   private readonly bindHost: string;
+  private readonly ansiStripper = new SerialPortAnsiStripper();
   private closed = false;
 
   constructor(host: string, private readonly port: number) {
@@ -44,8 +46,12 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
     if (this.closed || this.sockets.size === 0) {
       return;
     }
+    const clean = this.ansiStripper.strip(data);
+    if (clean.length === 0) {
+      return;
+    }
     for (const socket of this.sockets) {
-      socket.write(data);
+      socket.write(clean);
     }
   }
 

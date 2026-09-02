@@ -12,7 +12,7 @@ SerialPortAgentBridge 是一个**依附型、双向 `SerialPortConsumer`**：把
 
 ## 2. 设计目标
 
-- **裸字节透传**：串口 ↔ TCP 字节流原样转发，不做 ANSI、行编辑、协议封装；
+- **去 ANSI 的字节透传**：串口数据剥离 ANSI 转义序列后转发给客户端，不做行编辑、协议封装；
 - **实时、不缓冲**：无客户端时串口数据丢弃；客户端只收连接后的实时数据，不做历史补发；
 - **多客户端**：输出广播给所有客户端，所有客户端输入合并转发到串口；
 - **本机优先、安全默认**：默认仅监听 `127.0.0.1`；
@@ -41,7 +41,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 
   constructor(host: string, port: number);
   listen(): Promise<{ host: string; port: number }>;  // 启动监听；端口占用则 reject
-  onData(data: Buffer): void;   // 广播给所有已连接 socket
+  onData(data: Buffer): void;   // 剥离 ANSI 后广播给所有已连接 socket
   onClosed(): void;             // 关闭全部 socket 与 server（幂等）
 }
 ```
@@ -70,7 +70,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 ```
 串口 → Connection.handle.onData ──广播──▶ Terminal（显示）
                                     └──▶ LogRecorder（落盘）
-                                    └──▶ AgentBridge.onData → 广播给所有 socket
+                                    └──▶ AgentBridge.onData → SerialPortAnsiStripper 剥离 ANSI → 广播给所有 socket
 
 任一客户端 → socket 'data' → AgentBridge.send() → handle.write → 串口
 ```
@@ -110,6 +110,7 @@ classDiagram
         +onClosed()
         -server: net.Server
         -sockets: Set~net.Socket~
+        -ansiStripper: SerialPortAnsiStripper
     }
     class SerialPortTerminal {
         +startBridge()
@@ -120,6 +121,7 @@ classDiagram
     SerialPortTerminal --> SerialPortAgentBridge : 创建并托管
     SerialPortAgentBridge --> net.Server : 监听
     SerialPortAgentBridge --> net.Socket : 广播收发
+    SerialPortAgentBridge --> SerialPortAnsiStripper : 使用
 ```
 
 ## 10. 路线图 / 后续演进
@@ -128,5 +130,4 @@ classDiagram
 - **后续**：
   - 客户端接入提示：连接/断开时在终端或状态栏提示客户端数变化；
   - 行尾归一化：CR / LF / CRLF（关联 M3-P2）；
-  - 去 ANSI：桥接前用公共 DataParser 剥离 ANSI 转义序列，减少字节流、降低 AI 处理门槛（依赖 DataParser 公共化，见 SerialPortConsumer设计.md）；
   - **不在范围**：headless（AgentBridge 依附 Terminal，无独立无终端形态）。

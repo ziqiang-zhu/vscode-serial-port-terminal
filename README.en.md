@@ -19,7 +19,7 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
 - 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
-- 🤖 **AgentBridge (AI interaction)** — one-click in the terminal title bar bridges the serial port to a local TCP port so AI agents can read/write the embedded Linux console (multi-client, real-time passthrough, persistent status-bar port, click to copy)
+- 🤖 **AgentBridge (AI interaction)** — one-click in the terminal title bar bridges the serial port to a local TCP port so AI agents can read/write the embedded Linux console (multi-client, ANSI-stripped real-time passthrough, persistent status-bar port, click to copy)
 - 🌐 **Localization** — English / Simplified Chinese
 
 ## 📦 Installation
@@ -43,10 +43,11 @@ Bridge the current serial port to a local TCP port with one click, so AI agents 
 
 1. After connecting, click `$(broadcast)` in the terminal title bar to start Agent Bridge;
 2. The status bar and a notification show the listening address (e.g. `127.0.0.1:2000`; click the status bar to copy);
-3. The AI agent connects to that address over TCP to read/write the serial data in real time (multi-client, raw byte passthrough);
+3. The AI agent connects to that address over TCP to read/write the serial data in real time (multi-client, ANSI-stripped byte passthrough);
 4. Click `$(record)` to stop the bridge.
 
 > 🔒 By default it listens on `127.0.0.1` (localhost only) and is not exposed to the network; the port and address are configurable.
+> 📝 The character stream forwarded to AI agents has ANSI escape sequences (color codes and other control characters) stripped, so clients don't need to handle them.
 
 ## ⌨️ Commands
 

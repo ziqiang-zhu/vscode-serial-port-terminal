@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.3.1]
+
+### Changed
+- AgentBridge strips ANSI escape sequences from the character stream forwarded to clients
+
 ## [1.3.0]
 
 ### Changed
