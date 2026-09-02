@@ -12,9 +12,9 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🔄 **Hot-plug detection** — periodic scan (configurable interval, can be disabled); devices are added/removed automatically
 - 🚦 **Connection status** — disconnected / connecting / connected with visual feedback; failures roll back and show the cause
 - 🖥️ **Built-in terminal** — based on the VS Code Pseudoterminal; data is shown as-is, type and press Enter to send
-- 📜 **Log kept after disconnect** — the terminal panel stays open so you can review the session
+- 📜 **Log kept after disconnect** — the terminal panel stays open so you can review the session; reconnecting opens a new terminal panel
 - ⚙️ **Quick configs** — global named connection configs reusable across devices (reference counting); add / rename / remove / reuse, hover for full details
-- 🎯 **Smart connection** — highlight the active config, pin the last-used config, direct-connect by selecting a quick-config node
+- 🎯 **Quick connection** — highlight the active config, pin the last-used config, direct-connect by selecting a quick-config node
 - 🧩 **Manual configuration** — configure parameters on the fly when connecting (baud rate / frame format from settings dropdowns), no presets needed
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
 - 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
@@ -48,6 +48,18 @@ Bridge the current serial port to a local TCP port with one click, so AI agents 
 
 > 🔒 By default it listens on `127.0.0.1` (localhost only) and is not exposed to the network; the port and address are configurable.
 > 📝 The character stream forwarded to AI agents has ANSI escape sequences (color codes and other control characters) stripped, so clients don't need to handle them.
+
+## 🧩 Agent Skills
+
+Ready-made skills help AI agents use AgentBridge out of the box (connection / embedded Linux operations / U-Boot operations):
+
+- Repo: <https://github.com/ziqiang-zhu/agent-bridge-skills>
+- Contents:
+  - `agent-bridge-connection` — basics for connecting to AgentBridge, running commands and reading output;
+  - `agent-bridge-embedded-linux` — common operations once the device reaches a Linux shell;
+  - `agent-bridge-embedded-uboot` — common operations while the device is at the U-Boot prompt.
+
+You can download these skills into your AI tool's skills directory, or use them as a reference to write your own device-specific skills.
 
 ## ⌨️ Commands
 
