@@ -133,4 +133,5 @@ classDiagram
 ## 7. 路线图
 
 - **M3**：SerialPortTerminal 作为默认 Consumer（已落地），输入增强（行尾符配置）与 Parser（Consumer 自决）演进；
-- **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口（已实现）。
+- **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口（已实现）；
+- **待办（DataParser 公共化）**：新增 `src/SerialPortConsumer/SerialPortDataParsers/` 目录，把 DataParser 作为各 Consumer 可复用的公共工具类；将 `SerialPortLogDataParser` 移入并按其功能（剥离 ANSI 转义 / 文本处理）改名。

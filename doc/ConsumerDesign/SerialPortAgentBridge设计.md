@@ -128,4 +128,5 @@ classDiagram
 - **后续**：
   - 客户端接入提示：连接/断开时在终端或状态栏提示客户端数变化；
   - 行尾归一化：CR / LF / CRLF（关联 M3-P2）；
+  - 去 ANSI：桥接前用公共 DataParser 剥离 ANSI 转义序列，减少字节流、降低 AI 处理门槛（依赖 DataParser 公共化，见 SerialPortConsumer设计.md）；
   - **不在范围**：headless（AgentBridge 依附 Terminal，无独立无终端形态）。
