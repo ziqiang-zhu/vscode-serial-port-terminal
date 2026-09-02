@@ -52,7 +52,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 
 ```
 点击[保存] → Terminal.startLog()
-   → 计算文件路径 → new SerialPortLogRecorder(filePath)
+   → 计算文件路径 → new SerialPortLogRecorder(baseFilePath)
    → host.addConsumer(recorder)        // 注册，Connection 开始广播
    → 进入「记录中」
 

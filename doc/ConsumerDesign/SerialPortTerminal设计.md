@@ -5,7 +5,7 @@
 
 ## 1. 定位
 
-SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**连接成功后启动一块 VS Code 终端面板**，串口数据实时显示其中，用户在终端内键入、回车发送。它是连接建立后第一个注册的 Consumer。此外，它托管 SerialPortLogRecorder 的生命周期（保存 / 暂停 / 停止日志记录）。
+SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**连接成功后启动一块 VS Code 终端面板**，串口数据实时显示其中，用户在终端内键入、回车发送。它是连接建立后第一个注册的 Consumer。此外，它托管 SerialPortLogRecorder（日志记录）与 SerialPortAgentBridge（串口↔TCP 桥）两个依附型 Consumer 的生命周期。
 
 终端基于 VS Code 的 `Pseudoterminal` 接口实现（微软官方 serial-monitor 扩展同款方案）：扩展充当伪终端，将串口数据写入终端面板，将用户输入转发到串口。
 
@@ -57,6 +57,14 @@ SerialPortTerminal 托管 SerialPortLogRecorder 的生命周期（详见 SerialP
 - 命令 `serialPortLog.start / pause / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startLog() / pauseLog() / stopLog()`；
 - `startLog()` 创建 LogRecorder 并经 `host.addConsumer` 注册；`stopLog()` 注销并销毁；断开时随 Connection 自动收尾。
 
+### 3.5 Agent 桥接（AgentBridge）
+
+SerialPortTerminal 托管 SerialPortAgentBridge 的生命周期（详见 SerialPortAgentBridge设计.md）：
+
+- 终端面板标题栏提供「开启 / 停止 Agent Bridge」按钮（`view/title` + `when: view == terminal`，图标 `$(broadcast)` / `$(record)`，context key 驱动显隐）；
+- 命令 `serialPortAgentBridge.start / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startBridge() / stopBridge()`；
+- `startBridge()` 读取 `agentBridge.ports` 配置（QuickPick 选端口，单值跳过）、创建 AgentBridge 并经 `host.addConsumer` 注册、回显 `host:port`；`stopBridge()` 注销并销毁；断开时随 Connection 自动收尾。
+
 ## 4. 生命周期
 
 ```
@@ -92,9 +100,12 @@ classDiagram
         +startLog()
         +pauseLog()
         +stopLog()
+        +startBridge()
+        +stopBridge()
         -terminal: vscode.Terminal
         -pty: SerialPortPseudoTerminal
         -logRecorder: SerialPortLogRecorder
+        -agentBridge: SerialPortAgentBridge
     }
     class SerialPortPseudoTerminal {
         +open / close / setDimensions
@@ -105,6 +116,7 @@ classDiagram
     SerialPortTerminal --|> SerialPortConsumer
     SerialPortTerminal --> SerialPortPseudoTerminal : 持有
     SerialPortTerminal --> SerialPortLogRecorder : 创建并托管
+    SerialPortTerminal --> SerialPortAgentBridge : 创建并托管
     SerialPortPseudoTerminal ..|> Pseudoterminal : 实现
 ```
 
@@ -116,8 +128,10 @@ src/SerialPortConsumer/
 │   ├── SerialPortTerminal.ts        ← Consumer 实现 + 伪终端
 │   ├── parser/                      ← 后续：Parser、字符转义
 │   └── view/                        ← 预留（若未来需要 Webview 增强界面）
-└── SerialPortLogRecorder/
-    └── SerialPortLogRecorder.ts     ← 日志记录 Consumer（见 SerialPortLogRecorder设计.md）
+├── SerialPortLogRecorder/
+│   └── SerialPortLogRecorder.ts     ← 日志记录 Consumer（见 SerialPortLogRecorder设计.md）
+└── SerialPortAgentBridge/
+    └── SerialPortAgentBridge.ts     ← 串口↔TCP 桥（见 SerialPortAgentBridge设计.md）
 ```
 
 ## 7. 后续演进
