@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.12]
+
+### Changed
+- DataParser extraction: add the `SerialPortLineTimestampBuffer` class for per-line timestamp buffering of logs
+
 ## [1.2.11]
 
 ### Changed

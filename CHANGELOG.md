@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.2.12]
+
+### 变更
+- DataParser 公共化：新增 `SerialPortLineTimestampBuffer` 类，用于日志按行缓冲并前缀时间戳
+
 ## [1.2.11]
 
 ### 变更
