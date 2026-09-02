@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal with an AI-agent TCP bridge",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -162,34 +162,34 @@
           "group": "navigation"
         },
         {
-          "command": "serialPortAgentBridge.start",
-          "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.agentBridgeActive",
-          "group": "navigation@6"
-        },
-        {
-          "command": "serialPortAgentBridge.stop",
-          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.agentBridgeActive",
-          "group": "navigation@6"
-        },
-        {
           "command": "serialPortLog.start",
           "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.recording",
-          "group": "navigation@7"
+          "group": "navigation@15"
         },
         {
           "command": "serialPortLog.pause",
           "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && !serialPortTerminal.paused",
-          "group": "navigation@7"
+          "group": "navigation@15"
         },
         {
           "command": "serialPortLog.resume",
           "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording && serialPortTerminal.paused",
-          "group": "navigation@7"
+          "group": "navigation@15"
         },
         {
           "command": "serialPortLog.stop",
           "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.recording",
-          "group": "navigation@8"
+          "group": "navigation@16"
+        },
+        {
+          "command": "serialPortAgentBridge.start",
+          "when": "view == terminal && serialPortTerminal.focus && !serialPortTerminal.agentBridgeActive",
+          "group": "navigation@17"
+        },
+        {
+          "command": "serialPortAgentBridge.stop",
+          "when": "view == terminal && serialPortTerminal.focus && serialPortTerminal.agentBridgeActive",
+          "group": "navigation@17"
         },
         {
           "command": "serialPortMacro.add",

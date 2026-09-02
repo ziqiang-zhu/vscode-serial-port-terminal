@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.10]
+
+### Changed
+- Adjust terminal title-bar button order: move AgentBridge to the right of the log buttons, using `navigation@15/16/17` group orders to stay further clear of other extensions' ordering
+
 ## [1.2.9]
 
 ### Fixed
