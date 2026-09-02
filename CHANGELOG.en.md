@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.3.0]
+
+### Changed
+- Log recorder now uses `SerialPortAnsiStripper` and `SerialPortLineTimestampBuffer`, removing the old `SerialPortLogDataParser`
+
 ## [1.2.12]
 
 ### Changed

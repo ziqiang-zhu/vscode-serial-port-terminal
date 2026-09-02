@@ -80,10 +80,10 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 
 ```
 串口 → Connection.handle.onData ──广播──▶ SerialPortTerminal（显示）
-                                   └──▶ SerialPortLogRecorder（经 SerialPortLogDataParser 剥离 ANSI 后写文件）
+                                   └──▶ SerialPortLogRecorder（经 SerialPortAnsiStripper 剥离 ANSI、可选 SerialPortLineTimestampBuffer 加时间戳后写文件）
 ```
 
-LogRecorder 写入前经 `SerialPortLogDataParser` 剥离 ANSI 转义序列（颜色码、光标控制等），并按行加时间戳（`logTimestampEnabled` 开启时），保留 `\r\n`、`\t`、退格等有意义的控制字符。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。
+LogRecorder 写入前经 `SerialPortAnsiStripper` 剥离 ANSI 转义序列（颜色码、光标控制等），可选经 `SerialPortLineTimestampBuffer` 按行加时间戳（`logTimestampEnabled` 开启时），保留 `\r\n`、`\t`、退格等有意义的控制字符。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。
 
 > **行缓冲说明**：时间戳按「行」加，而数据按「chunk」到达，chunk 边界与行边界不对齐。因此 `process()` 维护内部缓冲，按 `\n` 切分：完整行加时间戳后输出，末尾半行留在缓冲等待下一 chunk 补全；`flush()` 在结束前冲刷剩余的半行（无结尾换行的最后一行）。关闭时间戳时不缓冲、直接透传。
 
@@ -186,7 +186,10 @@ classDiagram
         -segmentIndex: number
         -segmentBytes: number
     }
-    class SerialPortLogDataParser {
+    class SerialPortAnsiStripper {
+        +strip(data): Buffer
+    }
+    class SerialPortLineTimestampBuffer {
         +process(data): Buffer
         +flush(): Buffer
     }
@@ -195,7 +198,8 @@ classDiagram
         +pauseLog()
         +stopLog()
     }
-    SerialPortLogRecorder --> SerialPortLogDataParser : 使用
+    SerialPortLogRecorder --> SerialPortAnsiStripper : 使用
+    SerialPortLogRecorder --> SerialPortLineTimestampBuffer : 使用
     SerialPortLogRecorder --|> SerialPortConsumer
     SerialPortTerminal --> SerialPortLogRecorder : 创建并托管生命周期
 ```

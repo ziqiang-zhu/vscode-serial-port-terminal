@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.3.0]
+
+### 变更
+- 日志记录改用 `SerialPortAnsiStripper` 与 `SerialPortLineTimestampBuffer`，移除旧的 `SerialPortLogDataParser`
+
 ## [1.2.12]
 
 ### 变更

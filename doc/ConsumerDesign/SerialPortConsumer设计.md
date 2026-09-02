@@ -134,8 +134,4 @@ classDiagram
 
 - **M3**：SerialPortTerminal 作为默认 Consumer（已落地），输入增强（行尾符配置）与 Parser（Consumer 自决）演进；
 - **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口（已实现）；
-- **待办（DataParser 公共化）**：
-  - 新增 `src/SerialPortConsumer/SerialPortDataParsers/` 目录，DataParser 作为各 Consumer 可复用的公共工具类；
-  - 抽公共类 `SerialPortAnsiStripper`（无状态，剥离 ANSI 转义序列）；
-  - 按行时间戳逻辑拆为私有类 `SerialPortLineTimestampBuffer`（留在 LogRecorder 目录，日志专属、不进入公共目录）；
-  - 移除 `SerialPortLogDataParser`（ANSI 剥离并入 `SerialPortAnsiStripper`，时间戳并入 `SerialPortLineTimestampBuffer`）。
+- **DataParser 公共化（已实现）**：新增 `src/SerialPortConsumer/SerialPortDataParsers/` 公共目录与 `SerialPortAnsiStripper`（剥离 ANSI 转义）；日志专属按行时间戳拆为 `SerialPortLineTimestampBuffer`（留 LogRecorder 目录）；`SerialPortLogDataParser` 已移除。
