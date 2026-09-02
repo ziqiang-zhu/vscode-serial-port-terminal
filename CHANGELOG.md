@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.3.2]
+
+### 变更
+- 简化 AgentBridge 启动提示：去掉「正在监听」，仅显示 `Agent Bridge: host:port`
+
 ## [1.3.1]
 
 ### 变更

@@ -59,7 +59,7 @@
   "Enter the data to send (use \\r\\n for a line ending)": "输入要发送的数据（换行请用 \\r\\n）",
   "Delete macro \"{0}\"?": "删除宏 \"{0}\"？",
   "No active serial connection": "没有活动的串口连接",
-  "Agent Bridge listening at {0}": "Agent Bridge 正在监听 {0}",
+  "Agent Bridge: {0}": "Agent Bridge：{0}",
   "Failed to start Agent Bridge: {0}": "启动 Agent Bridge 失败: {0}",
   "No Agent Bridge port configured": "未配置 Agent Bridge 端口",
   "Select Agent Bridge port": "选择 Agent Bridge 端口",

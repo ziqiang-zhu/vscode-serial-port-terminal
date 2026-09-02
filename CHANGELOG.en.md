@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.3.2]
+
+### Changed
+- Simplify the AgentBridge startup notification: drop "listening at", showing just `Agent Bridge: host:port`
+
 ## [1.3.1]
 
 ### Changed

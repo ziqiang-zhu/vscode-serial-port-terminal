@@ -198,7 +198,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
       this.agentBridgeAddress = `${address.host}:${address.port}`;
       refreshLogContext();
       void vscode.window.showInformationMessage(
-        vscode.l10n.t('Agent Bridge listening at {0}', `${address.host}:${address.port}`)
+        vscode.l10n.t('Agent Bridge: {0}', `${address.host}:${address.port}`)
       );
     } catch (error) {
       this.agentBridge = undefined;
