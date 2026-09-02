@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.2.11]
+
+### 变更
+- DataParser 公共化：新增公共工具类 `SerialPortAnsiStripper`，用于剥离 ANSI 转义序列，供各 Consumer 复用
+
 ## [1.2.10]
 
 ### 变更

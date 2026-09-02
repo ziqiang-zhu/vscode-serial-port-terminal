@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.2.11]
+
+### Changed
+- DataParser extraction: add the shared `SerialPortAnsiStripper` utility that strips ANSI escape sequences for reuse across consumers
+
 ## [1.2.10]
 
 ### Changed
