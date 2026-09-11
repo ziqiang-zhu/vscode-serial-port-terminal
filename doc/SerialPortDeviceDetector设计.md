@@ -1,7 +1,7 @@
 
 # SerialPortDeviceDetector 设计
 
-> 状态：已实现 ｜ 目录：`src/SerialPortDeviceDetector/` ｜ 上位文档：总体架构.md
+> 目录：`src/SerialPortDeviceDetector/` ｜ 上位文档：[总体架构.md](总体架构.md)
 
 ## 1. 定位
 
@@ -39,7 +39,7 @@ classDiagram
 
 - 信息 getters 遵循"Unknown 为空标记"原则：缺失字段返回 `Unknown`，消费方将 `Unknown` 视同缺失；
 - `identity` 按 4.1 退化链计算，随模型一起维护，供连接服务查询配置；
-- `status` 为三态（disconnected / connecting / connected）。`setStatus` 按约定只供服务层调用 —— 类型层面无法强制，依赖分工约定（见 SerialPortConnection设计.md「设备契约」）。
+- `status` 为三态（disconnected / connecting / connected）。`setStatus` 按约定只供服务层调用 —— 类型层面无法强制，依赖分工约定，见 [SerialPortConnection设计.md](SerialPortConnection设计.md) §3「设备契约」。
 
 ## 4. 设备身份管理
 
@@ -91,7 +91,7 @@ stateDiagram-v2
 - 新增 → 创建 `SerialPortDeviceImpl` 并发布 added；
 - 消失 → 移除模型并发布 removed（其连接状态随模型作废）；
 - 同路径身份变化 → 视为"旧设备 removed + 新设备 added"（见 4.2）；
-- 对比结果经一次事件发布 `{ added, removed }`；同路径身份变化时 removed 与 added 各含一个 **path 相同**的模型（旧模型在 removed、新模型在 added），以 path 为键的订阅方必须**先处理 removed、再处理 added**，否则同键"先增后删"会把新条目误删（见 SerialPortDeviceManagerTreeView设计.md「设备增删」）；
+- 对比结果经一次事件发布 `{ added, removed }`；同路径身份变化时 removed 与 added 各含一个 **path 相同**的模型（旧模型在 removed、新模型在 added），以 path 为键的订阅方必须**先处理 removed、再处理 added**，否则同键"先增后删"会把新条目误删，见 [SerialPortDeviceManagerTreeView设计.md](SerialPortDeviceManagerTreeView设计.md) §5「设备增删」；
 - 轮询启停由外部（视图可见性）驱动，Detector 暴露 `start()` / `stop()`。
 
 并发语义：扫描是异步的，连续两次扫描可能短暂交叠。模型更新与事件发布在单次扫描内顺序完成，交叠时以最后完成的扫描结果为准 —— 当前产品形态下该语义可接受。

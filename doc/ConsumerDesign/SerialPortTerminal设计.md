@@ -1,15 +1,15 @@
 
 # SerialPortTerminal 设计
 
-> 状态：已实现 ｜ 目录：`src/SerialPortConsumer/SerialPortTerminal/` ｜ 规范：SerialPortConsumer设计.md
+> 目录：`src/SerialPortConsumer/SerialPortTerminal/` ｜ 规范：[SerialPortConsumer设计.md](SerialPortConsumer设计.md)
 
 ## 1. 定位
 
 SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**连接成功后启动一块 VS Code 终端面板**，串口数据实时显示其中，用户在终端内键入、回车发送。它是连接建立后第一个注册的 Consumer。此外，它托管 SerialPortLogRecorder（日志记录）与 SerialPortAgentBridge（串口↔TCP 桥）两个依附型 Consumer 的生命周期。
 
-终端基于 VS Code 的 `Pseudoterminal` 接口实现（微软官方 serial-monitor 扩展同款方案）：扩展充当伪终端，将串口数据写入终端面板，将用户输入转发到串口。
+终端基于 VS Code 的 `Pseudoterminal` 接口实现：扩展充当伪终端，将串口数据写入终端面板，将用户输入转发到串口。
 
-第一阶段刻意保持最小：不做 Parser、不做颜色/字符转义，接收数据以原字符串形式直接显示。
+当前不做 Parser 与字符转义，接收数据以原字符串形式直接显示。
 
 ## 2. 设计目标
 
@@ -51,7 +51,7 @@ SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**�
 
 ### 3.4 日志记录
 
-SerialPortTerminal 托管 SerialPortLogRecorder 的生命周期（详见 SerialPortLogRecorder设计.md）：
+SerialPortTerminal 托管 SerialPortLogRecorder 的生命周期，详见 [SerialPortLogRecorder设计.md](SerialPortLogRecorder设计.md)：
 
 - 终端面板标题栏提供「保存 / 暂停 / 停止」按钮（`view/title` + `when: view == terminal`，context key 驱动显隐）；
 - 命令 `serialPortLog.start / pause / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startLog() / pauseLog() / stopLog()`；
@@ -59,7 +59,7 @@ SerialPortTerminal 托管 SerialPortLogRecorder 的生命周期（详见 SerialP
 
 ### 3.5 Agent 桥接（AgentBridge）
 
-SerialPortTerminal 托管 SerialPortAgentBridge 的生命周期（详见 SerialPortAgentBridge设计.md）：
+SerialPortTerminal 托管 SerialPortAgentBridge 的生命周期，详见 [SerialPortAgentBridge设计.md](SerialPortAgentBridge设计.md)：
 
 - 终端面板标题栏提供「开启 / 停止 Agent Bridge」按钮（`view/title` + `when: view == terminal`，图标 `$(broadcast)` / `$(record)`，context key 驱动显隐）；
 - 命令 `serialPortAgentBridge.start / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startBridge() / stopBridge()`；
@@ -134,15 +134,8 @@ src/SerialPortConsumer/
     └── SerialPortAgentBridge.ts     ← 串口↔TCP 桥（见 SerialPortAgentBridge设计.md）
 ```
 
-## 7. 后续演进
+## 7. 后续规划
 
-- **输入增强**：行尾符配置（CR / LF / CRLF，当前固定 CR）；命令历史由设备端负责，扩展不实现；
-- **Parser**：分帧语义（自定义协议）；换行归一化已在 `writeText` 完成；
-- **ANSI 颜色**：由终端原生渲染，无需实现；字符转义（不可见字符可视化）在写入终端前加工，属显式增强而非默认行为。
-
-## 8. 路线图
-
-- **M3-P1（已落地）**：Pseudoterminal 终端 —— 显示、键入发送、关闭即断开、断开保留日志；
-- **M3-P2**：输入增强（行尾符配置）；
-- **M3-P3**：Parser（分帧）、字符转义；
+- **M3-P2 输入增强**：行尾符配置（CR / LF / CRLF，当前固定 CR）；命令历史由设备端负责，扩展不实现；
+- **M3-P3 Parser 与字符转义**：分帧语义（自定义协议）；换行归一化已在 `writeText` 完成；不可见字符可视化在写入终端前加工，属显式增强而非默认行为；ANSI 颜色由终端原生渲染，无需实现；
 - **M5**：Terminal 可关闭而其他 Consumer 后台运行、二级菜单管理。

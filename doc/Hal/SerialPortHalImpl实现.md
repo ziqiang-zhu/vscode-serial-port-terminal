@@ -1,7 +1,7 @@
 
 # SerialPortHalImpl 实现
 
-> 状态：已实现 ｜ 目录：`src/hal/SerialPortHalImpl.ts` ｜ 契约：SerialPortHal设计.md
+> 目录：`src/hal/SerialPortHalImpl.ts` ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
 
 ## 1. 定位
 
@@ -62,7 +62,7 @@ class SerialPortHandleImpl implements SerialPortHandle {
     });
   }
 
-  write(data: Buffer): void { this.port.write(data); }
+  write(data: Buffer): boolean { return this.port.write(data); }
   onData(listener) { this.port.on('data', listener); }
   onError(listener) { this.port.on('error', listener); }
 }
@@ -70,7 +70,7 @@ class SerialPortHandleImpl implements SerialPortHandle {
 
 - **构造时挂 noop error 监听**：句柄创建与上层订阅 `onError`（Connection 构造时）之间存在窗口，空监听器保证任何时点 error 事件均有订阅者；
 - **close 的 Promise 化**：底层 close 为回调式，Promise 化后销毁流程可 `await` 清理完成。关闭错误有意忽略（尽力而为语义：销毁路径不值得为关闭失败报错）；
-- **write 直通并返回背压信号**：`write` 返回底层 `write` 的背压布尔值（`false` = 缓冲满），并新增 `onDrain` 透传 drain 事件；发送错误仍以 'error' 事件浮现，经 `onError` 订阅者处理。
+- **write 直通并返回背压信号**：`write` 返回底层 `write` 的背压布尔值（`false` = 缓冲满）；`onDrain` 透传 drain 事件；发送错误仍以 'error' 事件浮现，经 `onError` 订阅者处理。
 
 ## 4. 组件结构
 

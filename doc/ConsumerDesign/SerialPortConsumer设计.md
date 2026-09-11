@@ -1,7 +1,7 @@
 
 # SerialPortConsumer 设计
 
-> 状态：已实现 ｜ 目录：`src/SerialPortConnection/SerialPortConsumer.ts` ｜ 上位文档：SerialPortConnection设计.md
+> 目录：`src/SerialPortConnection/SerialPortConsumer.ts` ｜ 上位文档：[SerialPortConnection设计.md](../SerialPortConnection设计.md)
 
 ## 1. 定位
 
@@ -93,7 +93,7 @@ Service.connect 成功
     → Terminal 显示 / 分析器处理（各自内部，可经 DataParser 数据处理类做转义、更好显示等加工）
 ```
 
-Connection 只广播不加工；数据的转义、解析与展示由各 Consumer 内部经数据处理类（如 DataParser）自行完成，Consumer 之间不协作、不经 Connection 传递加工结果。若未来出现跨 Consumer 共享加工结果的管道需求，再引入 Processor 概念，不扩充 Consumer 契约。
+Connection 只广播不加工；数据的转义、解析与展示由各 Consumer 内部经数据处理类自行完成，Consumer 之间不协作、不经 Connection 传递加工结果。公共数据处理类位于 `src/SerialPortConsumer/SerialPortDataParsers/`（`SerialPortAnsiStripper`，剥离 ANSI 转义序列）；日志专属的按行时间戳缓冲 `SerialPortLineTimestampBuffer` 位于 LogRecorder 目录。若未来出现跨 Consumer 共享加工结果的管道需求，再引入 Processor 概念，不扩充 Consumer 契约。
 
 ## 6. 组件结构
 
@@ -132,6 +132,5 @@ classDiagram
 
 ## 7. 路线图
 
-- **M3**：SerialPortTerminal 作为默认 Consumer（已落地），输入增强（行尾符配置）与 Parser（Consumer 自决）演进；
-- **M5**：多 Consumer 注册、二级菜单展示与手动关闭、减为零自动关串口（已实现）；
-- **DataParser 公共化（已实现）**：新增 `src/SerialPortConsumer/SerialPortDataParsers/` 公共目录与 `SerialPortAnsiStripper`（剥离 ANSI 转义）；日志专属按行时间戳拆为 `SerialPortLineTimestampBuffer`（留 LogRecorder 目录）；`SerialPortLogDataParser` 已移除。
+- **M3**：输入增强（行尾符配置）与 Parser（Consumer 自决）演进；
+- **M5**：Consumer 二级菜单展示与手动关闭。

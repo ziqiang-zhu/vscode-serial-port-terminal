@@ -1,7 +1,7 @@
 
 # SerialPortConnection 设计
 
-> 状态：已实现 ｜ 目录：`src/SerialPortConnection/` ｜ 上位文档：总体架构.md
+> 目录：`src/SerialPortConnection/` ｜ 上位文档：[总体架构.md](总体架构.md)
 
 ## 1. 定位
 
@@ -85,7 +85,7 @@ flowchart TD
 
 - 断开后条目保持"未连接"，由 Detector 在下一次扫描中移除（或手动扫描）；
 - Connection 销毁前**必须**关闭端口、注销全部订阅；
-- 设备拔除由 Detector 事件驱动（4.1）。
+- 设备拔除由 Detector 事件驱动（§4.1）。
 
 ### 5.3 状态事件
 
@@ -93,29 +93,29 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 
 ## 6. 配置与持久化
 
-连接参数以**命名配置集合**形态存在，完整的配置域设计（数据模型、存储、CRUD、交互向导）见 SerialPortQuickConfig设计.md。本节只定义连接服务的契约：
+连接参数以**命名配置集合**形态存在，完整的配置域设计（数据模型、存储、CRUD、交互向导）见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md)。本节只定义连接服务的契约：
 
-- `connect(device, config?)`：连接参数由调用方随连接请求传入（已接入：UI 经参数选择器传入）；未传时使用默认值 115200-8-N-1；
-- `getConnectionConfig(path)`：当前连接配置的只读查询，供视图高亮（见 SerialPortQuickConfig设计.md「当前连接高亮」）；
-- Service 不查询配置存储（当前阶段）：配置的选择与传递是视图层职责；自动恢复场景（M6）再评估注入 Store；
+- `connect(device, config?)`：连接参数由调用方随连接请求传入（UI 经参数选择器收集）；未传时使用默认值 115200-8-N-1；
+- `getConnectionConfig(path)`：当前连接配置的只读查询，供视图高亮，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §6.3.1「当前连接高亮」；
+- Service 不查询配置存储：配置的选择与传递是视图层职责；自动恢复场景（M6）再评估注入 Store；
 - 持久化归 SerialPortConfigStore（键为设备身份，换口重插自动找回）。
 
 | 数据 | 键 | 是否持久化 | 说明 |
 |---|---|---|---|
 | 设备列表 | —— | 否 | 硬件事实，每次启动重新枚举 |
 | 命名配置集合（SerialPortQuickConfig[]） | 全局池 `serialPortQuickConfigPool` + 每设备引用 `serialPortDeviceConfigRefs`（引用键=设备身份） | 是 | 用户配置，全局池复用/引用计数，换口重插按身份找回，归 ConfigStore 管理 |
-| 上次使用配置（SerialConfig） | 设备身份 | 是 | 选择器置顶"上次使用"（已实现）；启动后自动恢复连接仍属 M6 |
+| 上次使用配置（SerialConfig） | 设备身份 | 是 | 选择器置顶「上次使用」；启动自动恢复属 M6 规划 |
 | 当前连接状态 | 路径 | 否 | 随进程结束而失效 |
 
 ## 7. Consumer 中枢
 
-Consumer 的通用规范见 SerialPortConsumer设计.md。Connection 对外的注册入口：
+Consumer 的通用规范见 [SerialPortConsumer设计.md](ConsumerDesign/SerialPortConsumer设计.md)。Connection 对外的注册入口：
 
 - `addConsumer(consumer)`：注册并 attach（注入 host）；同 id 重复注册时先对旧实例执行 `onClosed`；
-- `removeConsumer(id)`：注销（M5 二级菜单"手动关闭"走这里）；
+- `removeConsumer(id)`：注销（M5 二级菜单「手动关闭」走这里）；
 - **减为零规则**：某设备的 Consumer 全部移除时，Connection 通知 Service，关闭串口并销毁 Connection，等同于一次断开。
 
-默认 Consumer：Service 在 connect 成功后经工厂注册 SerialPortTerminal（见 SerialPortTerminal设计.md）；多 Consumer 与二级菜单属于 M5。依附型 Consumer（如 SerialPortLogRecorder）由 SerialPortTerminal 经 `addConsumer` 注册并托管生命周期，见 SerialPortLogRecorder设计.md。
+默认 Consumer：Service 在 connect 成功后经工厂注册 SerialPortTerminal，见 [SerialPortTerminal设计.md](ConsumerDesign/SerialPortTerminal设计.md)。依附型 Consumer（如 SerialPortLogRecorder）由 SerialPortTerminal 经 `addConsumer` 注册并托管生命周期，见 [SerialPortLogRecorder设计.md](ConsumerDesign/SerialPortLogRecorder设计.md)。
 
 ## 8. 组件结构
 
@@ -152,7 +152,6 @@ classDiagram
 
 ## 9. 路线图
 
-- **M3**：默认 Consumer（SerialPortTerminal）完善 —— 输入增强（行尾符配置）、Parser（Consumer 自决）；
-- **M4**：快捷配置（已完成：配置管理（全局池 + 引用计数）、参数选择、高亮、上次使用，见 SerialPortQuickConfig设计.md 分阶段计划）；
-- **M5**：多 Consumer 注册、二级菜单管理；
+- **M3**：SerialPortTerminal 完善 —— 输入增强（行尾符配置）、Parser（Consumer 自决）；
+- **M5**：Consumer 二级菜单管理；
 - **M6**：启动自动恢复（上次设备与配置）。

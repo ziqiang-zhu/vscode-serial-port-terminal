@@ -1,7 +1,7 @@
 
 # SerialPortLogRecorder 设计
 
-> 状态：已实现 ｜ 目录：`src/SerialPortConsumer/SerialPortLogRecorder/` ｜ 规范：SerialPortConsumer设计.md ｜ 上位文档：总体架构.md
+> 目录：`src/SerialPortConsumer/SerialPortLogRecorder/` ｜ 规范：[SerialPortConsumer设计.md](SerialPortConsumer设计.md) ｜ 上位文档：[总体架构.md](../总体架构.md)
 
 ## 1. 定位
 
@@ -15,7 +15,7 @@ SerialPortLogRecorder 是日志记录 Consumer：把串口**接收**的原始字
 - **生命周期托管**：创建 / 暂停 / 继续 / 停止均由 Terminal 发起；断开或关闭终端时随 Connection 销毁自动收尾；
 - **流式写入**：用 `fs.createWriteStream` 追加写入，支持按大小分割（见 8.1）；
 - **可配置目录**：保存目录可配置，默认落在 Windows 文档目录；
-- **最小实现**：落盘原始字节流；ANSI 剥离、每行时间戳、按大小分割等已实现（见 6 数据流与 8 文件与配置）。
+- **写入前处理**：剥离 ANSI 转义序列，可选按行加时间戳与按大小分割，见 §6 与 §8。
 
 ## 3. 模块关系
 
@@ -45,7 +45,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 - `onData` 由 Connection 的数据流入口调用，调用顺序即串口到达顺序；
 - 首次收到数据时才创建文件（延迟创建），未收到数据即停止不产生空文件；
 - `pause` / `resume` 只切换内部标志，**不注销** Consumer；
-- `onClosed` 幂等：重复调用安全（文件流未创建或已关闭时短路）；
+- `onClosed` 幂等，文件流未创建或已关闭时直接返回；
 - 停止收尾时（无论「停止」按钮还是断开连接触发）若本次有数据写入，弹出「文件已保存到 <path>」提示。
 
 ## 5. 生命周期
@@ -91,7 +91,7 @@ LogRecorder 写入前经 `SerialPortAnsiStripper` 剥离 ANSI 转义序列（颜
 
 ### 7.1 按钮位置
 
-采用 littrick/vscode-serial-terminal 同款方案：**终端面板标题栏按钮**（`contributes.menus.view/title` + `when: "view == terminal"`），命令带 `icon`。按钮显隐由 context key 驱动。
+按钮注册于终端面板标题栏（`contributes.menus` 的 `view/title` 位置，`when: "view == terminal"`），命令带 `icon`，显隐由 context key 驱动。
 
 另有全局「打开日志目录」按钮，位于**设备列表视图标题栏**（`when: "view == serialPortDeviceList"`，图标 `$(folder-opened)`）：经命令 `serialPortLog.openDirectory` 在系统文件管理器中打开日志目录，不依赖活动终端或记录会话。
 
@@ -145,7 +145,7 @@ context key：
 - **开关**：`logMaxFileSize` = `0`（默认）为不分割；设为 ≥1（单位 KB）时启用分割，最小阈值 1KB（建议 32768 = 32MB）；
 - **命名**：主体 + 编号，平铺同目录、不建文件夹 —— `COM3_20250112_153045.log`（第 1 段，无编号）、`COM3_20250112_153045_002.log`、`_003.log`…（编号 3 位零填充，插在扩展名前）；
 - **触发**：启用时每段累计写盘字节数超过阈值（KB→字节）即关闭当前流、段号 +1、开下一段、计数清零；按 chunk 边界分割（原始字节流跨行切可接受，单块超阈值时整块写入再切）；
-- **通知**：保持不变，始终提示「文件已保存到 <主体文件路径>」（即第 1 段路径，不含分段编号），不额外提示段数。
+- **通知**：提示「文件已保存到 <主体文件路径>」。
 
 | 项 | 方案 |
 |---|---|
@@ -204,6 +204,6 @@ classDiagram
     SerialPortTerminal --> SerialPortLogRecorder : 创建并托管生命周期
 ```
 
-## 10. 后续演进（本次不实现）
+## 10. 后续规划
 
 - **编码配置**：日志文件字符编码可选（当前固定 UTF-8）。

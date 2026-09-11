@@ -121,11 +121,11 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 
 ## 🗺️ Roadmap
 
-- Input enhancements: line-ending configuration (CR / LF / CRLF)
+- Input enhancements: line-ending configuration (CR / LF / CRLF; currently fixed to CR)
 - Parser and character escaping (framing, invisible-character visualization)
 - Multi-consumer secondary menu management
 - Auto-restore on startup (last device and config)
-- Log enhancements: configurable encoding (currently fixed to UTF-8)
+- Configurable log encoding (currently fixed to UTF-8)
 
 ## 🛠️ Development
 

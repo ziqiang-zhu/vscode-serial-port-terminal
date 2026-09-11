@@ -1,6 +1,6 @@
 # SerialPortMacroSender 设计
 
-> 状态：已实现 ｜ 目录：`src/SerialPortMacroSender/` ｜ 上位文档：总体架构.md
+> 目录：`src/SerialPortMacroSender/` ｜ 上位文档：[总体架构.md](总体架构.md)
 
 ## 1. 定位
 
@@ -87,7 +87,7 @@ interface SerialPortMacro {
 - 用该路径经 `SerialPortConnectionService.getConnection(path)` 查询连接；
 - 查询不到（设备未连接 / 已断开）时提示并返回。
 
-> 备选：多设备场景改为「先选设备、再发送」或宏绑定设备；首版先用活动终端，交互最少。
+> 备选：多设备场景改为「先选设备、再发送」或宏绑定设备。
 
 ## 8. 存储
 
@@ -125,8 +125,7 @@ classDiagram
     SerialPortMacroManager --> SerialPortConnection : send
 ```
 
-## 10. 路线图
+## 10. 后续规划
 
-- **首版**：侧边栏树视图 + 新增 / 删除 / 发送 + globalState 存储 + 活动终端目标设备。
-- **后续**：宏编辑、行尾符统一配置（关联 M3-P2）、多设备目标选择器、宏分类 / 排序。
-- **待办**：快捷执行/宏 实现方式优化——组件结构（全局组件定位、生命周期与耦合）与存储方式（globalState 结构）复审调整。
+- 宏编辑、行尾符统一配置（关联 M3-P2）、多设备目标选择器、宏分类 / 排序；
+- 复审组件结构与存储方式：全局组件的定位、生命周期与耦合，以及 globalState 的存储结构。

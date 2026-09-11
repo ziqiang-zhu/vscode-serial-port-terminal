@@ -1,7 +1,7 @@
 
 # SerialPortQuickConfig 设计
 
-> 状态：已实现 —— 全局快捷配置（引用计数复用）、设备级参数选择（选中直连 / 选择器 / 手动配置）、当前连接高亮、上次使用置顶、终端标题带配置名 ｜ 目录：`src/SerialPortConfig/` ｜ 上位文档：总体架构.md
+> 目录：`src/SerialPortConfig/` ｜ 上位文档：[总体架构.md](总体架构.md)
 
 ## 1. 定位
 
@@ -83,29 +83,29 @@ export interface SerialConfig {
 
 ## 6. 交互设计
 
-### 6.1 添加（已实现）
+### 6.1 添加
 
 ```
 右键设备 → 添加快捷配置
     ↓ showQuickPick：$(add) 新建快捷配置 / $(link) 选择已存在快捷配置
-    ├─ 新建：showInputBox 名称 → 手动配置向导（波特率/帧格式/流控，见 6.6）→ Store.add
+    ├─ 新建：showInputBox 名称 → 手动配置向导（波特率/帧格式/流控，见 6.5）→ Store.add
     └─ 引用：showQuickPick 未被引用的全局配置 → Store.attach
     ↓
 onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 ```
 
-### 6.2 重命名（已实现）
+### 6.2 重命名
 
 配置子节点右键 → 重命名 → `showInputBox`（预填当前名）→ Store.rename → 事件刷新。
 
-### 6.3 连接（已实现）
+### 6.3 连接
 
-连接按钮保留在设备上（配置子节点不设连接入口，原"按钮迁移"方案取消）：
+连接按钮保留在设备上（配置子节点不设连接入口）：
 
 - 点击设备连接按钮 → 参数选择器（顶部「手动配置参数」项 + "保存的配置"分组）→ `connect(device, config)`，临时生效、不保存；
 - **选中直连**：选中某配置子节点后再点该设备的连接按钮 → 直接用该配置连接，**跳过选择器**；未选中配置子节点（或选中的是其他设备的）时走选择器流程；
 - **上次使用置顶**：该设备上次成功连接的配置排在"保存的配置"分组首位并标注"上次使用"；
-- **手动配置参数**：选择器顶部「手动配置参数」项进入参数向导（波特率 → 帧格式 → 流控 → 保存选项），预填上次使用值，完成后连接（临时）并可选择保存为快捷配置（见 6.6）；
+- **手动配置参数**：选择器顶部「手动配置参数」项进入参数向导（波特率 → 帧格式 → 流控 → 保存选项），预填上次使用值，完成后连接（临时）并可选择保存为快捷配置（见 6.5）；
 - 连接参数由调用方随连接请求传入，Service 不查询存储（M6 自动恢复场景再评估注入 Store）。
 
 #### 6.3.1 当前连接高亮
@@ -116,11 +116,11 @@ onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 - **视图侧**：重渲染时（复用 `onDidChangeDeviceStatus` 事件流）对每个配置子节点做**值比较**（`serialConfigEquals`，五项全等，不依赖对象引用），命中的子节点图标换为 `radio-tower`、description 追加"当前连接"；设备行 description 追加参数摘要（如 `Arduino · 115200 8-N-1`）；
 - 断开后查询返回 undefined，高亮随同一事件流自动消失；用未保存的手动参数连接时不命中任何子节点，自然无高亮。
 
-### 6.4 删除（已实现）
+### 6.4 删除
 
 配置子节点右键 → 删除 → 确认（`showWarningMessage`，modal）→ Store.remove → 事件刷新。
 
-### 6.5 手动配置参数（已实现）
+### 6.5 手动配置参数
 
 连接选择器顶部提供「手动配置参数」入口，进入参数向导：
 
@@ -150,8 +150,6 @@ onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 | `serialPortQuickConfig` | 新配置子节点（重命名/删除菜单匹配此值） |
 | `serialPortQuickConfigLegacy` | 旧版本配置子节点（仅删除菜单匹配，不提供重命名、不高亮当前连接） |
 
-注：原"有快捷配置时隐藏设备连接按钮（hasConfigs）并迁移至配置子节点"的方案已取消 —— 连接入口统一保留在设备上（见 6.3）。
-
 ### 7.3 视图刷新
 
 TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影响的设备节点（含子节点）→ `fire()`。加配置后设备节点自动进入展开态，新配置立即可见。
@@ -170,11 +168,10 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 | `view/item/context`（普通组） | 重命名 | 配置子节点右键，`viewItem == serialPortQuickConfig`（旧配置不提供重命名） |
 | `view/item/context`（普通组） | 删除 | 配置子节点右键，`viewItem =~ /^serialPortQuickConfig/`（新旧配置均可删） |
 
-## 9. 实现状态与待办
+## 9. 待办
 
-- **已实现**：数据模型 + Store（全局池 / 每设备引用 / 引用计数 / 旧数据只读兼容〔对象与数组两形态〕）、添加（新建 / 引用）、重命名、删除、设备级连接参数选择、当前连接高亮、上次使用置顶、手动配置参数（settings 下拉、单值跳过）、终端标题带配置名。
-- **已移除**：预设功能（`serialPortTerminal.serialConfigPresets` 与预设管理 UI）。
-- **待办（v1.3.0）**：移除对 v1.2.0 及更早版本数据结构的兼容支持 —— 即删除对旧键 `serialPortQuickConfigs` 两种旧形态（v1.2.0 及更早的「按设备分区对象」、v1.2.1/1.2.2 迁移的「全局数组」）的读取（`getLegacyConfigs` / `remove` / `resolveLegacyIds` 中的旧形态分支）与 legacy 树项渲染（`SerialPortQuickConfigTreeItem.isLegacy` 及菜单 regex）；届时发布须知（CHANGELOG）须提示「用户升级可能丢失串口配置」。
+- 移除对 v1.2.0 及更早版本数据结构的兼容支持：删除旧键 `serialPortQuickConfigs` 两种旧形态（v1.2.0 及更早的「按设备分区对象」、v1.2.1/1.2.2 迁移的「全局数组」）的读取（`getLegacyConfigs` / `remove` / `resolveLegacyIds` 中的旧形态分支）与 legacy 树项渲染（`SerialPortQuickConfigTreeItem.isLegacy` 及菜单 regex）；
+- 移除时发布须知（CHANGELOG）必须明示：该版本起不再兼容旧数据，用户升级可能丢失串口配置（依据 §4.1 兼容性原则）。
 
 ## 10. 组件结构
 

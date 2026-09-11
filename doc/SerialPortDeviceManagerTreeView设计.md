@@ -1,7 +1,7 @@
 
 # SerialPortDeviceManagerTreeView 设计
 
-> 状态：已实现 ｜ 目录：`src/view/` ｜ 上位文档：总体架构.md
+> 目录：`src/view/` ｜ 上位文档：[总体架构.md](总体架构.md)
 
 ## 1. 定位
 
@@ -9,7 +9,7 @@ SerialPortDeviceManagerTreeView 是 UI 层组件：负责侧边栏树视图、�
 
 ## 2. 设计目标
 
-- **UI 与数据分离**：视图节点可随时重建，模型实例稳定（见 SerialPortDeviceDetector设计.md「模型实例稳定」）；状态写者始终是服务层；
+- **UI 与数据分离**：视图节点可随时重建，模型实例稳定，见 [SerialPortDeviceDetector设计.md](SerialPortDeviceDetector设计.md) §2「设计目标」；状态写者始终是服务层；
 - **只转发不实现**：命令回调中仅做转发，业务逻辑归服务层；
 - **订阅驱动刷新**：视图重渲染由三个事件触发器驱动 —— Detector 的设备增删事件、ConnectionService 的状态变化事件、ConfigStore 的配置变更事件。
 
@@ -34,7 +34,7 @@ classDiagram
 
 - **SerialPortDeviceTreeItem 是模型的封装器**：构造时持有 `SerialPortDeviceInterface` 引用；`getTreeItem` 返回前从模型 `status` 同步 contextValue 与图标，保证外观始终反映模型现状；
 - item 列表按 Detector 事件的 added/removed 精确增删，随后 `fire()`；
-- **快捷配置子节点**：设备拥有快捷配置时节点变为可折叠，子节点为各配置项（label = 名称、description = 参数摘要、tooltip = 完整参数），渲染时查询 ConfigStore（见 SerialPortQuickConfig设计.md）；当前连接的配置子节点高亮（radio-tower 图标 + "当前连接"标注，见该文档「当前连接高亮」）；
+- **快捷配置子节点**：设备拥有快捷配置时节点变为可折叠，子节点为各配置项（label = 名称、description = 参数摘要、tooltip = 完整参数），渲染时查询 ConfigStore，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §7；当前连接的配置子节点高亮（radio-tower 图标 + "当前连接"标注，见该文档 §6.3.1）；
 - 空状态：无设备时经 `treeView.message` 显示引导提示（"未检测到串口设备"）。
 
 ## 4. 命令与菜单
@@ -69,7 +69,7 @@ classDiagram
 | `serialPortQuickConfig` | 新配置子节点（重命名/删除菜单匹配此值） |
 | `serialPortQuickConfigLegacy` | 旧版本配置子节点（仅删除菜单匹配，不提供重命名、不高亮当前连接） |
 
-connecting 态不匹配任何菜单，用于禁用操作。原"hasConfigs 按钮迁移"方案已取消：连接入口统一保留在设备上（见 SerialPortQuickConfig设计.md 6.3）。
+connecting 态不匹配任何菜单，用于禁用操作；连接入口统一保留在设备上，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §6.3。
 
 ### 4.4 命令转发约定
 
@@ -91,7 +91,7 @@ connecting 态不匹配任何菜单，用于禁用操作。原"hasConfigs 按钮
 - **高亮查询**：渲染时经 `connectionService.getConnectionConfig(path)` 查询当前连接配置，配置子节点做值比较（`serialConfigEquals`）、设备行追加参数摘要；断开后查询返回 undefined，高亮随状态事件流自动消失；
 - **选中直连**：`treeView.onDidChangeSelection` 跟踪单选；点设备连接按钮时，若选中项是该设备的配置子节点则直接以该配置连接（跳过参数选择器），否则走选择器流程；
 - **配置变更**：`configStore.onDidChangeConfigs` → 重建受影响设备节点（含配置子节点）→ `fire()`；
-- **手动配置读取**：手动配置向导的波特率 / 帧格式读取自 `serialPortTerminal.baudRates` / `serialPortTerminal.frameFormats` 设置（见 SerialPortQuickConfig设计.md），每次打开向导实时读取，设置修改无需重启；
+- **手动配置读取**：手动配置向导的波特率 / 帧格式读取自 `serialPortTerminal.baudRates` / `serialPortTerminal.frameFormats` 设置，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §6.5；每次打开向导实时读取，设置修改无需重启；
 - **轮询启停**：`treeView.onDidChangeVisibility` → 可见时 `detector.start()`，隐藏时 `detector.stop()`；
 - 首次订阅时机：视图构造时订阅并触发一次 `detector.scan()` 同步全量列表；
 - 全部订阅与命令注册均入 `context.subscriptions`，扩展停用时由框架统一清理。

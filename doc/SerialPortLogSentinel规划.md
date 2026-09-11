@@ -1,6 +1,6 @@
 # SerialPortLogSentinel 设计
 
-> 状态：规划中 ｜ 目录：`src/SerialPortConsumer/SerialPortLogSentinel/`（待实现） ｜ 上位文档：总体架构.md ｜ 规范：SerialPortConsumer设计.md
+> 状态：规划中 ｜ 目录：`src/SerialPortConsumer/SerialPortLogSentinel/` ｜ 上位文档：[总体架构.md](总体架构.md) ｜ 规范：[SerialPortConsumer设计.md](ConsumerDesign/SerialPortConsumer设计.md)
 
 ## 1. 定位
 
@@ -24,7 +24,7 @@ SerialPortLogSentinel（日志哨兵）是一个**接收型 Consumer**：实时�
 ```mermaid
 graph TD
     Conn[SerialPortConnection] -->|广播 onData| Sentinel[SerialPortLogSentinel]
-    Sentinel --> Parser[SerialPortLogDataParser 预处理]
+    Sentinel --> Parser[SerialPortAnsiStripper 预处理]
     Parser --> Filter[确定性过滤器<br/>内置规则 + 自定义关键字]
     Filter --> Checkpoint[增量检查点队列<br/>有界 / 可清理]
     Checkpoint --> AIClient[本地 AI 客户端]
@@ -48,7 +48,7 @@ graph TD
   - **内置规则**（默认启用，可开关）：kernel oops、kernel panic、宕机/重启、致命错误、看门狗复位、栈回溯等常见故障特征。
   - **自定义关键字**：用户添加的关键字/正则，命中即标记为可疑行。
 - 它足够快，能跟上任意数据率，**保证不漏掉任何可疑行**。
-- 复用 `SerialPortLogDataParser` 做 ANSI 剥离、分帧等预处理。
+- 复用 `SerialPortAnsiStripper` 做 ANSI 剥离预处理。
 
 ### 4.2 增量检查点 + 数据生命周期
 
@@ -92,7 +92,7 @@ interface AlertTask {
 串口 → Connection.handle.onData
      → 广播给各 Consumer
      → SerialPortLogSentinel.onData(data)
-        → 剥离 ANSI / 分帧（复用 SerialPortLogDataParser）
+        → 剥离 ANSI（复用 SerialPortAnsiStripper）
         → 确定性过滤器逐行标记可疑行（内置规则 + 自定义关键字）
         → 可疑行进入增量检查点队列（有界，过时上下文清理）
      →（按分析间隔）本地 AI 客户端批量分析
@@ -140,8 +140,8 @@ classDiagram
         +onClosed()
         +start / stop / toggle
     }
-    class SerialPortLogDataParser {
-        +process(data)
+    class SerialPortAnsiStripper {
+        +strip(data)
     }
     class DeterministicFilter {
         +builtinRules
@@ -165,7 +165,7 @@ classDiagram
         +notify(summary)
     }
     SerialPortLogSentinel --|> SerialPortConsumer
-    SerialPortLogSentinel --> SerialPortLogDataParser : 预处理
+    SerialPortLogSentinel --> SerialPortAnsiStripper : 预处理
     SerialPortLogSentinel --> DeterministicFilter : 逐行标记
     SerialPortLogSentinel --> IncrementalCheckpoint : 增量消费
     SerialPortLogSentinel --> LocalAiClient : 分析

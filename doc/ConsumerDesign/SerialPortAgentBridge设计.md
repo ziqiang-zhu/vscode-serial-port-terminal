@@ -1,6 +1,6 @@
 # SerialPortAgentBridge 设计
 
-> 状态：已实现 ｜ 目录：`src/SerialPortConsumer/SerialPortAgentBridge/` ｜ 规范：SerialPortConsumer设计.md ｜ 上位文档：总体架构.md
+> 目录：`src/SerialPortConsumer/SerialPortAgentBridge/` ｜ 规范：[SerialPortConsumer设计.md](SerialPortConsumer设计.md) ｜ 上位文档：[总体架构.md](../总体架构.md)
 
 ## 1. 定位
 
@@ -124,10 +124,8 @@ classDiagram
     SerialPortAgentBridge --> SerialPortAnsiStripper : 使用
 ```
 
-## 10. 路线图 / 后续演进
+## 10. 后续规划
 
-- **v1（本次）**：依附 Terminal 的本机裸 TCP 桥、多客户端、实时不缓冲、终端标题栏按钮启停、端口下拉选择；
-- **后续**：
-  - 客户端接入提示：连接/断开时在终端或状态栏提示客户端数变化；
-  - 行尾归一化：CR / LF / CRLF（关联 M3-P2）；
-  - **不在范围**：headless（AgentBridge 依附 Terminal，无独立无终端形态）。
+- 客户端接入提示：连接/断开时在终端或状态栏提示客户端数变化；
+- 行尾归一化：CR / LF / CRLF（关联 M3-P2）；
+- headless 不在范围：AgentBridge 依附 Terminal，无独立无终端形态。

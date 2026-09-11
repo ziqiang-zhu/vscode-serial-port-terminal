@@ -1,7 +1,7 @@
 
 # SerialPortHal 设计
 
-> 状态：已实现 ｜ 目录：`src/hal/` ｜ 实现文档：SerialPortHalImpl实现.md
+> 目录：`src/hal/` ｜ 实现文档：[SerialPortHalImpl实现.md](SerialPortHalImpl实现.md)
 
 ## 1. 定位
 
@@ -44,7 +44,7 @@ HAL（Hardware Abstraction Layer，硬件抽象层）封装串口底层库，向
 | `stopBits` | 否 | 停止位（1/1.5/2） |
 | `rtscts` | 否 | RTS/CTS 硬件流控。字段名与 serialport 原生选项一致；对应 SerialConfig 的 `flowControl='rtscts'`（none 映射为 false） |
 
-- 与 SerialConfig（见 SerialPortConnection设计.md）的关系：连接服务把持久化的设备配置**映射**为本结构后调用 `openPort`；
+- 与 SerialConfig（见 [SerialPortConnection设计.md](../SerialPortConnection设计.md)）的关系：连接服务把持久化的设备配置**映射**为本结构后调用 `openPort`；
 - 刻意不包含 `autoOpen`：打开时机属 HAL 内部事务，上层契约只要求"返回一个已打开的句柄"。
 
 ### 3.3 SerialPortHandle —— 已打开端口的句柄
