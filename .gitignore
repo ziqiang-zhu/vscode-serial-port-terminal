@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.vsix
-.agents/
+.agents/*
+!.agents/skills/
 .zcode/
 .claude/
