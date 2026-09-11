@@ -21,10 +21,11 @@ export class SerialPortDeviceTreeItem extends vscode.TreeItem {
 
   private baseTooltip(): string {
     return vscode.l10n.t(
-      'Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}',
+      'Path: {0}\nVendorID: {1}\nProductID: {2}\nSerialNumber: {3}\nManufacturer: {4}',
       this.device.path,
       this.device.vendorId,
       this.device.productId,
+      this.device.serialNumber,
       this.device.manufacturer
     );
   }

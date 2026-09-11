@@ -44,7 +44,7 @@
   "Parity: {0}": "校验: {0}",
   "Stop bits: {0}": "停止位: {0}",
   "Flow control: {0}": "流控: {0}",
-  "Path: {0}\nVendorID: {1}\nProductID: {2}\nManufacturer: {3}": "路径: {0}\n厂商 ID: {1}\n产品 ID: {2}\n厂商: {3}",
+  "Path: {0}\nVendorID: {1}\nProductID: {2}\nSerialNumber: {3}\nManufacturer: {4}": "路径: {0}\n厂商 ID: {1}\n产品 ID: {2}\n序列号: {3}\n厂商: {4}",
   "Disconnected: {0}": "[已断开] {0}",
   "Unknown": "未知",
   "Config name cannot be empty": "配置名称不能为空",

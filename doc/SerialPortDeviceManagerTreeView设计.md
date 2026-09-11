@@ -33,6 +33,7 @@ classDiagram
 ```
 
 - **SerialPortDeviceTreeItem 是模型的封装器**：构造时持有 `SerialPortDeviceInterface` 引用；`getTreeItem` 返回前从模型 `status` 同步 contextValue 与图标，保证外观始终反映模型现状；
+- **设备悬浮提示**：展示 Path / VendorID / ProductID / SerialNumber / Manufacturer，缺失字段按「Unknown 为空标记」原则显示；连接时在末尾追加当前连接配置的参数详情；
 - item 列表按 Detector 事件的 added/removed 精确增删，随后 `fire()`；
 - **快捷配置子节点**：设备拥有快捷配置时节点变为可折叠，子节点为各配置项（label = 名称、description = 参数摘要、tooltip = 完整参数），渲染时查询 ConfigStore，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §7；当前连接的配置子节点高亮（radio-tower 图标 + "当前连接"标注，见该文档 §6.3.1）；
 - 空状态：无设备时经 `treeView.message` 显示引导提示（"未检测到串口设备"）。

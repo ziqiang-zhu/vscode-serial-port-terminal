@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.3.3]
+
+### 新增
+- 设备悬浮提示新增序列号（Serial Number）显示
+
 ## [1.3.2]
 
 ### 变更

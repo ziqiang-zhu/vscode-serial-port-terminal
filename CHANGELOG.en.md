@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.3.3]
+
+### Added
+- Show the serial number (Serial Number) in the device hover tooltip
+
 ## [1.3.2]
 
 ### Changed
