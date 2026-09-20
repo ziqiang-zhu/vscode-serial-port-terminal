@@ -1,0 +1,12 @@
+{
+  // 测试专用编译配置：测试与源码一并编译到 out-test/，主配置（dist/）保持不变。
+  // 运行：node --require ./test/mocks/install-vscode-stub.cjs --test out-test/test/unit/
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./out-test",
+    "types": ["node"]
+  },
+  "include": ["test", "src"],
+  "exclude": ["node_modules", ".vscode-test", "dist", "out-test"]
+}

@@ -3,12 +3,18 @@ src/**
 doc/**
 scripts/**
 images/logo_design.pptx
+test/**
+out-test/**
+tsconfig.test.json
 
 # Dev and build config
 .vscode/**
 .claude/**
+.zcode/**
+.agent/**
 .git/**
 .gitignore
+.zcodeignore
 tsconfig.json
 package-lock.json
 *.vsix

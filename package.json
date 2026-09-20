@@ -309,6 +309,8 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "clean": "node scripts/clean-dist.js",
+    "compile:test": "tsc -p tsconfig.test.json",
+    "test": "npm run compile:test && node --require ./test/mocks/install-vscode-stub.cjs --test out-test/test/unit/",
     "vscode:prepublish": "npm run clean && npm run compile"
   },
   "devDependencies": {
