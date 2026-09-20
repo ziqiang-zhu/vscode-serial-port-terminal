@@ -12,8 +12,8 @@ SerialPortAgentBridge 是一个**依附型、双向 `SerialPortConsumer`**：把
 
 ## 2. 设计目标
 
-- **去 ANSI 的字节透传**：串口数据剥离 ANSI 转义序列后转发给客户端，不做行编辑、协议封装；
-- **实时、不缓冲**：无客户端时串口数据丢弃；客户端只收连接后的实时数据，不做历史补发；
+- **去 ANSI 的行缓冲转发**：串口数据剥离 ANSI 转义序列后按行转发给客户端，不做行编辑、协议封装；
+- **尾行保留与空闲刷出**：未获得换行的半行保留至下个 `\n`、静默 200ms 自动刷出，或桥关闭时刷出；无客户端时串口数据丢弃，不做历史补发；
 - **多客户端**：输出广播给所有客户端，所有客户端输入合并转发到串口；
 - **本机优先、安全默认**：默认仅监听 `127.0.0.1`；
 - **无 headless**：依附 Terminal，关闭终端即断开，桥随之清理。
@@ -70,7 +70,9 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 ```
 串口 → Connection.handle.onData ──广播──▶ Terminal（显示）
                                     └──▶ LogRecorder（落盘）
-                                    └──▶ AgentBridge.onData → SerialPortAnsiStripper 剥离 ANSI → 广播给所有 socket
+                                    └──▶ AgentBridge.onData → SerialPortAnsiStripper 行缓冲剥离 → 广播给所有 socket
+                                                             静默 200ms：自动 flush 刷出尾行（消除提示符延迟）
+                                                             断开收尾：flush 剩余半行后关闭
 
 任一客户端 → socket 'data' → AgentBridge.send() → handle.write → 串口
 ```

@@ -19,7 +19,7 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 - 🏷️ **Terminal title with config name** — shows the device path plus the config name (or baud rate)
 - 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
-- 🤖 **AgentBridge (AI interaction)** — one-click in the terminal title bar bridges the serial port to a local TCP port so AI agents can read/write the embedded Linux console (multi-client, ANSI-stripped real-time passthrough, persistent status-bar port, click to copy)
+- 🤖 **AgentBridge (AI interaction)** — one-click in the terminal title bar bridges the serial port to a local TCP port so AI agents can read/write the embedded Linux console (multi-client, ANSI-stripped line-buffered forwarding, persistent status-bar port, click to copy)
 - 🌐 **Localization** — English / Simplified Chinese
 
 ## 📦 Installation

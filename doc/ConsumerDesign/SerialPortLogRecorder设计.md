@@ -83,7 +83,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
                                    └──▶ SerialPortLogRecorder（经 SerialPortAnsiStripper 剥离 ANSI、可选 SerialPortLineTimestampBuffer 加时间戳后写文件）
 ```
 
-LogRecorder 写入前经 `SerialPortAnsiStripper` 剥离 ANSI 转义序列（颜色码、光标控制等），可选经 `SerialPortLineTimestampBuffer` 按行加时间戳（`logTimestampEnabled` 开启时），保留 `\r\n`、`\t`、退格等有意义的控制字符。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。数据处理类的契约与已知限制见 [SerialPortDataParsers设计.md](SerialPortDataParsers设计.md)。
+LogRecorder 写入前经 `SerialPortAnsiStripper` 剥离 ANSI 转义序列（行缓冲式，`process` 输出完整行），可选经 `SerialPortLineTimestampBuffer` 按行加时间戳（`logTimestampEnabled` 开启时），保留 `\r\n`、`\t`、退格等有意义的控制字符。断开收尾时先 `AnsiStripper.flush()` 刷出剩余半行，再走时间戳缓冲的 `flush()` 补齐。当前 Terminal 无本地回显，故该字节流即设备真实发出的数据。数据处理类的契约与已知限制见 [SerialPortDataParsers设计.md](SerialPortDataParsers设计.md)。
 
 > **行缓冲说明**：时间戳按「行」加，而数据按「chunk」到达，chunk 边界与行边界不对齐。因此 `process()` 维护内部缓冲，按 `\n` 切分：完整行加时间戳后输出，末尾半行留在缓冲等待下一 chunk 补全；`flush()` 在结束前冲刷剩余的半行（无结尾换行的最后一行）。关闭时间戳时不缓冲、直接透传。
 

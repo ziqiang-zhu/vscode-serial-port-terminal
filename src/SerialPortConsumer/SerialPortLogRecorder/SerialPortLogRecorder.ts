@@ -32,7 +32,7 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
     if (this.paused) {
       return;
     }
-    const clean = this.ansiStripper.strip(data);
+    const clean = this.ansiStripper.process(data);
     const processed = this.timestampEnabled ? this.timestampBuffer.process(clean) : clean;
     if (processed.length === 0) {
       return;
@@ -46,7 +46,16 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
   }
 
   onClosed(): void {
-    const remaining = this.timestampEnabled ? this.timestampBuffer.flush() : Buffer.alloc(0);
+    // 断开收尾：先刷出剥离器保留的半行，再走时间戳管线补齐最后半行。
+    const outputs: Buffer[] = [];
+    const clean = this.ansiStripper.flush();
+    if (clean.length > 0) {
+      outputs.push(this.timestampEnabled ? this.timestampBuffer.process(clean) : clean);
+    }
+    if (this.timestampEnabled) {
+      outputs.push(this.timestampBuffer.flush());
+    }
+    const remaining = Buffer.concat(outputs);
     if (remaining.length > 0) {
       this.ensureStream();
       this.stream?.write(remaining);
