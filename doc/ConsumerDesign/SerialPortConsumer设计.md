@@ -13,7 +13,7 @@ SerialPortConsumer 是数据**消费方**的通用规范，由 Connection 模块
 
 - **单向接收**：Consumer 只接收数据；发送必须经 Connection 中枢（host），"唯一触碰数据流"的始终是 Connection；
 - **生命周期由 Connection 驱动**：注册（attach）、注销（onClosed）均发生在 Connection 的上下文中，Consumer 不感知端口细节；
-- **可管理**：每个 Consumer 有 id 与显示名，支持未来的二级菜单展示与手动关闭（M5）；
+- **可管理**：每个 Consumer 有 id 与显示名，用于注销定位与日志诊断；
 - **关闭行为自决**：`onClosed` 时用户可见类型保留视图并提示断开，用户不可见类型直接销毁自身资源 —— 选择权在子类，基类不做假设。
 
 ## 3. API 定义
@@ -29,15 +29,15 @@ Consumer 注册时由 Connection 注入，是 Consumer 与连接之间的唯一�
 | `readonly label: string \| undefined` | 连接来源标签（快捷配置名）；手动配置连接时为 `undefined` |
 | `send(data: Buffer)` | 向串口发送数据，Consumer 的**唯一**发送途径 |
 | `requestDisconnect()` | 请求断开连接，由 Connection 转交 Service 的销毁流程（终端内断开走这里） |
-| `addConsumer(consumer)` | 注册附属 Consumer（依附型 Consumer 的接入点，如 SerialPortLogRecorder） |
+| `addConsumer(consumer)` | 注册依附型 Consumer（依附型 Consumer 的接入点，如 SerialPortLogRecorder） |
 | `removeConsumer(id)` | 注销指定 Consumer |
 
 ### 3.2 SerialPortConsumer —— 抽象基类
 
 ```ts
 export abstract class SerialPortConsumer {
-  abstract readonly id: string;          // 唯一标识（未来二级菜单的键）
-  abstract readonly displayName: string; // 显示名（未来二级菜单展示）
+  abstract readonly id: string;          // 唯一标识
+  abstract readonly displayName: string; // 显示名，用于日志与诊断
   onData?(data: Buffer): void;           // 可选：接收数据，仅需接收数据的 Consumer 实现（只发送不接收的可省略）
   abstract onClosed(): void;             // 连接销毁通知：可见类型提示断开并保留视图，不可见类型销毁资源
   onError?(error: Error): void;          // 可选：运行期错误
@@ -71,10 +71,10 @@ Service.connect 成功
 | 规则 | 说明 |
 |---|---|
 | `addConsumer(consumer)` | 注册并 attach；同 id 重复注册时先对旧实例执行 `onClosed` |
-| `removeConsumer(id)` | 注销指定 Consumer（M5 二级菜单"手动关闭"走这里） |
+| `removeConsumer(id)` | 注销指定 Consumer，由其托管的主 Consumer 调用 |
 | Consumer 减为零 | Connection 通知 Service → 关闭串口并销毁 Connection（等同于一次断开） |
 | 默认 Consumer | SerialPortTerminal，由 Service 在 connect 成功后经工厂注册；其移除同样适用"减为零"规则 |
-| 依附型 Consumer | 由已注册的 Consumer 经 `host.addConsumer` 注册、并托管其生命周期（如 SerialPortLogRecorder 由 SerialPortTerminal 创建与管理，见 SerialPortLogRecorder设计.md） |
+| 依附型 Consumer | 由主 Consumer 经 `host.addConsumer` 注册，生命周期完全由主 Consumer 托管：主 Consumer 关闭或连接断开时随之收尾，依附型 Consumer 不存在独立于主 Consumer 的后台生命周期（如 SerialPortLogRecorder 由 SerialPortTerminal 创建与管理，见 SerialPortLogRecorder设计.md） |
 
 ### 4.1 关闭行为约定
 
@@ -132,5 +132,4 @@ classDiagram
 
 ## 7. 路线图
 
-- **M3**：输入增强（行尾符配置）与 Parser（Consumer 自决）演进；
-- **M5**：Consumer 二级菜单展示与手动关闭。
+- **M3**：输入增强（行尾符配置）与 Parser（Consumer 自决）演进。

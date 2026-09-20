@@ -10,7 +10,7 @@ SerialPortHalVirtual 是产品测试模式的载体：`SerialPortHal` 接口的�
 
 - 无硬件体验完整链路：连接、终端交互、日志保存、AgentBridge 全部可用；
 - 开发与调试 agent-bridge-skills：AI Agent 经 AgentBridge 操作虚拟终端；
-- 以真实采集日志为数据源验证日志能力，并为 [SerialPortLogSentinel规划.md](../SerialPortLogSentinel规划.md) 提供可复现的日志流。
+- 以真实采集日志为数据源，验证日志相关能力（每行时间戳、ANSI 剥离、按大小分割）。
 
 ## 2. 设计目标
 

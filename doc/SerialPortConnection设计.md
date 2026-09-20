@@ -97,14 +97,14 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 
 - `connect(device, config?)`：连接参数由调用方随连接请求传入（UI 经参数选择器收集）；未传时使用默认值 115200-8-N-1；
 - `getConnectionConfig(path)`：当前连接配置的只读查询，供视图高亮，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §6.3.1「当前连接高亮」；
-- Service 不查询配置存储：配置的选择与传递是视图层职责；自动恢复场景（M6）再评估注入 Store；
+- Service 不查询配置存储：配置的选择与传递是视图层职责，扩展不做启动自动连接（避免连接非预期设备引发破坏性事件）；
 - 持久化归 SerialPortConfigStore（键为设备身份，换口重插自动找回）。
 
 | 数据 | 键 | 是否持久化 | 说明 |
 |---|---|---|---|
 | 设备列表 | —— | 否 | 硬件事实，每次启动重新枚举 |
 | 命名配置集合（SerialPortQuickConfig[]） | 全局池 `serialPortQuickConfigPool` + 每设备引用 `serialPortDeviceConfigRefs`（引用键=设备身份） | 是 | 用户配置，全局池复用/引用计数，换口重插按身份找回，归 ConfigStore 管理 |
-| 上次使用配置（SerialConfig） | 设备身份 | 是 | 选择器置顶「上次使用」；启动自动恢复属 M6 规划 |
+| 上次使用配置（SerialConfig） | 设备身份 | 是 | 选择器置顶「上次使用」 |
 | 当前连接状态 | 路径 | 否 | 随进程结束而失效 |
 
 ## 7. Consumer 中枢
@@ -112,7 +112,7 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 Consumer 的通用规范见 [SerialPortConsumer设计.md](ConsumerDesign/SerialPortConsumer设计.md)。Connection 对外的注册入口：
 
 - `addConsumer(consumer)`：注册并 attach（注入 host）；同 id 重复注册时先对旧实例执行 `onClosed`；
-- `removeConsumer(id)`：注销（M5 二级菜单「手动关闭」走这里）；
+- `removeConsumer(id)`：注销 Consumer，由其托管的主 Consumer 调用；
 - **减为零规则**：某设备的 Consumer 全部移除时，Connection 通知 Service，关闭串口并销毁 Connection，等同于一次断开。
 
 默认 Consumer：Service 在 connect 成功后经工厂注册 SerialPortTerminal，见 [SerialPortTerminal设计.md](ConsumerDesign/SerialPortTerminal设计.md)。依附型 Consumer（如 SerialPortLogRecorder）由 SerialPortTerminal 经 `addConsumer` 注册并托管生命周期，见 [SerialPortLogRecorder设计.md](ConsumerDesign/SerialPortLogRecorder设计.md)。
@@ -152,6 +152,4 @@ classDiagram
 
 ## 9. 路线图
 
-- **M3**：SerialPortTerminal 完善 —— 输入增强（行尾符配置）、Parser（Consumer 自决）；
-- **M5**：Consumer 二级菜单管理；
-- **M6**：启动自动恢复（上次设备与配置）。
+- **M3**：SerialPortTerminal 完善 —— 输入增强（行尾符配置）、Parser（Consumer 自决）。

@@ -48,4 +48,4 @@ metadata:
 git branch / checkout / push / pull / rebase / reset / cherry-pick / remote
 ```
 
-分支、历史与远程是用户的领地：创建、切换、改写、发布提交的决定权完全在用户手中。允许的 git 操作仅限只读命令（`status` / `diff` / `log` / `show` 等），暂存（`add`）、提交（`commit`）必须得到用户明确指令才允许执行。。
+分支、历史与远程是用户的领地：创建、切换、改写、发布提交的决定权完全在用户手中。允许的 git 操作仅限只读命令（`status` / `diff` / `log` / `show` 等），暂存（`add`）、提交（`commit`）必须得到用户明确指令才允许执行。
