@@ -93,7 +93,7 @@ Service.connect 成功
     → Terminal 显示 / 分析器处理（各自内部，可经 DataParser 数据处理类做转义、更好显示等加工）
 ```
 
-Connection 只广播不加工；数据的转义、解析与展示由各 Consumer 内部经数据处理类自行完成，Consumer 之间不协作、不经 Connection 传递加工结果。公共数据处理类位于 `src/SerialPortConsumer/SerialPortDataParsers/`（`SerialPortAnsiStripper`，剥离 ANSI 转义序列）；日志专属的按行时间戳缓冲 `SerialPortLineTimestampBuffer` 位于 LogRecorder 目录。若未来出现跨 Consumer 共享加工结果的管道需求，再引入 Processor 概念，不扩充 Consumer 契约。
+Connection 只广播不加工；数据的转义、解析与展示由各 Consumer 内部经数据处理类自行完成，Consumer 之间不协作、不经 Connection 传递加工结果。公共数据处理类位于 `src/SerialPortConsumer/SerialPortDataParsers/`（`SerialPortAnsiStripper`，剥离 ANSI 转义序列），设计见 [SerialPortDataParsers设计.md](SerialPortDataParsers设计.md)；日志专属的按行时间戳缓冲 `SerialPortLineTimestampBuffer` 位于 LogRecorder 目录。若未来出现跨 Consumer 共享加工结果的管道需求，再引入 Processor 概念，不扩充 Consumer 契约。
 
 ## 6. 组件结构
 
