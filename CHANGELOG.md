@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## Test Unit Online
+
+- 单元测试体系上线：`npm test`（Node 内置 test runner），当前 19 例，进度与用例明细见 `doc/Test/开发测试体系规划.md`，套件独立版本见 `test/package.json`（当前 v0.3.0）；
+- **发布要求**：`vscode:prepublish` 已将 `npm test` 设为前置门禁——测试套件未通过时，`vsce package` 与 `vsce publish` 一律中止，单元测试全绿是打包发版的必要条件。
+
 ## [1.3.3]
 
 ### 新增

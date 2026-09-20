@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## Test Unit Online
+
+- The unit test suite is online: `npm test` (Node's built-in test runner), 19 cases so far. Progress and case details: `doc/Test/开发测试体系规划.md`; the suite carries its own version in `test/package.json` (currently v0.3.0);
+- **Release requirement**: `vscode:prepublish` now runs `npm test` as a gate — `vsce package` and `vsce publish` abort while the suite is red; a green suite is mandatory for packaging a release.
+
 ## [1.3.3]
 
 ### Added
