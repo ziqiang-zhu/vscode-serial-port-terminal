@@ -11,7 +11,7 @@ tsconfig.test.json
 .vscode/**
 .claude/**
 .zcode/**
-.agent/**
+.agents/**
 .git/**
 .gitignore
 .zcodeignore
