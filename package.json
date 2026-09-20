@@ -311,7 +311,7 @@
     "clean": "node scripts/clean-dist.js",
     "compile:test": "tsc -p tsconfig.test.json",
     "test": "npm run compile:test && node --require ./test/mocks/install-vscode-stub.cjs --test \"out-test/test/unit/**/*.test.js\"",
-    "vscode:prepublish": "npm run clean && npm run compile"
+    "vscode:prepublish": "npm test && npm run clean && npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
