@@ -2,7 +2,7 @@
 name: agent-work-agreement
 description: 本仓库的人机协作工作约定：文档先行、先确认后修改的开发流程，版本号与 CHANGELOG 规则，提交准备方式，以及禁用的 git 命令。凡在本仓库被要求修改代码、新增功能、编写设计、评估新特性、更新版本号或准备提交时，先加载并遵守本约定——即使用户没有明确提到"约定"或"流程"。
 metadata: 
-   version: 1.0.0
+   version: 1.1.0
    author: ziqiang.zhu
 ---
 
@@ -37,14 +37,15 @@ metadata:
 ## 提交准备
 
 - 用户通知"准备提交"时，才执行收尾：更新版本号，并生成一份英文版 commit message（每次的具体格式以用户约定为准）。
-- 产出交用户确认；提交动作由用户完成，禁止私自提交。
+- 产出交用户确认，得到用户明确允许提交的指令后，才可以将当前工作内容提交到仓库中。
+- 未得到用户允许，禁止私自提交。
 
 ## 禁用的 git 命令
 
 以下命令一律禁止执行：
 
 ```
-git commit / branch / checkout / push / pull / rebase / reset / cherry-pick / remote
+git branch / checkout / push / pull / rebase / reset / cherry-pick / remote
 ```
 
-分支、历史与远程是用户的领地：创建、切换、改写、发布提交的决定权完全在用户手中。允许的 git 操作仅限只读命令（`status` / `diff` / `log` / `show` 等）与暂存（`add`）。
+分支、历史与远程是用户的领地：创建、切换、改写、发布提交的决定权完全在用户手中。允许的 git 操作仅限只读命令（`status` / `diff` / `log` / `show` 等），暂存（`add`）、提交（`commit`）必须得到用户明确指令才允许执行。。
