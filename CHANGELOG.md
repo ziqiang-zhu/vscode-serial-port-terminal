@@ -2,15 +2,20 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.4.1]
+
+### 修复
+- LineTimestampBuffer 改为按字节累积：多字节字符被 chunk 边界切开时不再损坏为替换符；单元测试扩展至 39 例
+
 ## [1.4.0]
 
 ### 变更
 - AnsiStripper 行缓冲化：转义序列剥离以行为单位处理，未完成尾行按字节跨 chunk 保留——跨 chunk 序列不再出现残段泄漏与多字节乱码，断开时自动刷出剩余半行
 - AgentBridge 转发语义调整：输出改为去 ANSI 行缓冲转发，尾行静默 200ms 自动刷出、桥关闭时刷出（提示符等无换行输出不再长期滞留）；发送路径保持实时
 
-## [Test Unit Online]
+## [单元测试上线]
 
-- 单元测试体系上线：`npm test`（Node 内置 test runner），当前 19 例，进度与用例明细见 `doc/Test/开发测试体系规划.md`，套件独立版本见 `test/package.json`（当前 v0.3.1）；
+- 单元测试体系上线：`npm test`（Node 内置 test runner），当前 39 例，进度与用例明细见 `doc/Test/开发测试体系规划.md`，套件独立版本见 `test/package.json`（当前 v0.4.0）；
 - **发布要求**：`vscode:prepublish` 已将 `npm test` 设为前置门禁——测试套件未通过时，`vsce package` 与 `vsce publish` 一律中止，单元测试全绿是打包发版的必要条件。
 
 ## [1.3.3]

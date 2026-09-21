@@ -2,15 +2,20 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.1]
+
+### Fixed
+- LineTimestampBuffer now accumulates raw bytes: multibyte characters split at chunk boundaries are no longer corrupted into replacement characters; unit test coverage expanded to 39 cases
+
 ## [1.4.0]
 
 ### Changed
 - Line-buffered ANSI stripping: escape sequences are stripped per line, with incomplete trailing lines held as raw bytes across chunks — no more fragment leaks or multibyte corruption at chunk boundaries; the remaining half-line is flushed on disconnect
 - AgentBridge forwarding semantics adjusted: output is now ANSI-stripped line-buffered forwarding; a held line is flushed automatically after 200ms of silence and on bridge close (newline-less output such as prompts no longer stalls); the send path stays real-time
 
-## [Test Unit Online]
+## [Unit Test Online]
 
-- The unit test suite is online: `npm test` (Node's built-in test runner), 19 cases so far. Progress and case details: `doc/Test/开发测试体系规划.md`; the suite carries its own version in `test/package.json` (currently v0.3.1);
+- The unit test suite is online: `npm test` (Node's built-in test runner), 39 cases so far. Progress and case details: `doc/Test/开发测试体系规划.md`; the suite carries its own version in `test/package.json` (currently v0.4.0);
 - **Release requirement**: `vscode:prepublish` now runs `npm test` as a gate — `vsce package` and `vsce publish` abort while the suite is red; a green suite is mandatory for packaging a release.
 
 ## [1.3.3]
