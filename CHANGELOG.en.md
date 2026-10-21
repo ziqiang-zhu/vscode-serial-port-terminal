@@ -2,6 +2,10 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v1.0.0]
+
+- The unit test suite grows to 72 cases: new SerialPortConfigStore tests (25 cases, all green), closing P0; suite version v0.5.0 -> v1.0.0.
+
 ## [Unit Test v0.5.0]
 
 - The unit test suite grows to 47 cases: new SerialPortDeviceImpl identity-fallback and Unknown-fallback tests (8 cases, all green); suite version v0.4.0 -> v0.5.0.
