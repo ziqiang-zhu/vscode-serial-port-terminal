@@ -45,7 +45,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 - `onData` 由 Connection 的数据流入口调用，调用顺序即串口到达顺序；
 - 首次收到数据时才创建文件（延迟创建），未收到数据即停止不产生空文件；
 - `pause` / `resume` 只切换内部标志，**不注销** Consumer；
-- `onClosed` 幂等，文件流未创建或已关闭时直接返回；
+- `onClosed` 幂等可重入：重复调用不产生二次写盘与提示（由延迟建文件与 `fileCreated` 守卫保证）；
 - 停止收尾时（无论「停止」按钮还是断开连接触发）若本次有数据写入，弹出「文件已保存到 <path>」提示。
 
 ## 5. 生命周期
@@ -187,7 +187,8 @@ classDiagram
         -segmentBytes: number
     }
     class SerialPortAnsiStripper {
-        +strip(data): Buffer
+        +process(data: Buffer) Buffer
+        +flush() Buffer
     }
     class SerialPortLineTimestampBuffer {
         +process(data): Buffer
