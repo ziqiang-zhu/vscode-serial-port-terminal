@@ -2,6 +2,10 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [单元测试 v0.5.0]
+
+- 单元测试扩展至 47 例：新增 SerialPortDeviceImpl 身份退化链与 Unknown 兜底用例（8 例全绿），套件版本 v0.4.0 -> v0.5.0。
+
 ## [1.4.1]
 
 ### 修复

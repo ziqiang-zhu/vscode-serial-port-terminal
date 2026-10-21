@@ -2,6 +2,10 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v0.5.0]
+
+- The unit test suite grows to 47 cases: new SerialPortDeviceImpl identity-fallback and Unknown-fallback tests (8 cases, all green); suite version v0.4.0 -> v0.5.0.
+
 ## [1.4.1]
 
 ### Fixed

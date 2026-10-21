@@ -31,6 +31,7 @@ metadata:
 ## 版本号与 CHANGELOG
 
 - 需要更新版本号的修改，必须同步更新 `CHANGELOG.md` 与 `CHANGELOG.en.md`；不更新版本号的修改不动 CHANGELOG。
+- CHANGELOG 为只追加记录：新条目一律在文件顶部插入，已有章节内容一经提交不得修改。
 - 版本号格式为三段式 `x.y.z`（`package.json` 的 `version` 字段，不含 `v` 前缀）。用户未明确说明时默认 patch 位 +1（如 1.3.2 → 1.3.3）；用户有明确要求时按要求执行。
 - 版本号的更新发生在提交准备阶段，不发生在功能修改阶段。
 
