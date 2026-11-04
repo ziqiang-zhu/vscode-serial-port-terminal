@@ -2,6 +2,16 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.2]
+
+### Added
+- SerialPortHalVirtual, the virtual HAL (product test mode P0): a profile abstraction base, a virtual port handle (response-delay pipeline, close cleanup), and the Echo device (`VCOM-ECHO`, self-labeled Virtual in the device list)
+- Compile-time `USE_VIRTUAL_HAL` switch (default `false`, source-level only, no runtime toggle); assembly picks the HAL through a factory
+- Release guard: `vscode:prepublish` now runs `verify-hal-selection.js` first and rejects packaging while the switch is not reset
+
+### Notes
+- Default production behavior is unchanged (the real HAL is assembled while the switch is off)
+
 ## [Unit Test v1.0.0]
 
 - The unit test suite grows to 72 cases: new SerialPortConfigStore tests (25 cases, all green), closing P0; suite version v0.5.0 -> v1.0.0.

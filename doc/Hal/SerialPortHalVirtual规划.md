@@ -31,6 +31,8 @@ SerialPortHalVirtual 是产品测试模式的载体：`SerialPortHal` 接口的�
 | U-Boot 终端设备 | `VCOM-UBOOT` | UBootShell | Agent 连接测试：U-Boot 命令集固定应答 |
 | 日志回放设备 | `VCOM-REPLAY` | Replay | 按可调速率回放日志文件 |
 
+设备随画像落地分阶段注册：P0 仅提供 VCOM-ECHO，P1/P2 补齐 Linux / U-Boot / Replay，四台齐备为最终形态。`manufacturer` 字段固定为 `Virtual`——设备列表的行描述与悬浮提示由此自带 Virtual 标注，无需 UI 层改动（完整控制台见 §8）。
+
 设备默认在线；控制台可切换「拔出 / 上线」模拟热插拔事件链（见 §8）。设备身份走退化链第三级（path 兜底）——虚拟设备路径固定且稳定，见 [SerialPortDeviceDetector设计.md](../SerialPortDeviceDetector设计.md) §4.1。
 
 ## 4. 设备画像
@@ -87,8 +89,8 @@ LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 
 ## 5. 装配与选择（编译期）
 
-- 源码开关常量（如 `src/hal/halSelection.ts` 的 `USE_VIRTUAL_HAL = false`）决定 `extension.ts` 注入的实现；不存在运行时切换，也不提供设置项；
-- 本 HAL 仅用于测试模式：`vscode:prepublish` 校验开关为 `false`，未复位时拒绝打包，防止生产版本携带虚拟设备；
+- 源码开关常量（`src/hal/halSelection.ts` 的 `USE_VIRTUAL_HAL = false`）决定 `extension.ts` 注入的实现；不存在运行时切换，也不提供设置项；
+- 本 HAL 仅用于测试模式：`vscode:prepublish` 以 `node scripts/verify-hal-selection.js` 为第二道前置（测试门禁之后），脚本校验源码中开关字面量为 `false`，未复位则非零退出、拒绝打包；
 - 测试构建下设备来源**完全替换**：`listDevices` 只返回虚拟设备，虚拟与真实设备不混排；按路径前缀分发两级 HAL 的混排路由列入演进；
 - 生命周期语义与真实设备一致：断开、关闭终端面板、扩展停用均走上层统一销毁流程，虚拟句柄在 `close` 时停止回放与定时器。
 
@@ -152,11 +154,23 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 
 ## 10. 演进路线
 
-- **P0**：编译期开关 + HAL 骨架 + Echo 画像，跑通测试构建下的连接与终端交互；
+- **P0**（实施拆分见 §10.1）：编译期开关 + prepublish 校验 + HAL 骨架 + Echo 画像，跑通测试构建下的连接与终端交互；
 - **P1**：LinuxShell / UBootShell 画像（内置默认表 + 应答目录覆盖 + 远端回显），支撑 agent-bridge-skills 调试；
-- **P2**：Replay 画像（文件回放、速率、循环）；
+- **P2**：Replay 画像（文件回放、速率、循环；速率语义实现前定稿）；
 - **P3**：虚拟设备控制台（WebviewView：设备下拉、状态按钮、精确数值输入、文件入口、数据注入）+ 背压模拟；
 - **P4**：U-Boot → Linux 开机链路、混排路由。
+
+### 10.1 P0 实施拆分
+
+| # | 内容 | 落点 |
+|---|---|---|
+| 1 | 编译期开关与 HAL 工厂 | `src/hal/halSelection.ts`：`USE_VIRTUAL_HAL = false` 常量 + `createSerialPortHal()` 工厂；`extension.ts` 改用工厂获取 HAL（默认分支行为不变） |
+| 2 | HAL 骨架 | `src/hal/SerialPortHalVirtual/`：`SerialPortHalVirtual`（`listDevices` 返回已注册画像、`openPort` 任意参数成功）、`VirtualPortHandle`（write / onData / onError / onDrain / close，含 `responseDelay` 延迟管线与 close 时定时器清理）、`VirtualDeviceProfile` 抽象基类（`onOpen` / `onInput(data, emit)` / `onClose`） |
+| 3 | Echo 画像 | `EchoProfile`：`onInput` 将输入原样 `emit`；P0 仅注册此一台（`VCOM-ECHO`，manufacturer=`Virtual`） |
+| 4 | 防误发布校验 | `scripts/verify-hal-selection.js`：校验 `halSelection.ts` 中开关字面量为 `false`；`vscode:prepublish` 追加该前置 |
+| 5 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.5（11 例：设备枚举、参数忽略、回显、保序、延迟、close 语义、订阅口完整性） |
+
+实现约束：虚拟 HAL 不 import `vscode` 与第三方包（`responseDelay` 经构造参数注入、由装配层读配置传入），保持纯逻辑可直接单测；背压 P0 恒为放行（`write` 恒返回 `true`），仅保留接口。
 
 ## 11. 组件结构
 

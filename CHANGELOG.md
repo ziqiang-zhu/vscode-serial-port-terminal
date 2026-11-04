@@ -2,6 +2,16 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.4.2]
+
+### 新增
+- SerialPortHalVirtual 虚拟 HAL（产品测试模式 P0）：画像抽象基类、虚拟端口句柄（应答延迟管线、关闭清理）、Echo 回显设备（`VCOM-ECHO`，设备列表自带 Virtual 标注）
+- 编译期开关 `USE_VIRTUAL_HAL`（默认 `false`，源码切换，无运行时开关），装配层经工厂选择 HAL
+- 发布防线：`vscode:prepublish` 新增 `verify-hal-selection.js` 前置校验，开关未复位时拒绝打包
+
+### 说明
+- 默认生产行为完全不变（开关关闭时装配真实 HAL）
+
 ## [单元测试 v1.0.0]
 
 - 单元测试扩展至 72 例：新增 SerialPortConfigStore 用例（25 例全绿），P0 全套件收官，套件版本 v0.5.0 -> v1.0.0。

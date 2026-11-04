@@ -1,6 +1,9 @@
 ---
 name: commit-message-format
 description: 本仓库的 commit message 格式约定：类型前缀标题、英文正文、Test 结果行（Pass / Fail / N/A / 省略），以及产品版本与测试套件版本并列 trailer。凡在本仓库被要求提供 commit message、准备提交或执行提交时，一律按本格式生成——即使用户没有明确提到"格式"或"约定"。
+metadata: 
+   author: "ziqiang.zhu"
+   version: "1.1.0"
 ---
 
 # Commit Message 格式约定
@@ -12,7 +15,7 @@ description: 本仓库的 commit message 格式约定：类型前缀标题、英
 ```
 <type>: <简短描述>
 
-<正文：说明改动内容与理由，1–4 行，手动换行控制在约 72 字符>
+<正文：说明改动内容与理由，1–4 行，手动换行使每行不超过 70 字符>
 
 Test Run: Pass
 
@@ -26,6 +29,11 @@ unit test version: v<x.y.z>
 
 - 类型前缀按改动性质从 `feat` / `fix` / `refactor` / `docs` / `test` / `chore` 中选择，多类型混合时以最主要改动为准；
 - 简短描述用英文小写祈使句，不加句号。
+
+## 长度限制
+
+- **单行 ≤ 70 字符**：标题、正文与 trailer 每行超过 70 字符必须手动换行；
+- **整条 ≤ 500 字符**：完整 commit message（标题 + 正文 + 空行 + Test 行 + trailer）总长不超过 500 字符——正文须精炼取舍，细节留给设计文档与 CHANGELOG。
 
 ## Test 行
 

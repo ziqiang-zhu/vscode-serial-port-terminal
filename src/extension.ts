@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SerialPortHalImpl } from './hal/SerialPortHalImpl';
+import { createSerialPortHal } from './hal/halSelection';
 import { SerialPortDeviceDetector } from './SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortConnectionService } from './SerialPortConnection/SerialPortConnectionService';
 import { SerialPortTerminal, registerSerialPortLogCommands } from './SerialPortConsumer/SerialPortTerminal/SerialPortTerminal';
@@ -8,7 +8,7 @@ import { SerialPortDeviceManagerTreeView } from './view/SerialPortDeviceManagerT
 import { SerialPortMacroManager } from './SerialPortMacroSender/SerialPortMacroManager';
 
 export function activate(context: vscode.ExtensionContext) {
-  const hal = new SerialPortHalImpl();
+  const hal = createSerialPortHal();
   const detector = new SerialPortDeviceDetector(hal, context);
   context.subscriptions.push(detector);
   const connectionService = new SerialPortConnectionService(hal, detector, context, () => new SerialPortTerminal());
