@@ -14,8 +14,7 @@
 			"label": "compile",
 			"type": "npm",
 			"script": "compile",
-			"problemMatcher": "$tsc",
-			"dependsOn": ["clean"],
+			"problemMatcher": [],
 			"presentation": {
 				"reveal": "never"
 			},

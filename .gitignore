@@ -1,6 +1,8 @@
 node_modules/
 dist/
+.tmp-build/
 out-test/
+.debug-empty/
 *.vsix
 .agents/*
 !.agents/skills/

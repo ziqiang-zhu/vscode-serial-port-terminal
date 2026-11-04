@@ -129,12 +129,12 @@
 
 ```bash
 npm install
-npm run compile     # 编译
-npm run watch       # 监听编译
-npm run clean       # 清空 dist
+npm run compile     # 原子构建（编译到 .tmp-build，成功后整体替换 dist）
+npm run watch       # 监听编译（原地增量，适合长时间开发会话）
+npm run clean       # 清空 dist 与 .tmp-build
 ```
 
-按 `F5` 启动扩展开发主机调试：每次 F5 自动执行 `clean + compile`，保证运行最新构建。
+按 `F5` 启动扩展开发主机调试：每次 F5 自动执行原子构建 `compile`——编译失败或被中断时中止启动，宿主不会加载半成品或旧产物；调试控制台首行输出构建指纹（时间 + commit），可核对加载的版本。
 
 ## 📄 许可证
 

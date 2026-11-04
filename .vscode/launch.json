@@ -2,7 +2,26 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			// 默认调试配置：禁用 GPU 加速。
+			// 本机 GPU 栈上 F5 宿主窗口曾随机闪退（VS Code 1.145 + extensionHost，
+			// 与扩展无关，空扩展亦可复现；--disable-gpu 后约 40 次无复现）。
 			"name": "Debug",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-gpu"
+			],
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "${defaultBuildTask}"
+		},
+		{
+			// 备选配置：保留 GPU 加速（渲染更流畅，用于验证 GPU 相关表现）。
+			// ⚠️ 在本机可能随机闪退（窗口秒级直接消失、无崩溃转储），仅按需使用。
+			"name": "Debug (GPU enabled)",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",

@@ -2,6 +2,15 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [F5 Debug Stability]
+
+- Fixed random crashes of the F5 debug host: the root cause is a renderer crash of the VS Code 1.145 debug host window on this machine's GPU stack (unrelated to this extension — reproducible with an empty extension); the default debug configuration now disables GPU acceleration, with a `Debug (GPU enabled)` alternative kept alongside a crash-risk note
+- Atomic build chain: `compile` now builds into `.tmp-build` first and swaps `dist` on success — a failed or interrupted build exits non-zero and aborts the debug launch, so the host never loads a partial or stale output; `activate` logs a build stamp (time + commit) on its first line for version checks
+
+## [Unit Test v1.1.0]
+
+- The unit test suite grows to 83 cases: new virtual HAL scaffold + Echo profile tests (11 cases, all green, including mock-timer controlled delay-pipeline checks); suite version v1.0.0 -> v1.1.0.
+
 ## [1.4.2]
 
 ### Added

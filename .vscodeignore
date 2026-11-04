@@ -5,6 +5,7 @@ scripts/**
 images/logo_design.pptx
 test/**
 out-test/**
+.tmp-build/**
 tsconfig.test.json
 
 # Dev and build config
