@@ -42,10 +42,15 @@ const withTempDir = (run: (dir: string) => void): void => {
 };
 
 describe('命令壳注册（P1）', () => {
-  it('#1 registers three shell devices alongside Echo (all Virtual)', async () => {
+  it('#1 registers three shell devices alongside Echo and Replay (all Virtual)', async () => {
     const hal = new SerialPortHalVirtual();
     const devices = await hal.listDevices();
-    assert.deepEqual(devices.map(d => d.path), ['VCOM-ECHO', 'VCOM-LINUX', 'VCOM-UBOOT']);
+    assert.deepEqual(devices.map(d => d.path), [
+      'VCOM-ECHO',
+      'VCOM-LINUX',
+      'VCOM-UBOOT',
+      'VCOM-REPLAY',
+    ]);
     assert.ok(devices.every(d => d.manufacturer === 'Virtual'));
   });
 });

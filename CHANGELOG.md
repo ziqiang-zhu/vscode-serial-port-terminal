@@ -2,6 +2,10 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [单元测试 v1.3.0]
+
+- 单元测试扩展至 116 例：新增回放画像用例（13 例全绿：行/秒速率节拍、字节级保真、EOF 循环/停止、静默设备），随 HalVirtual P2 落地，四台虚拟设备齐备；套件版本 v1.2.0 -> v1.3.0。
+
 ## [F5 闪退根因更正]
 
 - 根因更正：F5 宿主偶发闪退（extensionHost SIGABRT / code 134）实为 VS Code 上游 js-debug 注入路径的已知问题（[microsoft/vscode#336233](https://github.com/microsoft/vscode/issues/336233)），此前归因 GPU 渲染崩溃有误；`[F5 调试稳定性]` 中的原子构建修复不受影响

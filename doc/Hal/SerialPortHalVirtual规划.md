@@ -1,6 +1,6 @@
 # SerialPortHalVirtual 设计
 
-> 状态：P0 / P1 已实现（P2 / P3 / P4 规划中）｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
+> 状态：P0 / P1 / P2 已实现（P3 / P4 规划中）｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
 
 ## 1. 定位
 
@@ -73,9 +73,11 @@ SerialPortHalVirtual 是产品测试模式的载体：`SerialPortHal` 接口的�
 
 ### 4.4 Replay（日志回放）
 
-- 数据源为纯文本日志文件（配置项），打开端口后按可调速率逐行播放；
-- 速率与是否循环可配置；
-- 速率语义（整体倍速 vs 行/秒）与播放控制（暂停、重新开始）在实现前定稿。
+- 数据源为纯文本日志文件（配置 `testMode.replayFile`），**打开端口时读取**（重新连接即加载最新文件），按**原始字节切片**逐行播放（`\r\n` 行尾与多字节字符字节级保真）；
+- **速率语义（已定稿）：行/秒**——`testMode.replayRate` = 每秒播放行数，默认 `100`、最小 `1`；内部以 100ms 节拍批发（每节拍 `N/10` 行，余数累进），高速率自动合并为大批次（契合真实串口的 chunk 到达形态）；
+- 播放完成（EOF）：`testMode.replayLoop=true` 从头循环，`false` 停止播放（设备保持在线、静默）；
+- `replayFile` 未配置或文件不可读：设备照常枚举与打开，但无任何输出（静默设备）；
+- 主机侧输入被忽略（回放设备为纯数据源）；播放随端口 close 停止；整文件读入内存（开发工具定位，数十 MB 量级日志可接受）。
 
 ### 4.5 应答目录（交互型画像）
 
@@ -99,7 +101,7 @@ LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 | 配置项 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `serialPortTerminal.testMode.replayFile` | string | `""` | 回放设备的纯文本日志文件路径 |
-| `serialPortTerminal.testMode.replayRate` | number | `1` | 回放速率 |
+| `serialPortTerminal.testMode.replayRate` | number | `100` | 回放速率（行/秒），最小 1；语义见 §4.4 |
 | `serialPortTerminal.testMode.replayLoop` | boolean | `false` | 播放到文件末尾后是否循环 |
 | `serialPortTerminal.testMode.responseDelay` | number | `0` | 命令应答延迟（ms），模拟真实设备的异步响应 |
 | `serialPortTerminal.testMode.interactionDir` | string | `""` | 交互型画像的应答根目录，约定见 §4.5 |
@@ -156,7 +158,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 
 - **P0**（实施拆分见 §10.1）：编译期开关 + prepublish 校验 + HAL 骨架 + Echo 画像，跑通测试构建下的连接与终端交互；
 - **P1**（实施拆分见 §10.2）：LinuxShell / UBootShell 画像（内置默认表 + 应答目录覆盖 + 远端回显），支撑 agent-bridge-skills 调试；
-- **P2**：Replay 画像（文件回放、速率、循环；速率语义实现前定稿）；
+- **P2**（实施拆分见 §10.3）：Replay 画像（文件回放、行/秒速率、循环）；
 - **P3**：虚拟设备控制台（WebviewView：设备下拉、状态按钮、精确数值输入、文件入口、数据注入）+ 背压模拟；
 - **P4**：U-Boot → Linux 开机链路、混排路由。
 
@@ -187,6 +189,18 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 行为细节（实现即定稿）：应答与提示符行尾一律 `\r\n`（真实串口终端习惯，term.js 的独占一行标记检测兼容）；空回车（仅 `\r`）只回显换行 + 新提示符；`responseDelay` 延迟作用于整个 `onInput` 分发（回显与应答同时延迟到达），逐 chunk 时序微调归 P3 控制台。
 
 > **现状（2026-11-05）**：P1 已实现——`CommandShellProfile` 基类 + Linux / U-Boot 两画像按上表落地，20 例单测全绿（`doc/Test/开发测试体系规划.md` §6.6），复合命令解析（#4）按推荐实现。
+
+### 10.3 P2 实施拆分
+
+| # | 内容 | 落点 |
+|---|---|---|
+| 1 | Replay 画像 | `ReplayProfile`（继承 `VirtualDeviceProfile`，不经命令壳基类）：构造注入 `(file?, rate = 100, loop = false)`；`onOpen` 读取文件 + 启动 100ms 节拍批发（余数累进）；EOF 按 `loop` 循环/停止；`onClose` 清定时器；`onInput` 忽略；文件按原始字节切片（含行尾），内容字节级保真 |
+| 2 | 装配 | `halSelection.ts` 注册第四台设备（读 `replayFile` / `replayRate` / `replayLoop` 配置注入）；`SerialPortHalVirtual` 默认注册集扩为四台 |
+| 3 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.7（13 例，`mock.timers` 控时） |
+
+实现约束沿用 §10.1：纯逻辑（仅 Node 内建 fs）、无 vscode 依赖；运行时速率调整归 P3 控制面 API。
+
+> **现状（2026-11-05）**：P2 已实现——`ReplayProfile` 按上表落地（节拍累进采用 ms 基整数规避浮点漂移），13 例单测全绿（`doc/Test/开发测试体系规划.md` §6.7），四台虚拟设备齐备（§3 最终形态）。
 
 ## 11. 组件结构
 
@@ -243,6 +257,8 @@ classDiagram
         -file
         -rate
         -loop
+        -lineIndex
+        -carry
     }
     class VirtualDeviceConsole {
         <<WebviewView>>

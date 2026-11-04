@@ -2,6 +2,10 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v1.3.0]
+
+- The unit test suite grows to 116 cases: new replay-profile tests (13 cases, all green: lines-per-second pacing, byte-exact fidelity, EOF loop/stop, silent device), shipped with HalVirtual P2 — all four virtual devices complete; suite version v1.2.0 -> v1.3.0.
+
 ## [F5 Crash Correction]
 
 - Root cause corrected: the intermittent F5 host crash (extensionHost SIGABRT / code 134) is a known upstream issue in the js-debug injection path ([microsoft/vscode#336233](https://github.com/microsoft/vscode/issues/336233)); the earlier GPU-renderer attribution was wrong — the atomic-build fix in `[F5 Debug Stability]` is unaffected
