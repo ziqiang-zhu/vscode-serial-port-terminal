@@ -2,6 +2,10 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v1.2.0]
+
+- The unit test suite grows to 103 cases: new command-shell profile tests (20 cases, all green: remote echo, line buffering, builtin command tables, compound commands, response-directory overrides); suite version v1.1.0 -> v1.2.0.
+
 ## [F5 Debug Stability]
 
 - Fixed random crashes of the F5 debug host: the root cause is a renderer crash of the VS Code 1.145 debug host window on this machine's GPU stack (unrelated to this extension — reproducible with an empty extension); the default debug configuration now disables GPU acceleration, with a `Debug (GPU enabled)` alternative kept alongside a crash-risk note

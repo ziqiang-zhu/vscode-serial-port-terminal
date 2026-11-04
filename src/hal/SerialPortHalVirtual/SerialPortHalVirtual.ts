@@ -1,16 +1,22 @@
 import { SerialPortHal, SerialPortHandle, SerialPortInfo, SerialPortOpenOptions } from '../SerialPortHal';
 import { EchoProfile } from './EchoProfile';
+import { LinuxShellProfile } from './LinuxShellProfile';
+import { UBootShellProfile } from './UBootShellProfile';
 import { VirtualDeviceProfile } from './VirtualDeviceProfile';
 import { VirtualPortHandle } from './VirtualPortHandle';
 
 // SerialPortHal 的虚拟设备实现（契约见 doc/Hal/SerialPortHalVirtual规划.md）。
-// 纯逻辑组件：不 import vscode 与第三方包，responseDelay 由装配层读配置后构造注入，
-// 保证可直接纳入 node:test 单元测试。
+// 纯逻辑组件：不 import vscode 与第三方包，responseDelay / interactionDir 由装配层
+// 读配置后构造注入，保证可直接纳入 node:test 单元测试。
+// 默认注册集为当前已实现画像全集（P0 Echo + P1 Linux / U-Boot）。
 export class SerialPortHalVirtual implements SerialPortHal {
   private readonly profiles: VirtualDeviceProfile[];
   private readonly responseDelay: number;
 
-  constructor(profiles: VirtualDeviceProfile[] = [new EchoProfile()], responseDelay = 0) {
+  constructor(
+    profiles: VirtualDeviceProfile[] = [new EchoProfile(), new LinuxShellProfile(), new UBootShellProfile()],
+    responseDelay = 0
+  ) {
     this.profiles = profiles;
     this.responseDelay = responseDelay;
   }

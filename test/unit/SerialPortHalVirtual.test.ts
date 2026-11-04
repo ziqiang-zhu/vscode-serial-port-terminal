@@ -22,12 +22,11 @@ const collect = (handle: VirtualPortHandle): string[] => {
 };
 
 describe('SerialPortHalVirtual 设备枚举与打开', () => {
-  it('#1 lists exactly the registered profiles (P0: VCOM-ECHO, Virtual)', async () => {
+  it('#1 lists exactly the registered profiles (ECHO / LINUX / UBOOT, Virtual)', async () => {
     const hal = new SerialPortHalVirtual();
     const devices = await hal.listDevices();
-    assert.equal(devices.length, 1);
-    assert.equal(devices[0]?.path, 'VCOM-ECHO');
-    assert.equal(devices[0]?.manufacturer, 'Virtual');
+    assert.deepEqual(devices.map(d => d.path), ['VCOM-ECHO', 'VCOM-LINUX', 'VCOM-UBOOT']);
+    assert.ok(devices.every(d => d.manufacturer === 'Virtual'));
   });
 
   it('#2 opens with minimal and full parameter sets', async () => {

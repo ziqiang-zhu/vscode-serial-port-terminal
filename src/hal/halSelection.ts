@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { SerialPortHal } from './SerialPortHal';
 import { SerialPortHalImpl } from './SerialPortHalImpl';
 import { EchoProfile } from './SerialPortHalVirtual/EchoProfile';
+import { LinuxShellProfile } from './SerialPortHalVirtual/LinuxShellProfile';
+import { UBootShellProfile } from './SerialPortHalVirtual/UBootShellProfile';
 import { SerialPortHalVirtual } from './SerialPortHalVirtual/SerialPortHalVirtual';
 
 // 编译期 HAL 选择：测试构建改为 true，发布前必须复位为 false
@@ -10,7 +12,10 @@ export const USE_VIRTUAL_HAL = false;
 
 export function createSerialPortHal(): SerialPortHal {
   if (USE_VIRTUAL_HAL) {
-    return new SerialPortHalVirtual([new EchoProfile()], readResponseDelay());
+    return new SerialPortHalVirtual(
+      [new EchoProfile(), new LinuxShellProfile(readInteractionDir()), new UBootShellProfile(readInteractionDir())],
+      readResponseDelay()
+    );
   }
   return new SerialPortHalImpl();
 }
@@ -20,4 +25,11 @@ function readResponseDelay(): number {
     .getConfiguration('serialPortTerminal.testMode')
     .get<number>('responseDelay', 0);
   return Number.isFinite(raw) && raw > 0 ? raw : 0;
+}
+
+function readInteractionDir(): string | undefined {
+  const raw = vscode.workspace
+    .getConfiguration('serialPortTerminal.testMode')
+    .get<string>('interactionDir', '');
+  return raw && raw.trim() ? raw.trim() : undefined;
 }

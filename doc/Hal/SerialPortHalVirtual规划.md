@@ -1,6 +1,6 @@
 # SerialPortHalVirtual 设计
 
-> 状态：规划中 ｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
+> 状态：P0 / P1 已实现（P2 / P3 / P4 规划中）｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
 
 ## 1. 定位
 
@@ -155,7 +155,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 ## 10. 演进路线
 
 - **P0**（实施拆分见 §10.1）：编译期开关 + prepublish 校验 + HAL 骨架 + Echo 画像，跑通测试构建下的连接与终端交互；
-- **P1**：LinuxShell / UBootShell 画像（内置默认表 + 应答目录覆盖 + 远端回显），支撑 agent-bridge-skills 调试；
+- **P1**（实施拆分见 §10.2）：LinuxShell / UBootShell 画像（内置默认表 + 应答目录覆盖 + 远端回显），支撑 agent-bridge-skills 调试；
 - **P2**：Replay 画像（文件回放、速率、循环；速率语义实现前定稿）；
 - **P3**：虚拟设备控制台（WebviewView：设备下拉、状态按钮、精确数值输入、文件入口、数据注入）+ 背压模拟；
 - **P4**：U-Boot → Linux 开机链路、混排路由。
@@ -171,6 +171,22 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 5 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.5（11 例：设备枚举、参数忽略、回显、保序、延迟、close 语义、订阅口完整性） |
 
 实现约束：虚拟 HAL 不 import `vscode` 与第三方包（`responseDelay` 经构造参数注入、由装配层读配置传入），保持纯逻辑可直接单测；背压 P0 恒为放行（`write` 恒返回 `true`），仅保留接口。
+
+### 10.2 P1 实施拆分
+
+| # | 内容 | 落点 |
+|---|---|---|
+| 1 | 命令壳基类 | `CommandShellProfile`（抽象，继承 `VirtualDeviceProfile`）：**远端回显**（输入原样 echo，`\r` 回显为 `\r\n`）、**行缓冲**（`\r` / `\n` 为终止符，跨 chunk 累积）、**应答管线**（命令行 → 查应答 → 输出 + `\r\n` 行尾 + 提示符）、`onClose` 清缓冲；`EchoProfile` 不受影响 |
+| 2 | LinuxShell 画像 | `LinuxShellProfile`：横幅 `Welcome to Virtual Linux (busybox)` + 提示符 `root@localhost:~# `；内置表 `help` / `uname -a` / `ls` / `pwd` / 参数化 `echo <文本>` / 参数化 `cat <路径>`（固定内容块）；未知命令 `bash: <命令>: command not found` |
+| 3 | UBootShell 画像 | `UBootShellProfile`：横幅 `U-Boot 2023.10-virtual` + 提示符 `=> `；内置表 `help` / `version` / `printenv`（预置环境变量块）；未知命令 `Unknown command '<命令>' - try 'help'` |
+| 4 | 复合命令解析 | 按 `;` 分隔依次执行、输出顺序拼接——**设计点，支撑 agent-bridge-skills 的标准模式** `echo __MARK_BEGIN__; <命令>; echo __MARK_END__`（标记检测要求各标记独占一行，无此解析则虚拟 Linux 无法配合技能仓库） |
+| 5 | 应答目录覆盖 | 画像构造参数注入 `interactionDir`（装配层读 `testMode.interactionDir` 传入，纯逻辑约束不变）；子目录 `linux/`、`uboot/`；文件名 = 命令行 + `.txt`、内容 = 应答文本；**优先级：精确文件 > 精确内置 > 参数化内置 > 未知回退**；目录/文件缺省回退内置；Windows 非法文件名字符的命令无法覆盖，保留内置表 |
+| 6 | 注册 | `halSelection.ts` 测试分支注册三台设备（Echo + Linux + UBoot），`listDevices` 返回三项；均 manufacturer=`Virtual` |
+| 7 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.6（20 例） |
+
+行为细节（实现即定稿）：应答与提示符行尾一律 `\r\n`（真实串口终端习惯，term.js 的独占一行标记检测兼容）；空回车（仅 `\r`）只回显换行 + 新提示符；`responseDelay` 延迟作用于整个 `onInput` 分发（回显与应答同时延迟到达），逐 chunk 时序微调归 P3 控制台。
+
+> **现状（2026-11-05）**：P1 已实现——`CommandShellProfile` 基类 + Linux / U-Boot 两画像按上表落地，20 例单测全绿（`doc/Test/开发测试体系规划.md` §6.6），复合命令解析（#4）按推荐实现。
 
 ## 11. 组件结构
 
@@ -210,6 +226,12 @@ classDiagram
         +onInput(data, emit)
         +onClose()
     }
+    class CommandShellProfile {
+        <<abstract>>
+        +banner / prompt
+        -lineBuffer
+        -resolve(commandLine)
+    }
     class EchoProfile
     class LinuxShellProfile {
         -commands: CommandTable
@@ -231,8 +253,9 @@ classDiagram
     SerialPortHalVirtual --> VirtualPortHandle : 创建
     VirtualPortHandle --> VirtualDeviceProfile : 持有
     VirtualDeviceProfile <|-- EchoProfile
-    VirtualDeviceProfile <|-- LinuxShellProfile
-    VirtualDeviceProfile <|-- UBootShellProfile
+    VirtualDeviceProfile <|-- CommandShellProfile
+    CommandShellProfile <|-- LinuxShellProfile
+    CommandShellProfile <|-- UBootShellProfile
     VirtualDeviceProfile <|-- ReplayProfile
     VirtualDeviceConsole --> SerialPortHalVirtual : 控制面 API（postMessage）
 ```
