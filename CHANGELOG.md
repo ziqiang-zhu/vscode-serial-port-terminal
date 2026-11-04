@@ -2,6 +2,12 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [F5 闪退根因更正]
+
+- 根因更正：F5 宿主偶发闪退（extensionHost SIGABRT / code 134）实为 VS Code 上游 js-debug 注入路径的已知问题（[microsoft/vscode#336233](https://github.com/microsoft/vscode/issues/336233)），此前归因 GPU 渲染崩溃有误；`[F5 调试稳定性]` 中的原子构建修复不受影响
+- 调试配置调整：默认 `Debug` 恢复标准参数，`--disable-gpu` 降为备选配置；工作区关闭 `debug.javascript.enableNetworkView`（上游指向的疑似触发器）
+- **影响范围：仅开发者调试流程，对插件用户零影响**——生产构建、扩展运行行为与发布产物均无任何变化
+
 ## [单元测试 v1.2.0]
 
 - 单元测试扩展至 103 例：新增命令壳画像用例（20 例全绿：远端回显、行缓冲、内置命令表、复合命令、应答目录覆盖），套件版本 v1.1.0 -> v1.2.0。

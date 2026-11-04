@@ -2,16 +2,18 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			// 默认调试配置：禁用 GPU 加速。
-			// 本机 GPU 栈上 F5 宿主窗口曾随机闪退（VS Code 1.145 + extensionHost，
-			// 与扩展无关，空扩展亦可复现；--disable-gpu 后约 40 次无复现）。
+			// 默认调试配置。
+			// ⚠️ F5 偶发闪退为 VS Code 上游已知问题（extensionHost UtilityProcess SIGABRT，
+			// 崩在扩展激活前、无崩溃转储，与扩展内容无关）：
+			// https://github.com/microsoft/vscode/issues/336233
+			// 重试 F5 一般即恢复；无需断点时 Ctrl+F5（不调试运行）走非注入路径、更稳定。
+			// 本工作区已置 debug.javascript.enableNetworkView=false（上游指向的疑似触发器）。
 			"name": "Debug",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--disable-gpu"
+				"--extensionDevelopmentPath=${workspaceFolder}"
 			],
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
@@ -19,14 +21,16 @@
 			"preLaunchTask": "${defaultBuildTask}"
 		},
 		{
-			// 备选配置：保留 GPU 加速（渲染更流畅，用于验证 GPU 相关表现）。
-			// ⚠️ 在本机可能随机闪退（窗口秒级直接消失、无崩溃转储），仅按需使用。
-			"name": "Debug (GPU enabled)",
+			// 备选配置：禁用 GPU 加速。
+			// 与上游 F5 闪退问题无关（禁用与否均观测到崩溃）；仅在遇到独立的
+			// GPU 相关渲染异常时按需尝试。
+			"name": "Debug (--disable-gpu)",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-gpu"
 			],
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"

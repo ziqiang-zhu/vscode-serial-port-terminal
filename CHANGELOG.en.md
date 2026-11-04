@@ -2,6 +2,12 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [F5 Crash Correction]
+
+- Root cause corrected: the intermittent F5 host crash (extensionHost SIGABRT / code 134) is a known upstream issue in the js-debug injection path ([microsoft/vscode#336233](https://github.com/microsoft/vscode/issues/336233)); the earlier GPU-renderer attribution was wrong — the atomic-build fix in `[F5 Debug Stability]` is unaffected
+- Debug configuration adjusted: the default `Debug` config restored to standard arguments, `--disable-gpu` demoted to an alternative, and the workspace disables `debug.javascript.enableNetworkView` (the trigger suspected upstream)
+- **Scope: development debugging only, zero impact on extension users** — production builds, runtime behavior, and published artifacts are unchanged
+
 ## [Unit Test v1.2.0]
 
 - The unit test suite grows to 103 cases: new command-shell profile tests (20 cases, all green: remote echo, line buffering, builtin command tables, compound commands, response-directory overrides); suite version v1.1.0 -> v1.2.0.

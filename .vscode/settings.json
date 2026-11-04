@@ -1,0 +1,7 @@
+{
+	// 疑似 F5 宿主闪退的触发器（上游 issue 指向 js-debug 网络检视插桩，
+	// 存活窗口反复抛 TypeError: Missing dataLength in event）：
+	// https://github.com/microsoft/vscode/issues/336233
+	// 关闭后观察闪退率变化；该功能仅在调试网络面板时有用。
+	"debug.javascript.enableNetworkView": false
+}
