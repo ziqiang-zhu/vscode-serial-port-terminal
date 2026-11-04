@@ -3,7 +3,7 @@ name: commit-message-format
 description: 本仓库的 commit message 格式约定：类型前缀标题、英文正文、Test 结果行（Pass / Fail / N/A / 省略），以及产品版本与测试套件版本并列 trailer。凡在本仓库被要求提供 commit message、准备提交或执行提交时，一律按本格式生成——即使用户没有明确提到"格式"或"约定"。
 metadata: 
    author: "ziqiang.zhu"
-   version: "1.1.0"
+   version: "1.2.0"
 ---
 
 # Commit Message 格式约定
@@ -34,6 +34,15 @@ unit test version: v<x.y.z>
 
 - **单行 ≤ 70 字符**：标题、正文与 trailer 每行超过 70 字符必须手动换行；
 - **整条 ≤ 500 字符**：完整 commit message（标题 + 正文 + 空行 + Test 行 + trailer）总长不超过 500 字符——正文须精炼取舍，细节留给设计文档与 CHANGELOG。
+
+### 校验工具与提交流程
+
+长度规则经 `scripts/check-commit-msg.js` 机器校验，提交按以下流程执行：
+
+1. 将 commit message 写入临时文件（如根目录 `_commitmsg.txt`）；
+2. 运行 `node .agents/skills/commit-message-format/scripts/check-commit-msg.js _commitmsg.txt`，退出码非零或输出 `COMMIT_MSG_INVALID` 时修正后重校；
+3. 校验通过后 `git commit -F _commitmsg.txt`（须已获用户提交许可）；
+4. 删除临时文件。
 
 ## Test 行
 
