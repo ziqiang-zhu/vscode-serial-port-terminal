@@ -1,6 +1,6 @@
 # SerialPortHalVirtual 设计
 
-> 状态：P0 / P1 / P2 / P3 已实现（P4 规划中）｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
+> 状态：P0–P4 已实现（演进路线收官）｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
 
 ## 1. 定位
 
@@ -28,7 +28,7 @@ SerialPortHalVirtual 是产品测试模式的载体：`SerialPortHal` 接口的�
 |---|---|---|---|
 | 回显设备 | `VCOM-ECHO` | Echo | 管道验证：输入什么回显什么 |
 | Linux 终端设备 | `VCOM-LINUX` | LinuxShell | Agent 连接测试：常用命令固定应答 |
-| U-Boot 终端设备 | `VCOM-UBOOT` | UBootShell | Agent 连接测试：U-Boot 命令集固定应答 |
+| U-Boot 终端设备 | `VCOM-UBOOT` | UBootShell | Agent 连接测试：开机链路（U-Boot → Linux）+ 固定应答 |
 | 日志回放设备 | `VCOM-REPLAY` | Replay | 按可调速率回放日志文件 |
 
 设备随画像落地分阶段注册：P0 仅提供 VCOM-ECHO，P1/P2 补齐 Linux / U-Boot / Replay，四台齐备为最终形态。`manufacturer` 字段固定为 `Virtual`——设备列表的行描述与悬浮提示由此自带 Virtual 标注，无需 UI 层改动（完整控制台见 §8）。
@@ -69,7 +69,21 @@ SerialPortHalVirtual 是产品测试模式的载体：`SerialPortHal` 接口的�
 | `printenv` | 预置环境变量 |
 | 其余命令 | `Unknown command '<命令>' - try 'help'` |
 
-应答来源与文件覆盖约定见 §4.5。开机倒计时与 `boot` 命令切换 Linux 会话的状态机链路列入演进，首版两个画像相互独立。
+应答来源与文件覆盖约定见 §4.5。
+
+**开机链路（P4）**：端口打开后进入 U-Boot 会话并启动自动开机倒计时（2 秒，对应 `printenv` 的 `bootdelay=2`）：
+
+```
+U-Boot 2023.10-virtual (Nov 05 2026 - 00:00:00 +0800)
+Hit any key to stop autoboot: 2
+```
+
+- 倒计时数字按秒经退格更新（`2` → `\b1` → `\b0`，真实 U-Boot 行为）；打开后**不先显示提示符**——`=> ` 在倒计时被中断后才出现；
+- 倒计时窗口内首个输入块中断倒计时（整块被消费：不回显、不进行缓冲），换行收束倒计时行后显示 U-Boot 提示符，停留在 U-Boot 会话；
+- 倒计时自然到期或 U-Boot 会话中执行 `boot` 命令：输出 `\r\n` + 内核启动信息，随后切换 Linux 会话（横幅 + `root@localhost:~# `）；
+- Linux 会话中命令表整体切换为 Linux 内置表（`help` / `uname -a` / …），U-Boot 专属命令按 Linux 未知格式回退（如 `bash: printenv: command not found`）；
+- 端口 `close` 复位状态机：重开端口重新走 U-Boot 开机链路；`VCOM-LINUX` 保持独立常驻 Linux 设备，不受影响；
+- 倒计时与开机信息为设备侧自主输出（画像自带定时器，同 Replay 约定，`onClose` 必须清理），不经 responseDelay 延迟管线；`boot` 命令应答与提示符走常规管线。
 
 ### 4.4 Replay（日志回放）
 
@@ -91,9 +105,10 @@ LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 
 ## 5. 装配与选择（编译期）
 
-- 源码开关常量（`src/hal/halSelection.ts` 的 `USE_VIRTUAL_HAL = false`）决定 `extension.ts` 注入的实现；不存在运行时切换，也不提供设置项；
+- 开关常量（`src/hal/halSelection.ts` 的 `USE_VIRTUAL_HAL`）**源码字面量恒为 `false`**（发布就绪状态，永不手动修改）；测试构建的开关值由 `scripts/build.js` 在产物级注入（读环境变量替换产物字面量，断言恰好命中 1 处），运行期不存在切换，也不提供设置项；三种编译形态（产品 / 测试 / 单元测试）的配置方法见 [../编译指导.md](../编译指导.md)；
 - 本 HAL 仅用于测试模式：`vscode:prepublish` 以 `node scripts/verify-hal-selection.js` 为第二道前置（测试门禁之后），脚本校验源码中开关字面量为 `false`，未复位则非零退出、拒绝打包；
-- 测试构建下设备来源**完全替换**：`listDevices` 只返回虚拟设备，虚拟与真实设备不混排；按路径前缀分发两级 HAL 的混排路由列入演进；
+- 测试构建下设备来源为**混排呈现**——`SerialPortHalComposite` 同时持有真实 HAL 与虚拟 HAL，`listDevices` 返回两者并集（真实在前、虚拟在后），`openPort` 按路径前缀路由（`VCOM-` 前缀走虚拟 HAL，其余路径透传真实 HAL）；真实串口命名（`COM*` / `tty*` / `dev/*`）与 `VCOM-` 前缀无冲突；产品构建（开关 `false`）为纯真实 HAL，`verify-hal-selection.js` 校验不受影响；
+- 产品化打包：发布 VSIX 不含虚拟设备控制台面板与 `testMode.*` 设置项（`scripts/package.js` 打包时净化清单 + `verify-release-manifest.js` 机械拦截未净化打包，见 [../编译指导.md](../编译指导.md) §4.3）；
 - 生命周期语义与真实设备一致：断开、关闭终端面板、扩展停用均走上层统一销毁流程，虚拟句柄在 `close` 时停止回放与定时器。
 
 ## 6. 配置（草案）
@@ -160,7 +175,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 - **P1**（实施拆分见 §10.2）：LinuxShell / UBootShell 画像（内置默认表 + 应答目录覆盖 + 远端回显），支撑 agent-bridge-skills 调试；
 - **P2**（实施拆分见 §10.3）：Replay 画像（文件回放、行/秒速率、循环）；
 - **P3**：虚拟设备控制台（WebviewView：设备下拉、状态按钮、精确数值输入、文件入口、数据注入）+ 背压模拟；
-- **P4**：U-Boot → Linux 开机链路、混排路由。
+- **P4**（实施拆分见 §10.5）：U-Boot → Linux 开机链路（自动开机倒计时、`boot` 切换会话）+ 混排路由（真实与虚拟设备共存）；
 
 ### 10.1 P0 实施拆分
 
@@ -214,6 +229,21 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 
 > **现状（2026-11-06）**：P3 已实现——上表五项全部落地：控制面运行态（`VirtualRuntime` 按引用共享，控制面修改即时作用于存活句柄）、8 个控制面 API + 离线过滤/拒绝、控制台视图（`state` 推送 + 占位页）、装配与清单（`createVirtualHal()`、`serialPortConsole` 视图、5 个 `testMode.*` 设置）、13 例控制面单测全绿（`doc/Test/开发测试体系规划.md` §6.8）。Webview 页面交互归 P1 集成测试范围。
 
+### 10.5 P4 实施拆分
+
+| # | 内容 | 落点 |
+|---|---|---|
+| 1 | 开机链路状态机 | `UBootShellProfile`：会话状态（`uboot` / `linux`，`close` 复位）；`onOpen` 覆写为输出横幅 + 倒计时行并启动按秒退格更新（画像自带定时器，`onClose` 清理并复位）；倒计时窗口内 `onInput` 首个输入块中断（整块消费、不回显不缓冲）；到期或 `boot` 命令 → 内核启动信息 + Linux 会话切换（`banner` / `prompt` / 内置表 / 未知格式按会话取值，Linux 侧委托内嵌 `LinuxShellProfile`，避免命令表双份维护）；`VCOM-LINUX` 画像不变 |
+| 2 | 混排路由 | `src/hal/SerialPortHalComposite.ts`：实现 `SerialPortHal`，构造注入 `(real, virtual, prefix = 'VCOM-')`（依赖接口而非具体实现，测试以桩注入真实侧）；`listDevices` = 两侧并集（真实在前）；`openPort` 按前缀路由——前缀命中走虚拟（含离线拒绝），其余透传真实 HAL（未知设备的明确报错由真实侧给出） |
+| 3 | 装配 | `halSelection.ts`：恢复 `createSerialPortHal(virtualHal)` 工厂——`virtualHal` 非空（`USE_VIRTUAL_HAL = true`）→ `new SerialPortHalComposite(new SerialPortHalImpl(), virtualHal)`（混排，真实 + 虚拟共存）；`undefined` → 纯 `SerialPortHalImpl`（现状不变）；`extension.ts` 改用该工厂获取 HAL（虚拟实例仍单独持有，供控制台使用）；`verify-hal-selection.js` 校验逻辑不变 |
+| 4 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.9（开机链路 12 例 + 混排路由 6 例，`mock.timers` 控时；新测试文件，套件版本 minor +1） |
+| 5 | 构建参数化开关 | `scripts/build.js` 读 `USE_VIRTUAL_HAL` 环境变量、产物级注入开关值（替换后断言恰好命中 1 处，防发射格式漂移静默失效）、指纹增 `virtualHal` 字段；`.vscode/tasks.json` 增 `compile:test-hal` 任务（`options.env` 注入）、`launch.json` 默认 `Debug` 挂测试构建、新增 `Debug (real HAL)` 挂默认构建；源码字面量自此恒 `false`（配置方法与原理见 [../编译指导.md](../编译指导.md)） |
+| 6 | 产品化打包 | `scripts/package.js`（`npm run package`）：备份清单 → 净化（移除 `serialPortConsole` 视图、5 个 `testMode.*` 配置及对应本地化键，前后结构断言）→ `vsce package` → `finally` 恢复清单；`scripts/verify-release-manifest.js` 挂 prepublish 链尾机械拦截未净化打包；发布 VSIX 无虚拟设备控制台面板与 `testMode.*` 设置项（产物中虚拟 HAL 编译物运行时不可达，彻底剔除归打包器 tree-shaking，不为此引入依赖） |
+
+实现约束沿用 §10.1：纯逻辑、无 vscode 依赖；倒计时定时器归画像自带（同 `ReplayProfile` 先例）；控制台不新增画像专属控件（§8 通用控制定位不变，开机链路无需控制面 API）。
+
+> **现状（2026-11-06）**：P4 已实现——上表四项全部落地：开机链路状态机（`UBootShellProfile` 会话切换 + 按秒退格倒计时定时器 + close 复位，Linux 命令表/提示符委托内嵌 `LinuxShellProfile`）、`SerialPortHalComposite` 混排路由（前缀路由 + 并集枚举真实在前）、装配（`createSerialPortHal(virtualHal)` 组合混排，生产构建纯真实 HAL 不变）、18 例单测全绿（`doc/Test/开发测试体系规划.md` §6.9）。**HalVirtual 演进路线（P0–P4）至此全部完成。**
+
 ## 11. 组件结构
 
 ```mermaid
@@ -263,7 +293,14 @@ classDiagram
         -commands: CommandTable
     }
     class UBootShellProfile {
-        -commands: CommandTable
+        -session: uboot | linux
+        -countdown timer
+    }
+    class SerialPortHalComposite {
+        -real: SerialPortHal
+        -virtual: SerialPortHal
+        +listDevices()
+        +openPort(options)
     }
     class ReplayProfile {
         -file
@@ -277,7 +314,10 @@ classDiagram
         +设备下拉 / 状态按钮 / 数值输入 / 文件入口 / 数据注入
     }
     SerialPortHalVirtual ..|> SerialPortHal : 实现
+    SerialPortHalComposite ..|> SerialPortHal : 实现
     VirtualPortHandle ..|> SerialPortHandle : 实现
+    SerialPortHalComposite --> SerialPortHalVirtual : VCOM- 前缀路由
+    SerialPortHalComposite --> SerialPortHal : 其余路径透传
     SerialPortHalVirtual --> VirtualPortHandle : 创建
     VirtualPortHandle --> VirtualDeviceProfile : 持有
     VirtualDeviceProfile <|-- EchoProfile

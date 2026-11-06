@@ -345,7 +345,8 @@
     "clean": "node scripts/clean-dist.js",
     "compile:test": "tsc -p tsconfig.test.json",
     "test": "npm run compile:test && node --require ./test/mocks/install-vscode-stub.cjs --test \"out-test/test/unit/**/*.test.js\"",
-    "vscode:prepublish": "npm test && node scripts/verify-hal-selection.js && npm run compile"
+    "package": "node scripts/package.js",
+    "vscode:prepublish": "npm test && node scripts/verify-hal-selection.js && node scripts/verify-release-manifest.js && npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

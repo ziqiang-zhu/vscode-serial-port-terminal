@@ -2,6 +2,10 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v1.5.0]
+
+- The unit test suite grows to 147 cases: new U-Boot -> Linux boot-chain tests (12 cases, all green: 2-second autoboot countdown with backspaced digits, any-key interrupt, session switch on the boot command or expiry, close reset) and mixed-routing tests (6 cases, all green: union enumeration, `VCOM-` prefix routing, offline rejection, prefix boundary), shipped with HalVirtual P4 — the P0-P4 roadmap is complete; also lands three build modes (product / test / unit test, the HAL switch now injected into build output) and productized packaging (the release VSIX carries no virtual device console panel or `testMode.*` settings); suite version v1.4.0 -> v1.5.0.
+
 ## [Unit Test v1.4.0]
 
 - The unit test suite grows to 129 cases: new virtual-device control-plane tests (13 cases, all green: device-side injection, online/unplug filtering and open rejection, backpressure queueing and drain, live delay/rate/loop/interaction-dir adjustments), shipped with HalVirtual P3 (control-plane API plus the virtual device console view; production builds render a placeholder page); suite version v1.3.0 -> v1.4.0.

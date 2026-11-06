@@ -24,8 +24,8 @@ export abstract class CommandShellProfile extends VirtualDeviceProfile {
     this.interactionDir = dir && dir.trim() ? dir.trim() : undefined;
   }
 
-  abstract readonly banner: string;
-  abstract readonly prompt: string;
+  abstract get banner(): string;
+  abstract get prompt(): string;
 
   onOpen(emit: VirtualEmit): void {
     this.emitText(this.normalizeDisplay(`${this.banner}\n${this.prompt}`), emit);
@@ -102,11 +102,12 @@ export abstract class CommandShellProfile extends VirtualDeviceProfile {
   protected abstract formatUnknown(command: string): string;
 
   // 显示归一：CR/LF/CRLF 一律以 CRLF 呈现（真实串口终端习惯）。
-  private normalizeDisplay(text: string): string {
+  // protected：会话型画像（U-Boot 开机链路）的自有输出路径同样使用。
+  protected normalizeDisplay(text: string): string {
     return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
   }
 
-  private emitText(text: string, emit: VirtualEmit): void {
+  protected emitText(text: string, emit: VirtualEmit): void {
     if (text.length > 0) {
       emit(Buffer.from(text, 'utf8'));
     }

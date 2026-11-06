@@ -2,7 +2,8 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			// 默认调试配置。
+			// 默认调试配置 = 测试构建（虚拟混排）：真实设备 + VCOM- 虚拟设备，
+			// 侧边栏可用 Virtual Device Console。见 doc/编译指导.md §3.2。
 			// ⚠️ F5 偶发闪退为 VS Code 上游已知问题（extensionHost UtilityProcess SIGABRT，
 			// 崩在扩展激活前、无崩溃转储，与扩展内容无关）：
 			// https://github.com/microsoft/vscode/issues/336233
@@ -18,13 +19,13 @@
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "compile:test-hal"
 		},
 		{
-			// 备选配置：禁用 GPU 加速。
-			// 与上游 F5 闪退问题无关（禁用与否均观测到崩溃）；仅在遇到独立的
+			// 产品构建调试：仅真实设备，无虚拟设备与控制台（发布形态的运行验证）。
+			// 备选配置：禁用 GPU 加速，与上游 F5 闪退问题无关；仅在遇到独立的
 			// GPU 相关渲染异常时按需尝试。
-			"name": "Debug (--disable-gpu)",
+			"name": "Debug (real HAL)",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -35,7 +36,7 @@
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
 			],
-			"preLaunchTask": "${defaultBuildTask}"
+			"preLaunchTask": "compile"
 		}
 	]
 }

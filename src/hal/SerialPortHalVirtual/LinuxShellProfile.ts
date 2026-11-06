@@ -10,8 +10,14 @@ const CAT_CONTENT = 'virtual file content';
 export class LinuxShellProfile extends CommandShellProfile {
   readonly info: SerialPortInfo = { path: 'VCOM-LINUX', manufacturer: 'Virtual' };
   readonly kind: VirtualDeviceKind = 'linux';
-  readonly banner = LINUX_BANNER;
-  readonly prompt = LINUX_PROMPT;
+
+  get banner(): string {
+    return LINUX_BANNER;
+  }
+
+  get prompt(): string {
+    return LINUX_PROMPT;
+  }
 
   constructor(interactionDir?: string) {
     super('linux', interactionDir);

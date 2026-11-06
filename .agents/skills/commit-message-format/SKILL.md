@@ -3,7 +3,7 @@ name: commit-message-format
 description: 本仓库的 commit message 格式约定：类型前缀标题、英文正文、Test 结果行（Pass / Fail / N/A / 省略），以及产品版本与测试套件版本并列 trailer。凡在本仓库被要求提供 commit message、准备提交或执行提交时，一律按本格式生成——即使用户没有明确提到"格式"或"约定"。
 metadata: 
    author: "ziqiang.zhu"
-   version: "1.2.0"
+   version: "1.2.1"
 ---
 
 # Commit Message 格式约定
@@ -59,7 +59,7 @@ unit test version: v<x.y.z>
 
 | Trailer | 取值 |
 |---|---|
-| `version: v<x.y.z>` | 产品版本，取 `package.json` 的 `version` 字段并加 `v` 前缀。仅随功能发布 bump，测试与文档改动不 bump |
+| `version: v<x.y.z>` | 产品版本，取 `package.json` 的 `version` 字段并加 `v` 前缀。**仅当修改影响发布包行为时 bump**（判据见 agent-work-agreement skill「版本号与 CHANGELOG」与 `doc/编译指导.md` §5）；测试、工程脚本、编译/打包设施、文档、仅作用于测试构建的源码改动等不影响发布包行为的修改不 bump |
 | `unit test version: v<x.y.z>` | 测试套件版本，取 `test/package.json` 的 `version` 字段并加 `v` 前缀；minor / patch 升级时机见 `doc/Test/开发测试体系规划.md` §5.4 |
 
 ## 示例

@@ -11,6 +11,7 @@
 			}
 		},
 		{
+			// 产品构建（默认构建任务）：真实 HAL，发布 VSIX 的形态。
 			"label": "compile",
 			"type": "npm",
 			"script": "compile",
@@ -21,6 +22,22 @@
 			"group": {
 				"kind": "build",
 				"isDefault": true
+			}
+		},
+		{
+			// 测试构建：环境变量注入虚拟 HAL 开关（产物级替换，源码字面量恒 false）。
+			// 见 doc/编译指导.md §3.2/§4.1。
+			"label": "compile:test-hal",
+			"type": "npm",
+			"script": "compile",
+			"options": {
+				"env": {
+					"USE_VIRTUAL_HAL": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "never"
 			}
 		}
 	]
