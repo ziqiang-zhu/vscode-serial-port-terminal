@@ -51,6 +51,13 @@
           "id": "serialPortMacroList",
           "name": "%serialPortMacroList.View.title%",
           "icon": "$(symbol-text)"
+        },
+        {
+          "id": "serialPortConsole",
+          "name": "%serialPortConsole.View.title%",
+          "icon": "$(terminal)",
+          "type": "webview",
+          "initialSize": 25
         }
       ]
     },
@@ -301,6 +308,33 @@
           "items": { "type": "string" },
           "default": ["8-N-1", "8-E-1", "8-O-1", "8-N-2", "8-E-2", "8-O-2", "7-N-1", "7-E-1", "7-O-1", "7-N-2"],
           "description": "%serialPortTerminal.frameFormats.description%"
+        },
+        "serialPortTerminal.testMode.responseDelay": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "%serialPortTerminal.testMode.responseDelay.description%"
+        },
+        "serialPortTerminal.testMode.replayFile": {
+          "type": "string",
+          "default": "",
+          "description": "%serialPortTerminal.testMode.replayFile.description%"
+        },
+        "serialPortTerminal.testMode.replayRate": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "description": "%serialPortTerminal.testMode.replayRate.description%"
+        },
+        "serialPortTerminal.testMode.replayLoop": {
+          "type": "boolean",
+          "default": false,
+          "description": "%serialPortTerminal.testMode.replayLoop.description%"
+        },
+        "serialPortTerminal.testMode.interactionDir": {
+          "type": "string",
+          "default": "",
+          "description": "%serialPortTerminal.testMode.interactionDir.description%"
         }
       }
     }

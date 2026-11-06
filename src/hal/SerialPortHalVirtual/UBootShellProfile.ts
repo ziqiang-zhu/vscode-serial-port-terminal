@@ -1,5 +1,6 @@
 import { SerialPortInfo } from '../SerialPortHal';
 import { CommandShellProfile } from './CommandShellProfile';
+import { VirtualDeviceKind } from './VirtualDeviceProfile';
 
 const UBOOT_BANNER = 'U-Boot 2023.10-virtual (Nov 05 2026 - 00:00:00 +0800)';
 const UBOOT_PROMPT = '=> ';
@@ -17,6 +18,7 @@ const UBOOT_ENV = [
 // 开机倒计时与 boot 切换 Linux 会话的状态机链路列入 P4，首版独立。
 export class UBootShellProfile extends CommandShellProfile {
   readonly info: SerialPortInfo = { path: 'VCOM-UBOOT', manufacturer: 'Virtual' };
+  readonly kind: VirtualDeviceKind = 'uboot';
   readonly banner = UBOOT_BANNER;
   readonly prompt = UBOOT_PROMPT;
 

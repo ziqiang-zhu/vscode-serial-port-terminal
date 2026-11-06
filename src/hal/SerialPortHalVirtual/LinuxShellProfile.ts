@@ -1,5 +1,6 @@
 import { SerialPortInfo } from '../SerialPortHal';
 import { CommandShellProfile } from './CommandShellProfile';
+import { VirtualDeviceKind } from './VirtualDeviceProfile';
 
 const LINUX_BANNER = 'Welcome to Virtual Linux (busybox)';
 const LINUX_PROMPT = 'root@localhost:~# ';
@@ -8,6 +9,7 @@ const CAT_CONTENT = 'virtual file content';
 // 虚拟 Linux 终端画像（内置默认表见 doc/Hal/SerialPortHalVirtual规划.md §4.2）。
 export class LinuxShellProfile extends CommandShellProfile {
   readonly info: SerialPortInfo = { path: 'VCOM-LINUX', manufacturer: 'Virtual' };
+  readonly kind: VirtualDeviceKind = 'linux';
   readonly banner = LINUX_BANNER;
   readonly prompt = LINUX_PROMPT;
 

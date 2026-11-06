@@ -13,7 +13,7 @@ import { SerialPortHalVirtual } from '../../src/hal/SerialPortHalVirtual/SerialP
 // 文件打开时读取、原始字节切片（\r\n 与多字节字节级保真）；EOF 按 loop 循环 / 停止；
 // 无文件或不可读 → 静默设备；主机输入忽略；close 停播。临时文件 + fs 验证，mock.timers 控时。
 const makeReplay = (opts: { file?: string; rate?: number; loop?: boolean } = {}): VirtualPortHandle =>
-  new VirtualPortHandle(new ReplayProfile(opts.file, opts.rate, opts.loop), 0);
+  new VirtualPortHandle(new ReplayProfile(opts.file, opts.rate, opts.loop), { online: true, delayMs: 0, backpressure: false });
 const collect = (handle: VirtualPortHandle): string[] => {
   const received: string[] = [];
   handle.onData(data => received.push(data.toString('utf8')));
@@ -203,7 +203,7 @@ describe('Replay 播放管线', () => {
       const file = writeLines(dir, 'live.log', ['old\n']);
       const profile = new ReplayProfile(file, 10, false);
       fs.writeFileSync(file, 'new\n', 'utf8'); // 构造后、打开前更新内容
-      const handle = new VirtualPortHandle(profile, 0);
+      const handle = new VirtualPortHandle(profile, { online: true, delayMs: 0, backpressure: false });
       const received = collect(handle);
       t.mock.timers.tick(100);
       assert.deepEqual(received, ['new\n']);

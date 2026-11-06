@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import { SerialPortInfo } from '../SerialPortHal';
-import { VirtualDeviceProfile, VirtualEmit } from './VirtualDeviceProfile';
+import { VirtualDeviceProfile, VirtualDeviceKind, VirtualEmit } from './VirtualDeviceProfile';
 
 const TICK_MS = 100;
 const LINES_UNIT_MS = 1000; // 1 行的预算（ms 基整数，规避浮点累进漂移）
@@ -13,29 +13,64 @@ const LINES_UNIT_MS = 1000; // 1 行的预算（ms 基整数，规避浮点累�
 // 纯逻辑 + Node 内建 fs，不 import vscode，可直接单测。
 export class ReplayProfile extends VirtualDeviceProfile {
   readonly info: SerialPortInfo = { path: 'VCOM-REPLAY', manufacturer: 'Virtual' };
+  readonly kind: VirtualDeviceKind = 'replay';
 
   private timer: ReturnType<typeof setInterval> | undefined;
   private lines: Buffer[] = [];
   private lineIndex = 0;
   private carryMs = 0;
+  private playingEmit: VirtualEmit | undefined;
 
   constructor(
-    private readonly file?: string,
-    private readonly rate = 100,
-    private readonly loop = false
+    private file?: string,
+    private rate = 100,
+    private loop = false
   ) {
     super();
   }
 
-  onOpen(emit: VirtualEmit): void {
-    this.stopPlayback();
-    this.lines = this.readLines();
-    this.lineIndex = 0;
-    this.carryMs = 0;
-    if (this.lines.length === 0) {
-      return; // 无文件 / 不可读 / 空文件 → 静默设备
+  getRate(): number {
+    return this.rate;
+  }
+
+  getLoop(): boolean {
+    return this.loop;
+  }
+
+  getFile(): string | undefined {
+    return this.file;
+  }
+
+  // 控制面（P3）：播放中即时换文件重放；未播放则等下次端口打开。
+  setRate(rate: number): void {
+    if (Number.isFinite(rate) && rate >= 1) {
+      this.rate = Math.floor(rate);
     }
-    this.timer = setInterval(() => this.tick(emit), TICK_MS);
+  }
+
+  setLoop(loop: boolean): void {
+    this.loop = loop;
+    // EOF 停止后启用循环：从当前位置重启播放。
+    if (this.loop && this.timer === undefined && this.lines.length > 0 && this.playingEmit) {
+      const emit = this.playingEmit;
+      this.timer = setInterval(() => this.tick(emit), TICK_MS);
+    }
+  }
+
+  setFile(file: string): void {
+    this.file = file;
+    if (this.timer === undefined) {
+      return; // 未在播放：等下次端口打开时读取
+    }
+    const emit = this.playingEmit;
+    this.stopPlayback();
+    this.playingEmit = emit;
+    this.startPlayback();
+  }
+
+  onOpen(emit: VirtualEmit): void {
+    this.playingEmit = emit;
+    this.startPlayback();
   }
 
   onInput(_data: Buffer, _emit: VirtualEmit): void {
@@ -44,9 +79,24 @@ export class ReplayProfile extends VirtualDeviceProfile {
 
   onClose(): void {
     this.stopPlayback();
+    this.playingEmit = undefined;
     this.lines = [];
     this.lineIndex = 0;
     this.carryMs = 0;
+  }
+
+  private startPlayback(): void {
+    this.lines = this.readLines();
+    this.lineIndex = 0;
+    this.carryMs = 0;
+    if (this.lines.length === 0) {
+      return; // 无文件 / 不可读 / 空文件 → 静默设备
+    }
+    const emit = this.playingEmit;
+    if (!emit) {
+      return;
+    }
+    this.timer = setInterval(() => this.tick(emit), TICK_MS);
   }
 
   private readLines(): Buffer[] {

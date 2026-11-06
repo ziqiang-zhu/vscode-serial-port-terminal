@@ -2,6 +2,10 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v1.4.0]
+
+- The unit test suite grows to 129 cases: new virtual-device control-plane tests (13 cases, all green: device-side injection, online/unplug filtering and open rejection, backpressure queueing and drain, live delay/rate/loop/interaction-dir adjustments), shipped with HalVirtual P3 (control-plane API plus the virtual device console view; production builds render a placeholder page); suite version v1.3.0 -> v1.4.0.
+
 ## [Unit Test v1.3.0]
 
 - The unit test suite grows to 116 cases: new replay-profile tests (13 cases, all green: lines-per-second pacing, byte-exact fidelity, EOF loop/stop, silent device), shipped with HalVirtual P2 — all four virtual devices complete; suite version v1.2.0 -> v1.3.0.

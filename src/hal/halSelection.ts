@@ -11,19 +11,23 @@ import { SerialPortHalVirtual } from './SerialPortHalVirtual/SerialPortHalVirtua
 //（scripts/verify-hal-selection.js 在 vscode:prepublish 中强制校验，未复位则拒绝打包）。
 export const USE_VIRTUAL_HAL = false;
 
-export function createSerialPortHal(): SerialPortHal {
-  if (USE_VIRTUAL_HAL) {
-    return new SerialPortHalVirtual(
-      [
-        new EchoProfile(),
-        new LinuxShellProfile(readInteractionDir()),
-        new UBootShellProfile(readInteractionDir()),
-        new ReplayProfile(readReplayFile(), readReplayRate(), readReplayLoop()),
-      ],
-      readResponseDelay()
-    );
+// 测试构建：构造虚拟 HAL（画像 + per-profile 运行态）；生产构建：undefined（真实 HAL）。
+export function createVirtualHal(): SerialPortHalVirtual | undefined {
+  if (!USE_VIRTUAL_HAL) {
+    return undefined;
   }
-  return new SerialPortHalImpl();
+  const delayMs = readResponseDelay();
+  const interactionDir = readInteractionDir();
+  const onlineRuntime = { online: true, delayMs, backpressure: false };
+  return new SerialPortHalVirtual([
+    { profile: new EchoProfile(), runtime: { ...onlineRuntime } },
+    { profile: new LinuxShellProfile(interactionDir), runtime: { ...onlineRuntime } },
+    { profile: new UBootShellProfile(interactionDir), runtime: { ...onlineRuntime } },
+    {
+      profile: new ReplayProfile(readReplayFile(), readReplayRate(), readReplayLoop()),
+      runtime: { ...onlineRuntime },
+    },
+  ]);
 }
 
 function readResponseDelay(): number {

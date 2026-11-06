@@ -1,19 +1,27 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { VirtualDeviceProfile, VirtualEmit } from './VirtualDeviceProfile';
+import { VirtualDeviceProfile, VirtualDeviceKind, VirtualEmit } from './VirtualDeviceProfile';
 
 // 命令壳画像抽象基类（契约见 doc/Hal/SerialPortHalVirtual规划.md §4.2/§4.3/§4.5、§10.2）：
 // 远端回显（CR/LF 统一以 CRLF 显示）、行缓冲（\r/\n 终止、跨 chunk 累积）、
 // 应答管线（查表 → \r\n 行尾 → 提示符）、复合命令按 ';' 依次执行、应答目录文件覆盖。
 // 纯逻辑 + Node 内建 fs（应答文件惰性读取），不 import vscode，可直接单测。
 export abstract class CommandShellProfile extends VirtualDeviceProfile {
+  abstract readonly kind: VirtualDeviceKind;
   private lineBuffer = '';
+  private interactionDir: string | undefined;
 
   constructor(
     private readonly responseSubdir: string,
-    private readonly interactionDir?: string
+    interactionDir?: string
   ) {
     super();
+    this.interactionDir = interactionDir;
+  }
+
+  // 控制台/配置变更：即时生效（下一命令起走新应答目录）。
+  setInteractionDir(dir: string | undefined): void {
+    this.interactionDir = dir && dir.trim() ? dir.trim() : undefined;
   }
 
   abstract readonly banner: string;

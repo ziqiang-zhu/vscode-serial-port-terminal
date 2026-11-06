@@ -16,8 +16,8 @@ import { SerialPortHalVirtual } from '../../src/hal/SerialPortHalVirtual/SerialP
 const LINUX_PROMPT = 'root@localhost:~# ';
 const UBOOT_PROMPT = '=> ';
 
-const makeLinux = (dir?: string): VirtualPortHandle => new VirtualPortHandle(new LinuxShellProfile(dir), 0);
-const makeUboot = (dir?: string): VirtualPortHandle => new VirtualPortHandle(new UBootShellProfile(dir), 0);
+const makeLinux = (dir?: string): VirtualPortHandle => new VirtualPortHandle(new LinuxShellProfile(dir), { online: true, delayMs: 0, backpressure: false });
+const makeUboot = (dir?: string): VirtualPortHandle => new VirtualPortHandle(new UBootShellProfile(dir), { online: true, delayMs: 0, backpressure: false });
 const collect = (handle: VirtualPortHandle): string[] => {
   const received: string[] = [];
   handle.onData(data => received.push(data.toString('utf8')));

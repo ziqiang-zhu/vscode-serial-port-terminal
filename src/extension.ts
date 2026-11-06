@@ -1,17 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { createSerialPortHal } from './hal/halSelection';
+import { USE_VIRTUAL_HAL, createVirtualHal } from './hal/halSelection';
+import { SerialPortHalImpl } from './hal/SerialPortHalImpl';
 import { SerialPortDeviceDetector } from './SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortConnectionService } from './SerialPortConnection/SerialPortConnectionService';
 import { SerialPortTerminal, registerSerialPortLogCommands } from './SerialPortConsumer/SerialPortTerminal/SerialPortTerminal';
 import { SerialPortConfigStore } from './SerialPortConfig/SerialPortConfigStore';
 import { SerialPortDeviceManagerTreeView } from './view/SerialPortDeviceManagerTreeView';
+import { SerialPortConsoleView, registerVirtualDeviceConsole } from './view/SerialPortConsoleView';
 import { SerialPortMacroManager } from './SerialPortMacroSender/SerialPortMacroManager';
 
 export function activate(context: vscode.ExtensionContext) {
   logBuildInfo();
-  const hal = createSerialPortHal();
+  const virtualHal = USE_VIRTUAL_HAL ? createVirtualHal() : undefined;
+  const hal = virtualHal ?? new SerialPortHalImpl();
   const detector = new SerialPortDeviceDetector(hal, context);
   context.subscriptions.push(detector);
   const connectionService = new SerialPortConnectionService(hal, detector, context, () => new SerialPortTerminal());
@@ -20,6 +23,9 @@ export function activate(context: vscode.ExtensionContext) {
   new SerialPortDeviceManagerTreeView(detector, connectionService, configStore, context);
   new SerialPortMacroManager(connectionService, context.globalState, context);
   registerSerialPortLogCommands(context);
+  context.subscriptions.push(
+    ...registerVirtualDeviceConsole(context, virtualHal)
+  );
 }
 
 export function deactivate() {}

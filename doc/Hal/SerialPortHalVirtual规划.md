@@ -1,6 +1,6 @@
 # SerialPortHalVirtual 设计
 
-> 状态：P0 / P1 / P2 已实现（P3 / P4 规划中）｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
+> 状态：P0 / P1 / P2 / P3 已实现（P4 规划中）｜ 目录：`src/hal/SerialPortHalVirtual/` ｜ 上位文档：[总体架构.md](../总体架构.md) ｜ 契约：[SerialPortHal设计.md](SerialPortHal设计.md)
 
 ## 1. 定位
 
@@ -120,7 +120,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 
 ### 7.2 背压模拟
 
-控制台状态按钮切换「阻塞 / 放行」：阻塞时 `write` 返回 `false`，放行时触发 `onDrain`，为 HAL 的已知限制「write 背压信号未消费」（见 [SerialPortHalImpl实现.md](SerialPortHalImpl实现.md) §5）提供无硬件的验证手段。
+控制台状态按钮切换「阻塞 / 放行」：阻塞期间 `write` 返回 `false` 且数据**排队**（模拟驱动缓冲——真实 UART 流控下字节不丢失），放行时按序送达并触发 `onDrain`，为 HAL 的已知限制「write 背压信号未消费」（见 [SerialPortHalImpl实现.md](SerialPortHalImpl实现.md) §5）提供无硬件的验证手段。
 
 ### 7.3 参数忽略
 
@@ -144,9 +144,9 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 
 实现约定：
 
-- Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setFiles` / `inject` 与反向的 `stateChanged`；
+- Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `pickReplayFile` / `pickInteractionDir` / `inject` 与反向的 `state`（携带 `mode` 与全量设备快照）；文件与目录不走协议传值，由主进程弹出选择器并把结果写入 `testMode.*` 设置（见上表）；
 - `SerialPortHalVirtual` 在 `SerialPortHal` 契约之外暴露**控制面 API**（`inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `setInteractionDir`），仅控制台使用，不影响 HAL 契约本身；
-- 控制台随编译期开关进入构建，生产构建不注册该视图。
+- 控制台随编译期开关进入构建：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；生产构建的页面渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分），控制面逻辑不生效。
 
 ## 9. 不做范围
 
@@ -200,7 +200,19 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 
 实现约束沿用 §10.1：纯逻辑（仅 Node 内建 fs）、无 vscode 依赖；运行时速率调整归 P3 控制面 API。
 
+### 10.4 P3 实施拆分
+
+| # | 内容 | 落点 |
+|---|---|---|
+| 1 | 控制面与运行态 | `VirtualPortHandle`：延迟/背压改读 per-profile **运行态对象**（`delay` / `backpressure` 可变）；阻塞时 write 排队返回 `false`，放行按序送达 + `onDrain`；新增 `injectFromDevice(data)`（设备侧注入 → onData） |
+| 2 | 控制面 API | `SerialPortHalVirtual` 增 per-profile 运行态（`online` / `delay` / `backpressure` / `rate` / `loop` / `file`）与 `inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `setInteractionDir`；`listDevices` 过滤离线画像、`openPort` 拒绝离线路径；`ReplayProfile` / `CommandShellProfile` 增对应 setter（interactionDir 即时生效） |
+| 3 | 控制台视图 | `src/view/SerialPortConsoleView.ts`：`WebviewView` 提供器（挂 `serialPortTerminalSideBar`）+ 内联 HTML/JS（CSP nonce）+ postMessage 协议 + `state` 推送；生产构建渲染「仅在测试构建可用」占位 |
+| 4 | 装配与清单 | `halSelection` 导出 `USE_VIRTUAL_HAL` + `createVirtualHal()`（返回 `SerialPortHalVirtual \| undefined`）；`extension.ts` 注册控制台（携带虚拟 HAL 实例）；`package.json` contributes.views 声明 `serialPortConsole` + configuration 声明 5 个 `testMode.*` 设置 |
+| 5 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.8（13 例：控制面语义 + 背压队列 / drain + 在线拔出 + live 调整；Webview 页面本身归 P1 集成测试范围） |
+
 > **现状（2026-11-05）**：P2 已实现——`ReplayProfile` 按上表落地（节拍累进采用 ms 基整数规避浮点漂移），13 例单测全绿（`doc/Test/开发测试体系规划.md` §6.7），四台虚拟设备齐备（§3 最终形态）。
+
+> **现状（2026-11-06）**：P3 已实现——上表五项全部落地：控制面运行态（`VirtualRuntime` 按引用共享，控制面修改即时作用于存活句柄）、8 个控制面 API + 离线过滤/拒绝、控制台视图（`state` 推送 + 占位页）、装配与清单（`createVirtualHal()`、`serialPortConsole` 视图、5 个 `testMode.*` 设置）、13 例控制面单测全绿（`doc/Test/开发测试体系规划.md` §6.8）。Webview 页面交互归 P1 集成测试范围。
 
 ## 11. 组件结构
 

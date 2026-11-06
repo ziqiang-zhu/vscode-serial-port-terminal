@@ -16,6 +16,7 @@
   "serialPortMacro.add.title": "Add Macro",
   "serialPortMacro.send.title": "Send Macro",
   "serialPortMacro.remove.title": "Remove Macro",
+  "serialPortConsole.View.title": "Virtual Device Console",
   "serialPortAgentBridge.start.title": "Start Agent Bridge",
   "serialPortAgentBridge.stop.title": "Stop Agent Bridge",
   "serialPortTerminal.configuration.title": "Serial Port Terminal",
@@ -31,5 +32,10 @@
   "serialPortTerminal.agentBridge.host.description": "Listening address for Agent Bridge. Default is localhost only (127.0.0.1).",
   "serialPortTerminal.agentBridge.ports.description": "Candidate ports for Agent Bridge. When starting, a picker lets you choose one (a single value is used directly).",
   "serialPortTerminal.baudRates.description": "Baud rates offered in the manual configuration picker (positive integers).",
-  "serialPortTerminal.frameFormats.description": "Frame formats (data bits-parity-stop bits) offered in the manual configuration picker, e.g. \"8-N-1\"."
+  "serialPortTerminal.frameFormats.description": "Frame formats (data bits-parity-stop bits) offered in the manual configuration picker, e.g. \"8-N-1\".",
+  "serialPortTerminal.testMode.responseDelay.description": "Virtual device response delay in milliseconds (product test mode).",
+  "serialPortTerminal.testMode.replayFile.description": "Plain-text log file replayed by the VCOM-REPLAY virtual device (product test mode).",
+  "serialPortTerminal.testMode.replayRate.description": "Replay rate in lines per second (product test mode).",
+  "serialPortTerminal.testMode.replayLoop.description": "Loop the replay file after reaching the end (product test mode).",
+  "serialPortTerminal.testMode.interactionDir.description": "Response directory root for the interactive virtual shells: linux/ and uboot/ subfolders hold per-command .txt answers (product test mode)."
 }
