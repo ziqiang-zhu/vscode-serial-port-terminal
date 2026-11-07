@@ -165,6 +165,8 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 - `SerialPortHalVirtual` 在 `SerialPortHal` 契约之外暴露**控制面 API**（`inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `play` / `pause` / `stop` / `setInteractionDir`），仅控制台使用，不影响 HAL 契约本身；
 - 控制台随编译期开关进入构建：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；生产构建的页面渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分），控制面逻辑不生效。
 
+> **产品化待办（2026-11-07 记录；预计 v1.5.0 预览版本、v1.5.1 正式版本）**：把 Virtual Device Console 打包进入正式发布版本，作为正式功能向外发布——在设置中提供一个开关（**默认关闭**）控制其可见性与启用，供无真实设备的用户体验完整测试链路。约束与边界：单元测试仍然禁止进入发布包（`.vscodeignore` 屏蔽不变）；该功能**没有数据兼容要求、不影响正式功能**，因此**不保证未来更新时的功能兼容性**（豁免 QuickConfig §4.1 类兼容承诺）。落地面（启动时实施）：产品化打包策略调整——`scripts/package.js` 净化逻辑与 `verify-release-manifest.js` 改为保留控制台视图与 `testMode.*` 设置（由设置开关控制启用），虚拟 HAL 主体仍随开关保持在生产构建不可达，仅控制台前端与设置进入发布包；`doc/编译指导.md` §4.3 同步。当前发布仍按 §4.3 净化策略执行。
+
 ## 9. 不做范围
 
 - 桥接本地真实 shell（node-pty 原生依赖，风险等级与 serialport 相同）；
