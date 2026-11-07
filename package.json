@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal with an AI-agent TCP bridge",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -154,6 +154,11 @@
         "title": "%serialPortAgentBridge.stop.title%",
         "category": "Serial Port Terminal",
         "icon": "$(record)"
+      },
+      {
+        "command": "serialPortAgentBridge.toggleReadonly",
+        "title": "%serialPortAgentBridge.toggleReadonly.title%",
+        "category": "Serial Port Terminal"
       }
     ],
     "menus": {
@@ -300,6 +305,11 @@
             2000
           ],
           "description": "%serialPortTerminal.agentBridge.ports.description%"
+        },
+        "serialPortTerminal.agentBridge.readonly": {
+          "type": "boolean",
+          "default": false,
+          "description": "%serialPortTerminal.agentBridge.readonly.description%"
         },
         "serialPortTerminal.baudRates": {
           "type": "array",

@@ -14,7 +14,9 @@ A VS Code serial port terminal extension: manage serial devices in the sidebar, 
 > - **Full data exposure**: everything sent and received over the serial port (including credentials or secret material) is visible to connected parties;
 > - **Risk scales with the listening address**: by default it listens on `127.0.0.1` only, limiting exposure to local processes; changing the listening address to an external one (e.g. `0.0.0.0`) lets any host on the network connect directly.
 >
-> Use it only in a **trusted local environment**: disconnect when done, never leave it enabled for long on production devices or untrusted networks, and change the listening address with care.
+> Use it only in a **trusted local environment**: disconnect when done, never leave it enabled for long on production devices or untrusted networks, and change the listening address with care. 
+>
+>If you only need to **observe** device output (e.g. letting an AI agent read logs), consider enabling the **read-only mode** in settings (`agentBridge.readonly`, off by default) — clients will be unable to send any data to the device.
 
 ## ✨ Features
 
@@ -58,6 +60,7 @@ Bridge the current serial port to a local TCP port with one click, so AI agents 
 
 > 🔒 By default it listens on `127.0.0.1` (localhost only) and is not exposed to the network; the port and address are configurable.
 > 📝 The character stream forwarded to AI agents has ANSI escape sequences (color codes and other control characters) stripped, so clients don't need to handle them.
+> 👁️ **Read-only listening**: the `serialPortTerminal.agentBridge.readonly` setting blocks clients from sending data to the device (sent bytes are discarded); changes take effect the next time Agent Bridge starts — ideal for safe observe-only scenarios.
 
 ## 🧩 Agent Skills
 
@@ -87,6 +90,7 @@ The following commands can be run directly from the Command Palette (`Ctrl+Shift
 | `serialPortLog.openDirectory` | Open Log Directory | Open the log directory in the system file manager |
 | `serialPortAgentBridge.start` | Start Agent Bridge | Bridge the current serial port to a local TCP port |
 | `serialPortAgentBridge.stop` | Stop Agent Bridge | Stop the Agent Bridge for the current serial port |
+| `serialPortAgentBridge.toggleReadonly` | Toggle Agent Bridge Read-only Mode | Toggle the `agentBridge.readonly` setting (takes effect the next time Agent Bridge starts) |
 
 ### Device / Config Context Commands
 
@@ -128,6 +132,7 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 | `serialPortTerminal.logShortcutsEnabled` | `false` | Enable the in-terminal `Ctrl+S` shortcut to start/stop recording (⚠️ when enabled, `Ctrl+S` is intercepted and not sent to the device) |
 | `serialPortTerminal.agentBridge.host` | `127.0.0.1` | Agent Bridge listening address (localhost only by default) |
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Candidate ports for Agent Bridge (picker shown when starting, a single value is used directly) |
+| `serialPortTerminal.agentBridge.readonly` | `false` | Read-only mode: clients cannot send data to the device through Agent Bridge (sent bytes are discarded); changes take effect the next time Agent Bridge starts |
 
 ## 🗺️ Roadmap
 

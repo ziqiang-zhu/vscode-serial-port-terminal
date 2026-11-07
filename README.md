@@ -15,6 +15,8 @@
 > - **风险随监听地址放大**：默认仅监听 `127.0.0.1`，风险限于本机进程；若在设置中把监听地址改为 `0.0.0.0` 等对外地址，局域网/网络内任何主机均可直接接入。
 >
 > 请仅在**可信的本机环境**中使用：用完即断开桥接，不要在生产设备或不可信网络上长期开启，谨慎修改监听地址。
+>
+>若只需**观察**设备输出（如让 AI Agent 阅读日志），建议开启设置中的**只读模式**（`agentBridge.readonly`，默认关闭）——开启后客户端将无法向设备发送任何数据。
 
 ## ✨ 功能
 
@@ -58,6 +60,7 @@
 
 > 🔒 默认仅监听 `127.0.0.1`（本机），不暴露到局域网；端口与监听地址可在设置中配置。
 > 📝 转发给 AI Agent 的字符流已剥离 ANSI 转义序列（颜色码等控制字符），客户端无需自行处理。
+> 👁️ **只读监听**：设置 `serialPortTerminal.agentBridge.readonly` 可禁止客户端向设备发送数据（发送的字节被丢弃），修改后重新开启 Agent Bridge 生效——适合仅需观察设备输出的安全场景。
 
 ## 🧩 Agent Skills
 
@@ -87,6 +90,7 @@
 | `serialPortLog.openDirectory` | 打开日志目录 | 在系统文件管理器中打开日志目录 |
 | `serialPortAgentBridge.start` | 开启 Agent Bridge | 把当前串口桥接到本机 TCP 端口 |
 | `serialPortAgentBridge.stop` | 停止 Agent Bridge | 停止当前串口的 Agent Bridge 桥接 |
+| `serialPortAgentBridge.toggleReadonly` | 切换 Agent Bridge 只读模式 | 切换 `agentBridge.readonly` 设置（重新开启 Agent Bridge 后生效） |
 
 ### 设备 / 配置上下文命令
 
@@ -128,6 +132,7 @@
 | `serialPortTerminal.logShortcutsEnabled` | `false` | 启用终端内 `Ctrl+S` 快捷键开始/停止记录（⚠️ 启用后 `Ctrl+S` 被拦截，不发送给设备） |
 | `serialPortTerminal.agentBridge.host` | `127.0.0.1` | Agent Bridge 监听地址（默认仅本机） |
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Agent Bridge 候选端口列表（启动时下拉选择，单值直接使用） |
+| `serialPortTerminal.agentBridge.readonly` | `false` | 只读模式：禁止客户端通过 Agent Bridge 向设备发送数据（发送的字节被丢弃）；修改后重新开启 Agent Bridge 生效 |
 
 ## 🗺️ 待开发计划
 

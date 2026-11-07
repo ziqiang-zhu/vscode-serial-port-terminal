@@ -112,14 +112,22 @@ export class TcpTestClient {
   }
 
   async connected(): Promise<void> {
-    await this.connectedPromise;
+    await this.handshaken();
     // 确定性的服务端就绪信号：写探针、等回显。仅等待客户端 connect 事件存在
     // 竞态——服务端 accept 的回调时序（Windows IOCP 上尤甚）可能晚于客户端
     // connect 的处理，而桥在无客户端时会按设计丢弃设备数据。探针写入经服务端
     // 内核缓冲必达且回显意味着：accept 已完成、桥的客户端集合含本连接、
     // 设备回显链路可用（探针依赖所测套件的 Echo 设备）。
+    // ⚠️ 只读桥（readonlyMode）上该探针不可用——客户端→设备路径被设计性丢弃，
+    // 请改用 handshaken() + 等待设备→客户端方向的广播数据。
     this.socket.write('probe\n', 'utf8');
     await waitFor('probe echo (server-side ready)', () => this.text.includes('probe'));
+  }
+
+  // 仅等待 TCP 握手完成（无探针）。供只读桥等"客户端→设备路径不可用"的场景：
+  // 就绪信号改由「设备数据广播到达」承担（广播需要 socket 已被 accept）。
+  async handshaken(): Promise<void> {
+    await this.connectedPromise;
   }
 
   write(text: string): void {

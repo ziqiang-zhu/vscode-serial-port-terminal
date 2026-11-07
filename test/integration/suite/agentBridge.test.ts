@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, describe, it } from 'mocha';
 
 import { SerialPortAgentBridge } from '../../../src/SerialPortConsumer/SerialPortAgentBridge/SerialPortAgentBridge';
-import { createHarness, findDevice, TcpTestClient, waitFor, withTempDir, type TestHarness } from './helpers';
+import { createHarness, findDevice, sleep, TcpTestClient, waitFor, withTempDir, type TestHarness } from './helpers';
 
 // AgentBridge TCP 契约（doc/Test/开发测试体系规划.md §6.10 #15–#19）：
 // 实际端口解析、单/多客户端收流（ANSI 剥离后）、双向透传、半行空闲刷出
@@ -103,6 +103,36 @@ describe('AgentBridge TCP（自装配）', () => {
       assert.ok(true); // close 事件即断言（超时则 waitFor 语义由 closed() 的 Promise 承担）
     } finally {
       client.dispose();
+    }
+  });
+
+  it('#20 readonly mode still streams device data but discards client bytes', async () => {
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device);
+    const connection = harness.service.getConnection('VCOM-ECHO');
+    assert.ok(connection);
+    const bridge = new SerialPortAgentBridge('127.0.0.1', 0, true); // 只读模式
+    assert.ok(bridge.isReadonly());
+    const address = await bridge.listen();
+    connection.addConsumer(bridge);
+    const client = new TcpTestClient(address.port);
+    try {
+      await client.handshaken(); // 只读桥：探针（客户端→设备回显）不可用
+      // 就绪信号改为重试式：handshaken 与服务端 accept 之间存在竞态窗口，
+      // 竞态期内的广播会被桥按设计丢弃——反复发送直到首包到达（accept 完成后必收敛）。
+      for (let attempt = 0; attempt < 20 && !client.text.includes('device says'); attempt++) {
+        connection.send(Buffer.from('device says\n'));
+        await sleep(100);
+      }
+      await waitFor('device data on readonly client', () => client.text.includes('device says'));
+      client.write('injection attempt\n'); // 反向：客户端 → 设备被丢弃（无 data handler）
+      await sleep(300);
+      assert.ok(!client.text.includes('injection attempt')); // 不会被回显（Echo 设备未收到）
+      assert.equal(connection.send(Buffer.from('still streaming\n')), true); // 桥本身仍活着
+      await waitFor('bridge alive after discarded bytes', () => client.text.includes('still streaming'));
+    } finally {
+      client.dispose();
+      await harness.service.disconnect(device);
     }
   });
 });

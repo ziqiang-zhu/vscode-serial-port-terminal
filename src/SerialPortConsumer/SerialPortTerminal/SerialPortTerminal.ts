@@ -98,6 +98,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
   private logRecorder: SerialPortLogRecorder | undefined;
   private agentBridge: SerialPortAgentBridge | undefined;
   private agentBridgeAddress: string | undefined;
+  private agentBridgeReadonly: boolean | undefined;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -189,19 +190,23 @@ export class SerialPortTerminal extends SerialPortConsumer {
     if (port === undefined) {
       return;
     }
-    const bridge = new SerialPortAgentBridge(this.getAgentBridgeHost(), port);
+    const readonlyMode = this.getAgentBridgeReadonly();
+    const bridge = new SerialPortAgentBridge(this.getAgentBridgeHost(), port, readonlyMode);
     this.agentBridge = bridge;
+    this.agentBridgeReadonly = readonlyMode;
     this.addConsumer(bridge);
     refreshLogContext();
     try {
       const address = await bridge.listen();
       this.agentBridgeAddress = `${address.host}:${address.port}`;
       refreshLogContext();
+      const suffix = readonlyMode ? ' (read-only)' : '';
       void vscode.window.showInformationMessage(
-        vscode.l10n.t('Agent Bridge: {0}', `${address.host}:${address.port}`)
+        vscode.l10n.t('Agent Bridge: {0}', `${address.host}:${address.port}${suffix}`)
       );
     } catch (error) {
       this.agentBridge = undefined;
+      this.agentBridgeReadonly = undefined;
       this.agentBridgeAddress = undefined;
       this.removeConsumer(bridge.id);
       refreshLogContext();
@@ -216,6 +221,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
     const bridge = this.agentBridge;
     this.agentBridge = undefined;
     this.agentBridgeAddress = undefined;
+    this.agentBridgeReadonly = undefined;
     this.removeConsumer(bridge.id);
     refreshLogContext();
   }
@@ -224,8 +230,18 @@ export class SerialPortTerminal extends SerialPortConsumer {
     return this.agentBridge !== undefined;
   }
 
+  isAgentBridgeReadonly(): boolean {
+    return this.agentBridgeReadonly ?? false;
+  }
+
   getAgentBridgeAddress(): string | undefined {
     return this.agentBridgeAddress;
+  }
+
+  private getAgentBridgeReadonly(): boolean {
+    return vscode.workspace
+      .getConfiguration('serialPortTerminal')
+      .get<boolean>('agentBridge.readonly', false);
   }
 
   private getAgentBridgeHost(): string {
@@ -337,12 +353,13 @@ export function getActiveSerialPortDevicePath(): string | undefined {
 
 let agentBridgeStatusBarItem: vscode.StatusBarItem | undefined;
 
-function updateAgentBridgeStatus(address: string | undefined): void {
+function updateAgentBridgeStatus(address: string | undefined, readonlyMode = false): void {
   if (!agentBridgeStatusBarItem) {
     return;
   }
   if (address) {
-    agentBridgeStatusBarItem.text = `$(record) AgentBridge ${address}`;
+    const suffix = readonlyMode ? ' (read-only)' : '';
+    agentBridgeStatusBarItem.text = `$(record) AgentBridge ${address}${suffix}`;
     agentBridgeStatusBarItem.tooltip = vscode.l10n.t('Agent Bridge: {0} (click to copy)', address);
     agentBridgeStatusBarItem.command = 'serialPortAgentBridge.copyAddress';
     agentBridgeStatusBarItem.show();
@@ -356,7 +373,7 @@ function updateLogContext(instance: SerialPortTerminal | undefined): void {
   void vscode.commands.executeCommand('setContext', CONTEXT_RECORDING, instance?.isRecording() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_PAUSED, instance?.isPaused() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_AGENT_BRIDGE, instance?.isBridgeActive() ?? false);
-  updateAgentBridgeStatus(instance?.getAgentBridgeAddress());
+  updateAgentBridgeStatus(instance?.getAgentBridgeAddress(), instance?.isAgentBridgeReadonly() ?? false);
 }
 
 function refreshLogContext(): void {
@@ -377,6 +394,15 @@ export function registerSerialPortLogCommands(context: vscode.ExtensionContext):
     vscode.commands.registerCommand('serialPortLog.stop', () => getActiveInstance()?.stopLog()),
     vscode.commands.registerCommand('serialPortAgentBridge.start', () => void getActiveInstance()?.startBridge()),
     vscode.commands.registerCommand('serialPortAgentBridge.stop', () => getActiveInstance()?.stopBridge()),
+    vscode.commands.registerCommand('serialPortAgentBridge.toggleReadonly', async () => {
+      const config = vscode.workspace.getConfiguration('serialPortTerminal');
+      const next = !(config.get<boolean>('agentBridge.readonly', false));
+      await config.update('agentBridge.readonly', next, vscode.ConfigurationTarget.Global);
+      const message = next
+        ? vscode.l10n.t('Agent Bridge read-only mode is now ENABLED. Changes take effect the next time Agent Bridge starts.')
+        : vscode.l10n.t('Agent Bridge read-only mode is now DISABLED. Changes take effect the next time Agent Bridge starts.');
+      void vscode.window.showInformationMessage(message);
+    }),
     vscode.commands.registerCommand('serialPortAgentBridge.copyAddress', () => {
       const address = getActiveInstance()?.getAgentBridgeAddress();
       if (address) {

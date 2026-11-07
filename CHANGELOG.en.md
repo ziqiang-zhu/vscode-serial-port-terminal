@@ -2,6 +2,20 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.4]
+
+### Added
+- AgentBridge read-only mode (security enhancement): the `serialPortTerminal.agentBridge.readonly` setting (off by default) makes clients receive-only — bytes sent from clients are discarded and never reach the device, ideal for letting AI agents observe without control; the status bar and the start notification show a `(read-only)` marker
+- Command `serialPortAgentBridge.toggleReadonly`: quick toggle for the read-only setting from the Command Palette (bilingual feedback on when it takes effect)
+
+### Notes
+- Read-only mode takes effect when Agent Bridge starts (restart the bridge after changing the setting); the connect-means-replay contract and the README security warning now reference read-only mode as the recommended mitigation
+
+## [Unit Test v1.6.3]
+
+- Integration cases grow to 22: new #20 read-only case (device → client broadcast intact; client → device direction discarded);
+- **Fixed a test-infra flaw (not an extension defect)**: the `TcpTestClient` readiness probe relied on the client → device echo, which a read-only bridge disables by design, so the probe always timed out — a blind spot of the test tool regarding read-only bridges. Fixed by splitting out `handshaken()` (handshake only) for read-only scenarios, with the readiness signal moved to the device → client broadcast and a retry loop absorbing the accept race window; suite version v1.6.2 -> v1.6.3.
+
 ## [1.4.3]
 
 ### Added

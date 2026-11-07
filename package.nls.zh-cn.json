@@ -19,6 +19,7 @@
   "serialPortAgentBridge.start.title": "开启 Agent Bridge",
   "serialPortAgentBridge.stop.title": "停止 Agent Bridge",
   "serialPortTerminal.configuration.title": "串口终端",
+  "serialPortAgentBridge.toggleReadonly.title": "切换 Agent Bridge 只读模式",
   "serialPortTerminal.pollingInterval.description": "热插拔轮询间隔（秒）",
   "serialPortTerminal.hotPlugEnabled.description": "启用热插拔侦测（周期性轮询串口设备）",
   "serialPortTerminal.logDirectory.description": "日志保存目录。留空则使用默认目录（Documents/SerialPortTerminal/Log）",
@@ -30,6 +31,7 @@
   "serialPortTerminal.logShortcutsEnabled.description": "在串口终端中启用 Ctrl+S 快捷键以开始/停止记录日志。⚠️ 注意：启用后 Ctrl+S 会被扩展拦截，不会发送给设备。",
   "serialPortTerminal.agentBridge.host.description": "Agent Bridge 的监听地址（默认仅本机 127.0.0.1）。",
   "serialPortTerminal.agentBridge.ports.description": "Agent Bridge 的候选端口列表；启动时下拉选择，单值时直接使用。",
+  "serialPortTerminal.agentBridge.readonly.description": "开启后，客户端将无法通过 Agent Bridge 向设备发送数据；修改后需重新开启 Agent Bridge 方可生效。适用于只需安全监听设备输出的场景。",
   "serialPortTerminal.baudRates.description": "手动配置时可选的波特率列表（正整数）。",
   "serialPortTerminal.frameFormats.description": "手动配置时可选的帧格式（数据位-校验-停止位）列表，如 \"8-N-1\"。"
 }

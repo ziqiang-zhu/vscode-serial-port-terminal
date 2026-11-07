@@ -64,5 +64,7 @@
   "No Agent Bridge port configured": "未配置 Agent Bridge 端口",
   "Select Agent Bridge port": "选择 Agent Bridge 端口",
   "Agent Bridge: {0} (click to copy)": "Agent Bridge: {0}（点击复制）",
-  "Agent Bridge address copied: {0}": "已复制 Agent Bridge 地址: {0}"
+  "Agent Bridge address copied: {0}": "已复制 Agent Bridge 地址: {0}",
+  "Agent Bridge read-only mode is now ENABLED. Changes take effect the next time Agent Bridge starts.": "Agent Bridge 只读模式已开启；修改将在重新开启 Agent Bridge 后生效。",
+  "Agent Bridge read-only mode is now DISABLED. Changes take effect the next time Agent Bridge starts.": "Agent Bridge 只读模式已关闭；修改将在重新开启 Agent Bridge 后生效。"
 }

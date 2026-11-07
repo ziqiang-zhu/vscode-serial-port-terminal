@@ -21,11 +21,21 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
   private closed = false;
 
-  constructor(host: string, private readonly port: number) {
+  constructor(
+    host: string,
+    private readonly port: number,
+    // 只读模式（安全增强）：客户端仅能接收设备数据，发送的字节被忽略——
+    // 不挂 data handler，内核未读缓冲自动丢弃，设备侧收不到任何注入。
+    private readonly readonlyMode = false
+  ) {
     super();
     this.bindHost = host;
     this.server = net.createServer(socket => this.onClientConnected(socket));
     this.server.on('error', () => {});
+  }
+
+  isReadonly(): boolean {
+    return this.readonlyMode;
   }
 
   listen(): Promise<AgentBridgeAddress> {
@@ -74,9 +84,11 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
       return;
     }
     this.sockets.add(socket);
-    socket.on('data', chunk => {
-      this.send(chunk);
-    });
+    if (!this.readonlyMode) {
+      socket.on('data', chunk => {
+        this.send(chunk);
+      });
+    }
     socket.on('error', () => {});
     socket.on('close', () => {
       this.sockets.delete(socket);

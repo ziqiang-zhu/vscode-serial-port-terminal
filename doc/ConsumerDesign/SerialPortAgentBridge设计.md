@@ -39,15 +39,17 @@ class SerialPortAgentBridge extends SerialPortConsumer {
   readonly id = 'serialPortAgentBridge';
   readonly displayName = 'Serial Port Agent Bridge';
 
-  constructor(host: string, port: number);
+  constructor(host: string, port: number, readonlyMode = false);
   listen(): Promise<{ host: string; port: number }>;  // 启动监听；端口占用则 reject
+  isReadonly(): boolean;        // 只读模式标记
   onData(data: Buffer): void;   // 剥离 ANSI 后广播给所有已连接 socket
   onClosed(): void;             // 关闭全部 socket 与 server（幂等）
 }
 ```
 
-- `listen()` 成功后才 `host.addConsumer(this)`，失败（如 EADDRINUSE）报错、不注册；
-- `onData` 广播给 `Set<net.Socket>` 中所有 socket；任一 socket `'data'` 经 `send()` 转发到串口；
+- `readonlyMode`（1.4.3 起，安全增强）：只读观察者模式——socket **不挂 `data` handler**，客户端发送的字节被丢弃、永不到达设备；设备 → 客户端的广播方向不受影响。承载方式为设置项 `serialPortTerminal.agentBridge.readonly`（默认 `false`，见 §8），由 Terminal 创建桥时读取；
+- 注册时序：Terminal 先 `addConsumer(this)`、后 `await listen()`；listen 失败（如 EADDRINUSE）时 `removeConsumer` 回滚注销并报错；
+- `onData` 广播给 `Set<net.Socket>` 中所有 socket；非只读模式下任一 socket `'data'` 经 `send()` 转发到串口；
 - 无客户端时 `onData` 数据直接丢弃（不缓冲、不补发）。
 
 ## 5. 生命周期（由 Terminal 托管）
@@ -83,8 +85,9 @@ class SerialPortAgentBridge extends SerialPortConsumer {
   - 未启动：`$(broadcast)` 图标按钮「开启 Agent Bridge」，点击开启；
   - 已启动：`$(record)` 图标按钮「停止 Agent Bridge」，作为「已开启」状态指示，点击关闭；
 - **context key**：`serialPortTerminal.agentBridgeActive`（是否运行）；
-- **回显**：启动成功后 `showInformationMessage` 显示 `host:port`（如 `127.0.0.1:2000`）；
-- **状态栏持久显示**：桥运行时状态栏常驻 `$(record) AgentBridge <host:port>`，点击复制地址到剪贴板；桥停止 / 断开时隐藏。状态跟随**活动终端**——每个终端独立记录自己的地址，切换终端时状态栏随之切换（活动终端无桥则隐藏）。
+- **回显**：启动成功后 `showInformationMessage` 显示 `host:port`（如 `127.0.0.1:2000`）；只读模式追加 ` (read-only)` 后缀；
+- **命令面板**：`serialPortAgentBridge.toggleReadonly` 切换只读设置并提示生效时机（修改在重新开启 Agent Bridge 后生效）；
+- **状态栏持久显示**：桥运行时状态栏常驻 `$(record) AgentBridge <host:port>`（只读模式追加 ` (read-only)` 后缀），点击复制地址到剪贴板；桥停止 / 断开时隐藏。状态跟随**活动终端**——每个终端独立记录自己的地址，切换终端时状态栏随之切换（活动终端无桥则隐藏）。
 
 ## 8. 配置
 
@@ -92,6 +95,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 |---|---|---|---|
 | `serialPortTerminal.agentBridge.host` | string | `127.0.0.1` | 监听地址（默认仅本机） |
 | `serialPortTerminal.agentBridge.ports` | array(number) | `[2000]` | 候选端口列表；启动时下拉选择，单值时跳过（同 `baudRates` 的做法） |
+| `serialPortTerminal.agentBridge.readonly` | boolean | `false` | 只读模式：客户端仅能接收设备数据，发送的字节被丢弃、永不到达设备（安全增强，观察者场景推荐开启） |
 
 ## 9. 组件结构
 
