@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import { SerialConfig, SerialPortQuickConfig, serialConfigEquals } from './SerialPortQuickConfig';
 
 // 旧版本数据键：v1.2.0 及更早为「按设备分区对象」，v1.2.1/1.2.2 迁移后为「全局数组」。
-// 两种形态都保持原样、只读展示、可删，不迁移、不转换。
+// 1.4.3 起构造时自动迁移并入池与引用并删除旧键（见 migrateLegacyData 与设计文档 §4.1/§9）；
+// getLegacyConfigs 仅作迁移失败兜底，迁移成功后自然为空。
 const LEGACY_KEY = 'serialPortQuickConfigs';
 // 新全局快捷配置池与每设备引用。
 const POOL_KEY = 'serialPortQuickConfigPool';
@@ -20,7 +21,64 @@ export class SerialPortConfigStore {
   private pool: SerialPortQuickConfig[] | undefined;
   private refs: Record<string, string[]> | undefined;
 
-  constructor(private readonly storage: vscode.Memento) {}
+  constructor(private readonly storage: vscode.Memento) {
+    this.migrateLegacyData();
+  }
+
+  // 一次性数据迁移（1.4.3，约定见 doc/SerialPortQuickConfig设计.md §4.1/§9）：
+  // 旧键 serialPortQuickConfigs 的两种形态并入全局池与引用，随后删除旧键作为
+  // 迁移完成标记——写入失败时旧键保留，下次构造幂等重跑自愈。
+  // 对象形态（v1.2.0-）：分区配置逐条并入池，并为分区 identity 建立引用；
+  // 数组形态（v1.2.1/1.2.2）：内容并入池（引用已在 refs，无需重建）。
+  // 合并按 id 去重：旧条目 id 已在池中则跳过（refs 引用落到池内同 id 条目）。
+  // 迁移保真：不触发名称/参数校验，不做重命名。
+  private migrateLegacyData(): void {
+    const raw = this.storage.get<unknown>(LEGACY_KEY);
+    if (raw === undefined) {
+      return;
+    }
+    const incoming: { identity: string; config: SerialPortQuickConfig }[] = [];
+    if (Array.isArray(raw)) {
+      for (const config of raw as SerialPortQuickConfig[]) {
+        incoming.push({ identity: '', config }); // 数组形态：引用已在 refs
+      }
+    } else if (raw && typeof raw === 'object') {
+      for (const [identity, configs] of Object.entries(raw as Record<string, SerialPortQuickConfig[]>)) {
+        for (const config of configs ?? []) {
+          incoming.push({ identity, config });
+        }
+      }
+    } else {
+      return; // 未知形态：不认识的数据不破坏，保留原样
+    }
+    const pool = this.readPool();
+    const refs = this.readRefs();
+    let changed = false;
+    for (const { identity, config } of incoming) {
+      if (!config || typeof config !== 'object' || !config.id) {
+        continue; // 条目残缺：跳过
+      }
+      // id 去重：池内已有同 id 时不重复入池，但引用照常建立——旧设备对该配置的
+      // 归属语义保留，落到池内同 id 条目。
+      if (!pool.some(c => c.id === config.id)) {
+        pool.push(config);
+        changed = true;
+      }
+      if (identity) {
+        const ids = refs[identity] ?? [];
+        if (!ids.includes(config.id)) {
+          ids.push(config.id);
+          refs[identity] = ids;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      this.writePool(pool);
+      this.writeRefs(refs);
+    }
+    void this.storage.update(LEGACY_KEY, undefined);
+  }
 
   // 可见配置 = 新全局（引用）+ 旧按设备（原样）。
   getConfigs(identity: string): SerialPortQuickConfig[] {
@@ -96,49 +154,9 @@ export class SerialPortConfigStore {
   }
 
   remove(identity: string, id: string): void {
-    const raw = this.storage.get<unknown>(LEGACY_KEY);
-    const legacyIds = this.resolveLegacyIds(raw, identity);
-    if (legacyIds.includes(id)) {
-      // 命中旧数据才按旧数据处理（对象 / 数组两形态）。
-      if (Array.isArray(raw)) {
-        // v1.2.1/1.2.2 迁移后的数组格式：从数组与引用中一并移除。
-        void this.storage.update(LEGACY_KEY, raw.filter(c => c.id !== id));
-        const refs = this.readRefs();
-        const ids = refs[identity];
-        if (ids) {
-          const next = ids.filter(x => x !== id);
-          if (next.length === 0) {
-            delete refs[identity];
-          } else {
-            refs[identity] = next;
-          }
-          this.writeRefs(refs);
-        }
-      } else {
-        const legacy = raw as Record<string, SerialPortQuickConfig[]>;
-        const next = (legacy[identity] ?? []).filter(c => c.id !== id);
-        if (next.length === 0) {
-          delete legacy[identity];
-        } else {
-          legacy[identity] = next;
-        }
-        void this.storage.update(LEGACY_KEY, legacy);
-      }
-    } else {
-      // 未命中旧数据 → 是新全局池配置，仅去引用。
-      this.detachRef(identity, id);
-    }
+    // 1.4.3 起旧键在构造时迁移并删除：移除统一走引用清理（未知 id 自然 no-op）。
+    this.detachRef(identity, id);
     this._onDidChangeConfigs.fire(identity);
-  }
-
-  private resolveLegacyIds(raw: unknown, identity: string): string[] {
-    if (Array.isArray(raw)) {
-      return (raw as SerialPortQuickConfig[]).map(c => c.id);
-    }
-    if (raw && typeof raw === 'object') {
-      return ((raw as Record<string, SerialPortQuickConfig[]>)[identity] ?? []).map(c => c.id);
-    }
-    return [];
   }
 
   getLastUsedConfig(identity: string): SerialConfig | undefined {

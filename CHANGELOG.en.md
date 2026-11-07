@@ -2,6 +2,15 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.3]
+
+### Added
+- Automatic quick-config migration: on first activation after upgrading, the legacy key `serialPortQuickConfigs` (both the v1.2.0- per-device object form and the v1.2.1/1.2.2 global array form) is merged losslessly into the current global pool and device references, then the old key is removed; entries are deduplicated by config id, keep their original device ownership, and no validation or renaming is applied
+
+### Notes
+- The migration runs once and is idempotent: removing the old key marks completion, and a failed write keeps the key so the next launch retries automatically; the read-only legacy fallback remains until 1.5.0 (removed then together with the compatibility code, with a release note)
+- `remove` now uniformly goes through reference cleanup (migrated data follows pool rules: reference counting, removal on last reference, same-parameter uniqueness)
+
 ## [Unit Test v1.6.1]
 
 - The replay console interaction becomes a state machine (design requirement): selecting a log file now arms the replay (no auto start — started explicitly via a play button); running playback offers pause/stop (pause keeps the position, resume continues from it; stop returns to armed and clears progress); a chosen file cannot be swapped directly and must be cleared first (also clearing `testMode.replayFile`). A preselected file still auto-starts on connect (the connect-means-replay contract unchanged). The control plane gains `play` / `pause` / `stop`, the snapshot gains the replay phase and connection state; the unit suite grows to 149 cases (#25 rewritten, #26 added), suite version v1.6.0 -> v1.6.1.

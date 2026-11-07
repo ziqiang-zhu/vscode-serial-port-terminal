@@ -5,8 +5,9 @@ import * as vscode from 'vscode';
 import { SerialPortConfigStore } from '../../src/SerialPortConfig/SerialPortConfigStore';
 import { SerialConfig } from '../../src/SerialPortConfig/SerialPortQuickConfig';
 
-// ConfigStore 契约（doc/Test/开发测试体系规划.md §6.4）：三键存储（池/引用/legacy）、
-// 引用计数归零删除、权威校验、legacy 两形态只读兼容、变更事件按 identity 触发。
+// ConfigStore 契约（doc/Test/开发测试体系规划.md §6.4）：三键存储（池/引用/legacy 迁移源）、
+// 引用计数归零删除、权威校验、1.4.3 构造期自动迁移（两形态并入池与引用并删旧键）、
+// 变更事件按 identity 触发。
 // 'vscode' 运行期由模块桩提供（EventEmitter / l10n）；Memento 经 FakeMemento 鸭子类型注入。
 const KEYS = {
   legacy: 'serialPortQuickConfigs',
@@ -150,14 +151,7 @@ describe('SerialPortConfigStore 参数判重', () => {
     assert.equal(store.getAllConfigs().length, 2);
   });
 
-  it('#14 ignores legacy entries in the duplicate-parameter check', () => {
-    const memento = new FakeMemento();
-    void memento.update(KEYS.legacy, { dev: [legacyConfig('L1', 'Legacy')] });
-    const { store } = make(memento);
-    const added = store.add('dev', 'Same', cfg());
-    assert.ok(added.id.length > 0);
-    assert.equal(store.getLegacyConfigs('dev').length, 1);
-  });
+  // 1.4.3 起 legacy 数据构造时自动并入池（迁移保真）并参与查重——同名/同参数与池内一致。
 });
 
 describe('SerialPortConfigStore 引用计数', () => {
@@ -223,45 +217,50 @@ describe('SerialPortConfigStore 生命周期', () => {
   });
 });
 
-describe('SerialPortConfigStore legacy 两形态兼容', () => {
-  it('#21 reads the legacy object form (per-device partitions)', () => {
+describe('SerialPortConfigStore 1.4.3 自动迁移', () => {
+  it('#21 migrates the legacy object form into pool and refs, then removes the old key', () => {
     const memento = new FakeMemento();
-    void memento.update(KEYS.legacy, { dev: [legacyConfig('L1', 'Old')] });
+    void memento.update(KEYS.legacy, {
+      dev: [legacyConfig('L1', 'Old'), legacyConfig('L2', 'Older')],
+      other: [legacyConfig('L3', 'Elsewhere')],
+    });
     const { store } = make(memento);
-    assert.equal(store.getLegacyConfigs('dev').length, 1);
-    assert.equal(store.getLegacyConfigs('dev')[0]?.id, 'L1');
-    assert.equal(store.getConfigs('dev').length, 1);
+    assert.equal(store.getAllConfigs().length, 3); // 全部并入池
+    assert.equal(store.getGlobalConfigs('dev').length, 2); // 分区引用已建立
+    assert.equal(store.getGlobalConfigs('other').length, 1);
+    assert.equal(store.getLegacyConfigs('dev').length, 0); // 旧键已删，兜底读取为空
+    assert.equal(memento.get(KEYS.legacy), undefined);
+    // 幂等：同存储再建 Store（模拟再次激活）不重复迁移
+    const again = new SerialPortConfigStore(memento);
+    assert.equal(again.getAllConfigs().length, 3);
   });
 
-  it('#22 reads the legacy array form via refs', () => {
+  it('#22 migrates the legacy array form via the existing refs', () => {
     const memento = new FakeMemento();
     void memento.update(KEYS.legacy, [legacyConfig('L1', 'Old')]);
     void memento.update(KEYS.refs, { dev: ['L1'] });
     const { store } = make(memento);
-    assert.equal(store.getLegacyConfigs('dev').length, 1);
+    assert.equal(store.getAllConfigs().length, 1);
+    assert.equal(store.getGlobalConfigs('dev').length, 1); // 原引用继续生效
+    assert.equal(memento.get(KEYS.legacy), undefined);
   });
 
-  it('#23 removes array-form entries together with their refs', () => {
+  it('#23 skips pool id collisions and still removes the old key', () => {
     const memento = new FakeMemento();
-    void memento.update(KEYS.legacy, [legacyConfig('L1', 'Old')]);
-    void memento.update(KEYS.refs, { dev: ['L1'], other: ['L1'] });
+    void memento.update(KEYS.pool, [legacyConfig('L1', 'Existing')]);
+    void memento.update(KEYS.legacy, { dev: [legacyConfig('L1', 'Old'), legacyConfig('L2', 'New')] });
     const { store } = make(memento);
-    store.remove('dev', 'L1');
-    assert.deepEqual(memento.get(KEYS.legacy), []);
-    assert.deepEqual(memento.get(KEYS.refs), { other: ['L1'] });
+    assert.equal(store.getAllConfigs().length, 2); // L1 去重跳过，L2 并入
+    assert.equal(store.getGlobalConfigs('dev').length, 2); // 引用落到池内同 id 条目
+    assert.equal(memento.get(KEYS.legacy), undefined);
   });
 
-  it('#24 removes object-form entries and prunes the empty partition', () => {
+  it('#24 leaves storage untouched when no legacy key exists', () => {
     const memento = new FakeMemento();
-    void memento.update(KEYS.legacy, {
-      dev: [legacyConfig('L1', 'Old'), legacyConfig('L2', 'Keep')],
-    });
+    void memento.update(KEYS.pool, [legacyConfig('C1', 'Kept')]);
     const { store } = make(memento);
-    store.remove('dev', 'L1');
-    assert.deepEqual(memento.get(KEYS.legacy), { dev: [legacyConfig('L2', 'Keep')] });
-    store.remove('dev', 'L2');
-    assert.deepEqual(memento.get(KEYS.legacy), {});
-    assert.equal(store.getLegacyConfigs('dev').length, 0);
+    assert.equal(store.getAllConfigs().length, 1);
+    assert.deepEqual(memento.get(KEYS.refs), undefined); // 无迁移写入
   });
 });
 
