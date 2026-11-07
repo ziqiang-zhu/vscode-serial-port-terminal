@@ -2,9 +2,19 @@
 
 A VS Code serial port terminal extension: manage serial devices in the sidebar, connect with one click, interact with them in a real terminal panel, and bridge the serial terminal to a local TCP port with one click so AI agents can operate the device terminal right on that port.
 
-> 🇨🇳 [简体中文](README.md)
+<table width="100%"><tr><td>🇨🇳 <a href="README.md">简体中文</a></td><td align="right"><a href="doc/总览.md">📚 Documentation Overview</a></td></tr></table>
 
 > **⚠️ Platform support**: the current release supports **Windows x64 only** (the packaged serialport native module keeps only the win32-x64 prebuilt binary). macOS / Linux / ARM are not supported yet.
+
+> **🚨 Security warning — AgentBridge performs no security validation whatsoever**
+>
+> AgentBridge is an **unauthenticated, unencrypted plain-text TCP channel**: any program or user that can reach the listening address can read and write your serial device without any authentication.
+>
+> - **Full device exposure**: anyone connected can operate the device like a real terminal and perform **arbitrary actions** — including destructive ones such as deleting files, rewriting configuration, flashing firmware, or bricking the device; neither the extension nor the device side has any interception or confirmation mechanism;
+> - **Full data exposure**: everything sent and received over the serial port (including credentials or secret material) is visible to connected parties;
+> - **Risk scales with the listening address**: by default it listens on `127.0.0.1` only, limiting exposure to local processes; changing the listening address to an external one (e.g. `0.0.0.0`) lets any host on the network connect directly.
+>
+> Use it only in a **trusted local environment**: disconnect when done, never leave it enabled for long on production devices or untrusted networks, and change the listening address with care.
 
 ## ✨ Features
 
