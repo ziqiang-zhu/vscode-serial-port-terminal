@@ -2,7 +2,7 @@ import { SerialPortHal, SerialPortHandle, SerialPortInfo, SerialPortOpenOptions 
 import { CommandShellProfile } from './CommandShellProfile';
 import { EchoProfile } from './EchoProfile';
 import { LinuxShellProfile } from './LinuxShellProfile';
-import { ReplayProfile } from './ReplayProfile';
+import { ReplayProfile, ReplayPhase } from './ReplayProfile';
 import { UBootShellProfile } from './UBootShellProfile';
 import { VirtualDeviceProfile, VirtualDeviceKind } from './VirtualDeviceProfile';
 import { VirtualPortHandle, VirtualRuntime } from './VirtualPortHandle';
@@ -20,9 +20,11 @@ export interface VirtualConsoleEntry {
   online: boolean;
   delayMs: number;
   backpressure: boolean;
+  connected: boolean;
   rate?: number;
   loop?: boolean;
   file?: string;
+  playback?: ReplayPhase;
 }
 
 interface VirtualEntry {
@@ -129,6 +131,28 @@ export class SerialPortHalVirtual implements SerialPortHal {
     }
   }
 
+  // 控制面（P1 播放状态机）：回放设备的显式播放控制。
+  play(path: string): void {
+    const profile = this.entries.get(path)?.profile;
+    if (profile instanceof ReplayProfile) {
+      profile.start();
+    }
+  }
+
+  pause(path: string): void {
+    const profile = this.entries.get(path)?.profile;
+    if (profile instanceof ReplayProfile) {
+      profile.pause();
+    }
+  }
+
+  stop(path: string): void {
+    const profile = this.entries.get(path)?.profile;
+    if (profile instanceof ReplayProfile) {
+      profile.stop();
+    }
+  }
+
   setInteractionDir(path: string, dir: string): void {
     const profile = this.entries.get(path)?.profile;
     if (profile instanceof CommandShellProfile) {
@@ -136,7 +160,7 @@ export class SerialPortHalVirtual implements SerialPortHal {
     }
   }
 
-  // 控制台状态快照：设备清单（含离线）+ 各画像可调参数。
+  // 控制台状态快照：设备清单（含离线）+ 各画像可调参数 + 端口连接与回放播放状态。
   getConsoleEntries(): VirtualConsoleEntry[] {
     return [...this.entries.values()].map(entry => ({
       path: entry.profile.info.path,
@@ -144,11 +168,13 @@ export class SerialPortHalVirtual implements SerialPortHal {
       online: entry.runtime.online,
       delayMs: entry.runtime.delayMs,
       backpressure: entry.runtime.backpressure,
+      connected: entry.handle !== undefined,
       ...(entry.profile instanceof ReplayProfile
         ? {
             rate: entry.profile.getRate(),
             loop: entry.profile.getLoop(),
             file: entry.profile.getFile() ?? '',
+            playback: entry.profile.getPhase(),
           }
         : {}),
     }));

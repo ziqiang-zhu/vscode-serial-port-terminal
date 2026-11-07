@@ -2,6 +2,10 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v1.6.1]
+
+- The replay console interaction becomes a state machine (design requirement): selecting a log file now arms the replay (no auto start — started explicitly via a play button); running playback offers pause/stop (pause keeps the position, resume continues from it; stop returns to armed and clears progress); a chosen file cannot be swapped directly and must be cleared first (also clearing `testMode.replayFile`). A preselected file still auto-starts on connect (the connect-means-replay contract unchanged). The control plane gains `play` / `pause` / `stop`, the snapshot gains the replay phase and connection state; the unit suite grows to 149 cases (#25 rewritten, #26 added), suite version v1.6.0 -> v1.6.1.
+
 ## [Unit Test v1.6.0]
 
 - P1 integration tests land: `npm run test:integration` launches a dedicated VS Code host via `@vscode/test-electron` and runs 21 scenario cases (all green: connection lifecycle, log persistence and splitting, AgentBridge TCP, U-Boot boot chain end to end, console view); the host binary probe prefers a locally installed VS Code (zero download), and the runner swaps `dist/` to the test build, restoring the product build afterwards.

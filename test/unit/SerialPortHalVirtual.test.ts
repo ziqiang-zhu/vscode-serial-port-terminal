@@ -306,4 +306,57 @@ describe('SerialPortHalVirtual 控制面（P3）', () => {
       assert.match(at(received, received.length - 1), /CUSTOM_ROOT/); // 覆盖即时生效
     });
   });
+
+  it('#25 contract: setFile arms the replay (explicit play starts it)', async t => {
+    t.mock.timers.enable({ apis: ['setInterval'] });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'halvirtual-console-'));
+    try {
+      const file = path.join(dir, 'late.log');
+      fs.writeFileSync(file, 'l1\nl2\n', 'utf8');
+      const hal = new SerialPortHalVirtual([{ profile: new ReplayProfile() }]); // 构造不带文件
+      const handle = (await hal.openPort({ path: 'VCOM-REPLAY', baudRate: 115200 })) as VirtualPortHandle;
+      const received = collect(handle);
+      hal.setReplayFile('VCOM-REPLAY', file); // 连接中选文件 → armed 待开始（不自动播）
+      t.mock.timers.tick(500);
+      assert.deepEqual(received, []);
+      hal.play('VCOM-REPLAY'); // 显式开始
+      t.mock.timers.tick(100);
+      // rate=100：每 100ms 节拍批发 10 行 → 2 行单次发射
+      assert.deepEqual(received, ['l1\nl2\n']);
+      hal.setReplayFile('VCOM-REPLAY', ''); // 取消选择 → idle
+      t.mock.timers.tick(300);
+      assert.equal(received.length, 1);
+      assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-REPLAY')?.file, '');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('#26 contract: pause/resume keeps position; stop returns to armed', async t => {
+    t.mock.timers.enable({ apis: ['setInterval'] });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'halvirtual-console-'));
+    try {
+      const file = path.join(dir, 'five.log');
+      fs.writeFileSync(file, ['p1', 'p2', 'p3', 'p4', 'p5'].join('\n') + '\n', 'utf8');
+      const hal = new SerialPortHalVirtual([{ profile: new ReplayProfile(file, 10, false) }]);
+      const handle = (await hal.openPort({ path: 'VCOM-REPLAY', baudRate: 115200 })) as VirtualPortHandle;
+      const received = collect(handle);
+      t.mock.timers.tick(300); // rate=10：每 100ms 1 行 → 前 3 行
+      assert.deepEqual(received, ['p1\n', 'p2\n', 'p3\n']);
+      hal.pause('VCOM-REPLAY'); // 暂停：停发但进度保留
+      t.mock.timers.tick(500);
+      assert.equal(received.length, 3);
+      hal.play('VCOM-REPLAY'); // 继续（play 兼容 paused → 续播）
+      t.mock.timers.tick(100);
+      assert.deepEqual(received, ['p1\n', 'p2\n', 'p3\n', 'p4\n']);
+      hal.stop('VCOM-REPLAY'); // 停止：回 armed、进度清零
+      t.mock.timers.tick(500);
+      assert.equal(received.length, 4);
+      hal.play('VCOM-REPLAY'); // 再开始：重读文件从头播
+      t.mock.timers.tick(100);
+      assert.deepEqual(received.slice(4), ['p1\n']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

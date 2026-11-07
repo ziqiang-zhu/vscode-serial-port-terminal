@@ -5,6 +5,11 @@ import { VirtualDeviceProfile, VirtualDeviceKind, VirtualEmit } from './VirtualD
 const TICK_MS = 100;
 const LINES_UNIT_MS = 1000; // 1 行的预算（ms 基整数，规避浮点累进漂移）
 
+// 回放播放状态机（控制台 P1 设计需求）：idle 无文件；armed 已选文件待开始
+// （端口打开时自动开播，连接中选文件则等待显式开始）；playing 播放中；
+// paused 暂停（进度保留）。EOF 播放结束回 armed；stop 回 armed 并清进度。
+export type ReplayPhase = 'idle' | 'armed' | 'playing' | 'paused';
+
 // 日志回放画像（契约见 doc/Hal/SerialPortHalVirtual规划.md §4.4、§10.3）：
 // 数据源为纯文本日志文件，打开端口时读取，按原始字节切片逐行播放——
 // \r\n 行尾与多字节字符字节级保真（真实采集日志回放的核心价值）。
@@ -15,6 +20,7 @@ export class ReplayProfile extends VirtualDeviceProfile {
   readonly info: SerialPortInfo = { path: 'VCOM-REPLAY', manufacturer: 'Virtual' };
   readonly kind: VirtualDeviceKind = 'replay';
 
+  private phase: ReplayPhase;
   private timer: ReturnType<typeof setInterval> | undefined;
   private lines: Buffer[] = [];
   private lineIndex = 0;
@@ -27,6 +33,7 @@ export class ReplayProfile extends VirtualDeviceProfile {
     private loop = false
   ) {
     super();
+    this.phase = this.file ? 'armed' : 'idle';
   }
 
   getRate(): number {
@@ -41,7 +48,11 @@ export class ReplayProfile extends VirtualDeviceProfile {
     return this.file;
   }
 
-  // 控制面（P3）：播放中即时换文件重放；未播放则等下次端口打开。
+  getPhase(): ReplayPhase {
+    return this.phase;
+  }
+
+  // 控制面（P3）：速率播放中即时生效（tick 逐拍读取），待播状态仅保存。
   setRate(rate: number): void {
     if (Number.isFinite(rate) && rate >= 1) {
       this.rate = Math.floor(rate);
@@ -50,27 +61,75 @@ export class ReplayProfile extends VirtualDeviceProfile {
 
   setLoop(loop: boolean): void {
     this.loop = loop;
-    // EOF 停止后启用循环：从当前位置重启播放。
-    if (this.loop && this.timer === undefined && this.lines.length > 0 && this.playingEmit) {
+    // armed（含 EOF 播放结束）后启用循环：进度内容仍在时重启播放；
+    // 用户 stop() 已清空 lines，此处不会误重启。
+    if (this.loop && this.phase === 'armed' && this.playingEmit !== undefined && this.lines.length > 0) {
       const emit = this.playingEmit;
+      this.phase = 'playing';
       this.timer = setInterval(() => this.tick(emit), TICK_MS);
     }
   }
 
+  // 控制面（P1 播放状态机）：选文件进入 armed（端口已开也不自动播，显式 [开始播放]）；
+  // 清空文件（取消选择）回 idle。
   setFile(file: string): void {
-    this.file = file;
-    if (this.timer === undefined) {
-      return; // 未在播放：等下次端口打开时读取
+    this.file = file && file.trim() ? file : undefined;
+    this.stopPlayback();
+    this.lines = [];
+    this.lineIndex = 0;
+    this.carryMs = 0;
+    this.phase = this.file ? 'armed' : 'idle';
+  }
+
+  // play（控制面）= 确保播放中：armed 从头开播、paused 从原位置继续。
+  start(): void {
+    if (this.phase === 'paused') {
+      this.resume();
+      return;
+    }
+    if (this.phase !== 'armed' || this.playingEmit === undefined) {
+      return; // 仅 armed 且端口已打开时可开始
+    }
+    this.startPlayback();
+  }
+
+  pause(): void {
+    if (this.phase !== 'playing') {
+      return;
+    }
+    this.stopPlayback(); // 定时器停，进度（lines/lineIndex/carryMs）保留
+    this.phase = 'paused';
+  }
+
+  resume(): void {
+    if (this.phase !== 'paused') {
+      return;
     }
     const emit = this.playingEmit;
+    if (emit === undefined || this.lines.length === 0) {
+      this.phase = this.lines.length > 0 ? 'armed' : 'idle'; // 防御：进度不可用
+      return;
+    }
+    this.phase = 'playing';
+    this.timer = setInterval(() => this.tick(emit), TICK_MS);
+  }
+
+  stop(): void {
+    if (this.phase !== 'playing' && this.phase !== 'paused') {
+      return;
+    }
     this.stopPlayback();
-    this.playingEmit = emit;
-    this.startPlayback();
+    this.lines = [];
+    this.lineIndex = 0;
+    this.carryMs = 0;
+    this.phase = 'armed'; // 保留文件，可 [开始播放] 重头再来或 [取消选择]
   }
 
   onOpen(emit: VirtualEmit): void {
     this.playingEmit = emit;
-    this.startPlayback();
+    if (this.phase === 'armed') {
+      this.startPlayback(); // 连接时已选文件：自动开播（P2 契约）
+    }
   }
 
   onInput(_data: Buffer, _emit: VirtualEmit): void {
@@ -83,19 +142,18 @@ export class ReplayProfile extends VirtualDeviceProfile {
     this.lines = [];
     this.lineIndex = 0;
     this.carryMs = 0;
+    this.phase = this.file ? 'armed' : 'idle';
   }
 
   private startPlayback(): void {
     this.lines = this.readLines();
     this.lineIndex = 0;
     this.carryMs = 0;
-    if (this.lines.length === 0) {
-      return; // 无文件 / 不可读 / 空文件 → 静默设备
-    }
     const emit = this.playingEmit;
-    if (!emit) {
-      return;
+    if (this.lines.length === 0 || emit === undefined) {
+      return; // 文件不可读或端口未就绪：保持 armed（静默，可重新开始）
     }
+    this.phase = 'playing';
     this.timer = setInterval(() => this.tick(emit), TICK_MS);
   }
 
@@ -129,6 +187,7 @@ export class ReplayProfile extends VirtualDeviceProfile {
       if (this.lineIndex >= this.lines.length) {
         if (!this.loop) {
           this.stopPlayback();
+          this.phase = 'armed'; // 播放结束：进度内容保留，可 [开始播放] 重头再来
           break;
         }
         this.lineIndex = 0;

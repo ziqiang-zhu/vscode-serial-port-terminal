@@ -18,9 +18,13 @@ interface ConsoleCommand {
     | 'setDelay'
     | 'setRate'
     | 'setLoop'
-    | 'inject'
+    | 'play'
+    | 'pause'
+    | 'stop'
     | 'pickReplayFile'
-    | 'pickInteractionDir';
+    | 'clearReplayFile'
+    | 'pickInteractionDir'
+    | 'inject';
   path?: string;
   value?: unknown;
   text?: string;
@@ -87,6 +91,21 @@ export class SerialPortConsoleView implements vscode.WebviewViewProvider {
           hal.setLoop(path, message.value === true);
         }
         break;
+      case 'play':
+        if (hal && path) {
+          hal.play(path);
+        }
+        break;
+      case 'pause':
+        if (hal && path) {
+          hal.pause(path);
+        }
+        break;
+      case 'stop':
+        if (hal && path) {
+          hal.stop(path);
+        }
+        break;
       case 'inject':
         if (hal && path && message.text) {
           hal.inject(path, Buffer.from(message.text, 'utf8'));
@@ -103,6 +122,13 @@ export class SerialPortConsoleView implements vscode.WebviewViewProvider {
         if (picked?.[0]) {
           hal.setReplayFile(path, picked[0].fsPath);
           void this.persist('replayFile', picked[0].fsPath);
+        }
+        break;
+      }
+      case 'clearReplayFile': {
+        if (hal && path) {
+          hal.setReplayFile(path, '');
+          void this.persist('replayFile', '');
         }
         break;
       }
@@ -200,6 +226,11 @@ label { display: block; margin-top: 8px; }
     on('btnRate', 'click', () => post({ type: 'setRate', path: entry.path, value: document.getElementById('rate').value }));
     on('btnLoop', 'click', () => post({ type: 'setLoop', path: entry.path, value: !entry.loop }));
     on('btnReplayFile', 'click', () => post({ type: 'pickReplayFile', path: entry.path }));
+    on('btnClearReplayFile', 'click', () => post({ type: 'clearReplayFile', path: entry.path }));
+    on('btnPlay', 'click', () => post({ type: 'play', path: entry.path }));
+    on('btnPause', 'click', () => post({ type: 'pause', path: entry.path }));
+    on('btnResume', 'click', () => post({ type: 'play', path: entry.path }));
+    on('btnStop', 'click', () => post({ type: 'stop', path: entry.path }));
     on('btnInteractionDir', 'click', () => post({ type: 'pickInteractionDir', path: entry.path }));
   }
 
@@ -217,11 +248,30 @@ label { display: block; margin-top: 8px; }
     const options = state.entries
       .map((e) => '<option value="' + esc(e.path) + '"' + (e.path === entry.path ? ' selected' : '') + '>' + esc(e.path) + '</option>')
       .join('');
-    const replayControls = entry.kind === 'replay'
-      ? '<label>回放速率（行/秒）</label><input type="number" id="rate" min="1" value="' + esc(entry.rate ?? 100) + '"><button id="btnRate">应用速率</button>'
-        + '<label>回放文件</label><div><button id="btnReplayFile" class="muted">选择日志文件</button> <span class="muted">' + esc(entry.file || '未配置') + '</span></div>'
-        + '<label>循环回放</label><button id="btnLoop">' + (entry.loop ? '循环：开' : '循环：关') + '</button>'
-      : '';
+    let replayControls = '';
+    if (entry.kind === 'replay') {
+      // 文件区：未选 → 选择入口；已选 → 只显示路径 + 取消选择（禁止直接换文件）。
+      const filePart = entry.file
+        ? '<label>回放文件</label><div><span class="muted">' + esc(entry.file) + '</span>'
+          + ' <button id="btnClearReplayFile" class="muted">取消选择</button></div>'
+        : '<label>回放文件</label><div><button id="btnReplayFile" class="muted">选择日志文件</button></div>';
+      // 播放区：状态机按钮组（未连接且已选文件 → 提示连接后自动播放）。
+      let playPart = '';
+      if (entry.file) {
+        if (!entry.connected) {
+          playPart = '<div class="muted">连接设备后自动开始播放</div>';
+        } else if (entry.playback === 'playing') {
+          playPart = '<button id="btnPause">暂停</button><button id="btnStop">停止</button>';
+        } else if (entry.playback === 'paused') {
+          playPart = '<button id="btnResume">继续</button><button id="btnStop">停止</button>';
+        } else {
+          playPart = '<button id="btnPlay">开始播放</button>';
+        }
+      }
+      replayControls = filePart + playPart
+        + '<label>回放速率（行/秒）</label><input type="number" id="rate" min="1" value="' + esc(entry.rate ?? 100) + '"><button id="btnRate">应用速率</button>'
+        + '<label>循环回放</label><button id="btnLoop">' + (entry.loop ? '循环：开' : '循环：关') + '</button>';
+    }
     const interactionControls = entry.kind === 'linux' || entry.kind === 'uboot'
       ? '<label>应答目录（linux/ 与 uboot/ 子目录）</label><div><button id="btnInteractionDir" class="muted">选择应答目录</button></div>'
       : '';

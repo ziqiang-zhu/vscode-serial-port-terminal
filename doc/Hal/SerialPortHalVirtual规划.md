@@ -91,6 +91,7 @@ Hit any key to stop autoboot: 2
 - **速率语义（已定稿）：行/秒**——`testMode.replayRate` = 每秒播放行数，默认 `100`、最小 `1`；内部以 100ms 节拍批发（每节拍 `N/10` 行，余数累进），高速率自动合并为大批次（契合真实串口的 chunk 到达形态）；
 - 播放完成（EOF）：`testMode.replayLoop=true` 从头循环，`false` 停止播放（设备保持在线、静默）；
 - `replayFile` 未配置或文件不可读：设备照常枚举与打开，但无任何输出（静默设备）；
+- **控制台播放状态机（P1 设计需求）**：`idle`（无文件）→ `armed`（已选文件待开始）→ `playing ⇄ paused` → `armed`。选文件进入 armed **不自动播**，由控制台 [开始播放] 显式启动；播放中 [暂停]（进度保留）/ [停止]（回 armed、进度清零、文件保留）；EOF 播放结束回 armed（可再开始）；[取消选择] 清除文件回 idle——**已选文件禁止直接更换**，须先取消选择。端口打开时文件已选仍自动开播（连接即回放契约不变），停止后重新连接亦自动开播；
 - 主机侧输入被忽略（回放设备为纯数据源）；播放随端口 close 停止；整文件读入内存（开发工具定位，数十 MB 量级日志可接受）。
 
 ### 4.5 应答目录（交互型画像）
@@ -151,16 +152,17 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 在线 / 拔出 | 状态按钮 | 拔出时该设备从 `listDevices` 消失，经 Detector removed 事件走真实的连接销毁链；上线后恢复出现在设备列表 |
 | 背压阻塞 / 放行 | 状态按钮 | 控制该设备 `write` 的背压行为（见 §7.2） |
 | 应答延迟 | 数值输入 | 精确值（ms），不用滑杆类模糊控件 |
-| 回放速率 | 数值输入 | 精确值 |
+| 回放文件 | 文件选择入口 | 选择纯文本日志文件写入 `testMode.replayFile`；已选后仅显示路径 + [取消选择]（禁止直接更换，取消后可重选） |
+| 播放控制 | 状态按钮组 | 待开始：[开始播放]；播放中：[暂停] [停止]；暂停中：[继续] [停止]；未连接且已选文件时提示「连接设备后自动开始播放」 |
+| 回放速率 | 数值输入 | 精确值，播放中即时生效 |
 | 回放循环 | 状态按钮 | 切换 `replayLoop` |
-| 回放文件 | 文件选择入口 | 选择纯文本日志文件，写入 `testMode.replayFile` |
 | 应答根目录 | 目录选择入口 | 选择交互型画像应答根目录，写入 `testMode.interactionDir`（约定见 §4.5） |
 | 数据注入 | 文本输入 + 发送 | 以设备侧视角向串口对端注入任意数据，用于模拟设备主动输出 |
 
 实现约定：
 
-- Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `pickReplayFile` / `pickInteractionDir` / `inject` 与反向的 `state`（携带 `mode` 与全量设备快照）；文件与目录不走协议传值，由主进程弹出选择器并把结果写入 `testMode.*` 设置（见上表）；
-- `SerialPortHalVirtual` 在 `SerialPortHal` 契约之外暴露**控制面 API**（`inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `setInteractionDir`），仅控制台使用，不影响 HAL 契约本身；
+- Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `play` / `pause` / `stop` / `pickReplayFile` / `clearReplayFile` / `pickInteractionDir` / `inject` 与反向的 `state`（携带 `mode` 与全量设备快照）；文件与目录不走协议传值，由主进程弹出选择器并把结果写入 `testMode.*` 设置（见上表）；
+- `SerialPortHalVirtual` 在 `SerialPortHal` 契约之外暴露**控制面 API**（`inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `play` / `pause` / `stop` / `setInteractionDir`），仅控制台使用，不影响 HAL 契约本身；
 - 控制台随编译期开关进入构建：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；生产构建的页面渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分），控制面逻辑不生效。
 
 ## 9. 不做范围
@@ -228,6 +230,8 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 > **现状（2026-11-05）**：P2 已实现——`ReplayProfile` 按上表落地（节拍累进采用 ms 基整数规避浮点漂移），13 例单测全绿（`doc/Test/开发测试体系规划.md` §6.7），四台虚拟设备齐备（§3 最终形态）。
 
 > **现状（2026-11-06）**：P3 已实现——上表五项全部落地：控制面运行态（`VirtualRuntime` 按引用共享，控制面修改即时作用于存活句柄）、8 个控制面 API + 离线过滤/拒绝、控制台视图（`state` 推送 + 占位页）、装配与清单（`createVirtualHal()`、`serialPortConsole` 视图、5 个 `testMode.*` 设置）、13 例控制面单测全绿（`doc/Test/开发测试体系规划.md` §6.8）。Webview 页面交互归 P1 集成测试范围。
+
+> **P1 补充（2026-11-07，控制台回放状态机）**：回放画像增播放状态机（`idle / armed / playing / paused`，见 §4.4），控制面 API 增 `play` / `pause` / `stop`，快照字段增 `playback` / `connected`；控制台回放区改按钮组交互——选文件不自动播（显式 [开始播放]）、已选文件禁止直接更换（[取消选择] 后可重选）。连接时文件已选仍自动开播（P2 契约不变）。
 
 ### 10.5 P4 实施拆分
 
