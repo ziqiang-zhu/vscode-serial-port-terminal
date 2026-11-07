@@ -2,7 +2,7 @@
 
 一个 VS Code 串口终端插件：可以在侧边栏管理串口设备，选择设备，可一键连接，在终端面板与设备交互；还能一键把串口终端桥接为本机 TCP 端口，让 AI Agent 直接在端口上操作设备终端。
 
-<table width="100%"><tr><td>🇬🇧 <a href="README.en.md">English</a></td><td align="right"><a href="doc/总览.md">📚 文档总览</a></td></tr></table>
+<table width="100%"><tr><td>🇬🇧 <a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/README.en.md">English</a></td><td align="right"><a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/doc/总览.md">📚 文档总览</a></td></tr></table>
 
 > **⚠️ 平台支持**：当前发布版本仅支持 **Windows x64**（serialport 原生模块在打包时仅保留 win32-x64 预编译二进制）。macOS / Linux / ARM 平台暂不受支持。
 

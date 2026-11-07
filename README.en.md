@@ -2,7 +2,7 @@
 
 A VS Code serial port terminal extension: manage serial devices in the sidebar, connect with one click, interact with them in a real terminal panel, and bridge the serial terminal to a local TCP port with one click so AI agents can operate the device terminal right on that port.
 
-<table width="100%"><tr><td>🇨🇳 <a href="README.md">简体中文</a></td><td align="right"><a href="doc/总览.md">📚 Documentation Overview</a></td></tr></table>
+<table width="100%"><tr><td>🇨🇳 <a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/README.md">简体中文</a></td><td align="right"><a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/doc/总览.md">📚 Documentation Overview</a></td></tr></table>
 
 > **⚠️ Platform support**: the current release supports **Windows x64 only** (the packaged serialport native module keeps only the win32-x64 prebuilt binary). macOS / Linux / ARM are not supported yet.
 
