@@ -56,7 +56,7 @@ export interface SerialConfig {
 - 若确定**不兼容**，必须随改动提供**迁移方案**，把旧数据无损转换为新结构；
 - 兼容 / 迁移方案**至少保持一个 minor 版本**：只有在**下一个 minor 版本**才允许彻底移除旧结构支持；
 - 移除旧结构支持时，**发布须知（CHANGELOG）必须明示**：该版本起不再兼容旧数据，用户升级可能丢失串口配置；
-- **自动迁移约定（1.4.3 起）**：`SerialPortConfigStore` 构造时执行一次性幂等迁移——检测旧键 `serialPortQuickConfigs`：对象形态按分区并入全局池并为分区 identity 建立引用；数组形态内容并入池（引用已在 `serialPortDeviceConfigRefs`）；合并按 **id 去重**（旧条目 id 已在池中则跳过，refs 引用落到池内同 id 条目）；迁移保真，不触发名称/参数校验；写入池与引用后**删除旧键作为迁移完成标记**（写入失败时旧键保留，下次激活幂等重跑自愈）。迁移代码与 legacy 只读兜底（`getLegacyConfigs` 等）在下一个 minor 版本（1.5.0）一并移除。
+- **自动迁移约定（1.4.3 起）**：`SerialPortConfigStore` 构造时执行一次性幂等迁移——检测旧键 `serialPortQuickConfigs`：对象形态按分区并入全局池并为分区 identity 建立引用；数组形态内容并入池（引用已在 `serialPortDeviceConfigRefs`）；合并按 **id 去重**（旧条目 id 已在池中则跳过，refs 引用落到池内同 id 条目）；迁移保真，不触发名称/参数校验；写入池与引用后**删除旧键作为迁移完成标记**（写入失败时旧键保留，下次激活幂等重跑自愈）。
 
 ## 5. 配置仓库（SerialPortConfigStore）
 
@@ -169,14 +169,7 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 | `view/item/context`（普通组） | 重命名 | 配置子节点右键，`viewItem == serialPortQuickConfig`（旧配置不提供重命名） |
 | `view/item/context`（普通组） | 删除 | 配置子节点右键，`viewItem =~ /^serialPortQuickConfig/`（新旧配置均可删） |
 
-## 9. 待办
-
-> **迁移版本计划（2026-11-07 定稿）**：旧数据兼容分两步退出，替代原先"直接移除"的方案。
-
-- **第一步（1.4.3，已实施）**：`SerialPortConfigStore` 构造时自动迁移旧键两种形态并入全局池与引用（id 去重、迁移保真、不校验不重命名），迁移后**删除旧键**（完成标记，幂等自愈）；`remove` 的 legacy 命中分支与 `resolveLegacyIds` 随之移除（迁移后不可达）；legacy 只读兜底（`getLegacyConfigs` / `getConfigs` 拼接 / 树渲染 `isLegacy`）保留至下一步；
-- **第二步（1.5.0，未启动）**：彻底移除——迁移代码、legacy 只读兜底（`getLegacyConfigs`、`getConfigs` 拼接、`SerialPortQuickConfigTreeItem.isLegacy`）与对应测试一并删除；发布须知（CHANGELOG）必须明示：**跨过 1.4.3 直接升级**（如 1.2.x → 1.5.0）的用户旧配置不迁移、升级可能丢失串口配置（依据 §4.1 兼容性原则）。
-
-## 10. 组件结构
+## 9. 组件结构
 
 ```mermaid
 classDiagram

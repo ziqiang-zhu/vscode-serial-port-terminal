@@ -126,9 +126,6 @@ classDiagram
     SerialPortAgentBridge --> SerialPortAnsiStripper : 使用
 ```
 
-## 10. 后续规划
+## 10. 范围边界
 
-- **端口转发接入 VS Code 端口面板**（待办，2026-11-07 记录；预计 v1.4.4 预览版、v1.4.5 正式版本）：把 AgentBridge 监听的 TCP 端口通过 `vscode.env.asExternalUri` / 端口转发 API 接入 VS Code 的「端口」面板，让远程开发（SSH / 容器 / WSL）场景下宿主侧浏览器与工具可以经转发地址访问 AgentBridge——功能影响面比较小（仅地址呈现与转发声明，数据通路不变）；
-- 客户端接入提示：连接/断开时在终端或状态栏提示客户端数变化；
-- 行尾归一化：CR / LF / CRLF（关联 M3-P2）；
 - headless 不在范围：AgentBridge 依附 Terminal，无独立无终端形态。

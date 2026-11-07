@@ -134,7 +134,9 @@ src/SerialPortConsumer/
     └── SerialPortAgentBridge.ts     ← 串口↔TCP 桥（见 SerialPortAgentBridge设计.md）
 ```
 
-## 7. 后续规划
+## 7. 范围边界
 
-- **M3-P2 输入增强**：行尾符配置（CR / LF / CRLF，当前固定 CR）；命令历史由设备端负责，扩展不实现；
-- **M3-P3 Parser 与字符转义**：分帧语义（自定义协议）；换行归一化已在 `writeText` 完成；不可见字符可视化在写入终端前加工，属显式增强而非默认行为；ANSI 颜色由终端原生渲染，无需实现。
+- 命令历史由设备端负责，扩展不实现；
+- 换行归一化已在 `writeText` 完成（`\r?\n → \r\n`）；
+- ANSI 颜色由终端原生渲染，无需实现；
+- 不可见字符可视化属显式增强而非默认行为。

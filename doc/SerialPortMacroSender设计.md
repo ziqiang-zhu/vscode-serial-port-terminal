@@ -125,7 +125,3 @@ classDiagram
     SerialPortMacroManager --> SerialPortConnection : send
 ```
 
-## 10. 后续规划
-
-- 宏编辑、行尾符统一配置（关联 M3-P2）、多设备目标选择器、宏分类 / 排序；
-- 复审组件结构与存储方式：全局组件的定位、生命周期与耦合，以及 globalState 的存储结构。

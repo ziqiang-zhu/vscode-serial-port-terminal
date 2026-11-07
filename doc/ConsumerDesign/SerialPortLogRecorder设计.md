@@ -205,6 +205,6 @@ classDiagram
     SerialPortTerminal --> SerialPortLogRecorder : 创建并托管生命周期
 ```
 
-## 10. 后续规划
+## 10. 范围边界
 
-- **编码配置**：日志文件字符编码可选（当前固定 UTF-8）。
+- 日志文件字符编码固定 UTF-8，不提供编码配置。
