@@ -43,12 +43,16 @@ export class SerialPortConnectionService {
     this._onDidChangeDeviceStatus.fire(device);
     try {
       const handle = await this.hal.openPort(this.toOpenOptions(device.path, config));
-      const connection = new SerialPortConnection(device, handle, config, label, () => {
-        void this.disconnectByPath(device.path);
-      });
-      if (this.defaultConsumerFactory) {
-        connection.addConsumer(this.defaultConsumerFactory());
-      }
+      const connection = new SerialPortConnection(
+        device,
+        handle,
+        config,
+        label,
+        () => {
+          void this.disconnectByPath(device.path);
+        },
+        this.defaultConsumerFactory?.()
+      );
       this.connections.set(device.path, connection);
       device.setStatus('connected');
     } catch (error) {

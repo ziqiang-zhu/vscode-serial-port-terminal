@@ -11,8 +11,14 @@ export class SerialPortConnection implements SerialPortConsumerHost {
     private readonly handle: SerialPortHandle,
     readonly config: SerialConfig,
     readonly label: string | undefined,
-    private readonly onCloseRequested: () => void
+    private readonly onCloseRequested: () => void,
+    initialConsumer?: SerialPortConsumer
   ) {
+    // 首个 Consumer 必须先于句柄订阅挂载：订阅会同步触发 HAL 画像的 onOpen
+    // （横幅/提示符），在订阅后注册的 Consumer 收不到这段初始输出。
+    if (initialConsumer) {
+      this.addConsumer(initialConsumer);
+    }
     this.handle.onError(error => {
       console.error(`Serial port error (${device.path}):`, error);
       for (const consumer of this.consumers.values()) {

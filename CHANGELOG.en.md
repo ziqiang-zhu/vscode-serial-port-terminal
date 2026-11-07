@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [Unit Test v1.6.0]
+
+- P1 integration tests land: `npm run test:integration` launches a dedicated VS Code host via `@vscode/test-electron` and runs 21 scenario cases (all green: connection lifecycle, log persistence and splitting, AgentBridge TCP, U-Boot boot chain end to end, console view); the host binary probe prefers a locally installed VS Code (zero download), and the runner swaps `dist/` to the test build, restoring the product build afterwards.
+- Two defects exposed by the integration tests and live F5 runs are fixed (neither affects the released package, product version unchanged): the default consumer attached after the handle subscription dropped the virtual devices' `onOpen` banner/prompt (the first consumer is now injected at construction), and the virtual device console webview lost its `post` function, leaving every button dead (button hover/pressed visual feedback added alongside). Suite version v1.5.0 -> v1.6.0.
+
 ## [Unit Test v1.5.0]
 
 - The unit test suite grows to 147 cases: new U-Boot -> Linux boot-chain tests (12 cases, all green: 2-second autoboot countdown with backspaced digits, any-key interrupt, session switch on the boot command or expiry, close reset) and mixed-routing tests (6 cases, all green: union enumeration, `VCOM-` prefix routing, offline rejection, prefix boundary), shipped with HalVirtual P4 — the P0-P4 roadmap is complete; also lands three build modes (product / test / unit test, the HAL switch now injected into build output) and productized packaging (the release VSIX carries no virtual device console panel or `testMode.*` settings); suite version v1.4.0 -> v1.5.0.

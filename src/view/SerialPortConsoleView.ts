@@ -162,7 +162,10 @@ export class SerialPortConsoleView implements vscode.WebviewViewProvider {
 <style>
 body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 8px; font-size: var(--vscode-font-size); }
 select, input[type="text"], input[type="number"], textarea { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 3px 5px; margin: 2px 0; }
-button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 3px 10px; margin: 3px 3px 3px 0; cursor: pointer; }
+button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 3px 10px; margin: 3px 3px 3px 0; cursor: pointer; transition: background 0.1s ease, transform 0.05s ease, filter 0.05s ease; }
+button:hover { background: var(--vscode-button-hoverBackground); }
+button:active { background: var(--vscode-button-hoverBackground); transform: translateY(1px); filter: brightness(0.88); }
+button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
 .row { margin: 6px 0; }
 label { display: block; margin-top: 8px; }
 .muted { color: var(--vscode-descriptionForeground); }
@@ -177,6 +180,9 @@ label { display: block; margin-top: 8px; }
   let state = { mode: 'unavailable', selected: undefined, entries: [] };
 
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  // webview → 扩展主进程：全部控件交互经此上行（onDidReceiveMessage 处理后回推 state）。
+  const post = (message) => vscode.postMessage(message);
 
   function wire(entry) {
     const on = (id, event, fn) => {

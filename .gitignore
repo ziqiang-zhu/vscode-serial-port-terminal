@@ -3,6 +3,7 @@ dist/
 .tmp-build/
 out-test/
 .debug-empty/
+.vscode-test/
 *.vsix
 .agents/*
 !.agents/skills/
