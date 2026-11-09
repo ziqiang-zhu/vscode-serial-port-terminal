@@ -34,7 +34,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
   readonly displayName = 'Serial Port Log Recorder';
 
   constructor(baseFilePath: string);   // 记录目标「主体」文件路径（分段时派生 _002/_003…），首次收到数据时才创建文件
-  onData(data: Buffer): void;          // 未暂停时写文件；累计超过大小阈值则滚动到下一段
+  onData(data: Buffer): void;          // 未暂停时写文件；累计达到大小阈值则滚动到下一段
   onClosed(): void;                    // 关闭文件流；若有数据写入则提示「文件已保存到 <主体文件路径>」
   pause(): void;                       // 暂停写入（仍注册、仍接收广播）
   resume(): void;                      // 恢复写入
@@ -45,7 +45,7 @@ class SerialPortLogRecorder extends SerialPortConsumer {
 - `onData` 由 Connection 的数据流入口调用，调用顺序即串口到达顺序；
 - 首次收到数据时才创建文件（延迟创建），未收到数据即停止不产生空文件；
 - `pause` / `resume` 只切换内部标志，**不注销** Consumer；
-- `onClosed` 幂等可重入：重复调用不产生二次写盘与提示（由延迟建文件与 `fileCreated` 守卫保证）；
+- `onClosed` 收尾：重复调用不会产生二次写盘（两缓冲 flush 后为空），但「已保存」提示可能重复弹出（`fileCreated` 仅守提示的首次性；当前调用链每生命周期仅一次 onClosed）；
 - 停止收尾时（无论「停止」按钮还是断开连接触发）若本次有数据写入，弹出「文件已保存到 <path>」提示。
 
 ## 5. 生命周期
@@ -144,7 +144,7 @@ context key：
 
 - **开关**：`logMaxFileSize` = `0`（默认）为不分割；设为 ≥1（单位 KB）时启用分割，最小阈值 1KB（建议 32768 = 32MB）；
 - **命名**：主体 + 编号，平铺同目录、不建文件夹 —— `COM3_20250112_153045.log`（第 1 段，无编号）、`COM3_20250112_153045_002.log`、`_003.log`…（编号 3 位零填充，插在扩展名前）；
-- **触发**：启用时每段累计写盘字节数超过阈值（KB→字节）即关闭当前流、段号 +1、开下一段、计数清零；按 chunk 边界分割（原始字节流跨行切可接受，单块超阈值时整块写入再切）；
+- **触发**：启用时每段累计写盘字节数达到阈值（KB→字节，`>=`）即关闭当前流、段号 +1、开下一段、计数清零；按 chunk 边界分割（原始字节流跨行切可接受，单块超阈值时整块写入再切）；
 - **通知**：提示「文件已保存到 <主体文件路径>」。
 
 | 项 | 方案 |

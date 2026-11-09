@@ -60,7 +60,7 @@ SerialPortHalVirtual 是产品测试模式的载体：`SerialPortHal` 接口的�
 
 ### 4.3 UBootShell（虚拟 U-Boot 终端）
 
-同 LinuxShell：打开时输出版本横幅与提示符 `=>`，内置默认表：
+同 LinuxShell 的命令应答机制（远端回显、行缓冲、应答目录覆盖），内置默认表：
 
 | 命令 | 应答 |
 |---|---|
@@ -91,7 +91,7 @@ Hit any key to stop autoboot: 2
 - **速率语义（已定稿）：行/秒**——`testMode.replayRate` = 每秒播放行数，默认 `100`、最小 `1`；内部以 100ms 节拍批发（每节拍 `N/10` 行，余数累进），高速率自动合并为大批次（契合真实串口的 chunk 到达形态）；
 - 播放完成（EOF）：`testMode.replayLoop=true` 从头循环，`false` 停止播放（设备保持在线、静默）；
 - `replayFile` 未配置或文件不可读：设备照常枚举与打开，但无任何输出（静默设备）；
-- **控制台播放状态机（P1 设计需求）**：`idle`（无文件）→ `armed`（已选文件待开始）→ `playing ⇄ paused` → `armed`。选文件进入 armed **不自动播**，由控制台 [开始播放] 显式启动；播放中 [暂停]（进度保留）/ [停止]（回 armed、进度清零、文件保留）；EOF 播放结束回 armed（可再开始）；[取消选择] 清除文件回 idle——**已选文件禁止直接更换**，须先取消选择。端口打开时文件已选仍自动开播（连接即回放契约不变），停止后重新连接亦自动开播；
+- **控制台播放状态机（P1 设计需求）**：`idle`（无文件）→ `armed`（已选文件待开始）→ `playing ⇄ paused` → `armed`。选文件进入 armed **不自动播**，由控制台 [开始播放] 显式启动；播放中 [暂停]（进度保留）/ [停止]（回 armed、进度清零、文件保留）；EOF 播放结束回 armed（可再开始）；armed 状态下开启循环（[循环回放] 按钮）会从当前进度自动重启播放；[取消选择] 清除文件回 idle——**已选文件禁止直接更换**，须先取消选择。端口打开时文件已选仍自动开播（连接即回放契约不变），停止后重新连接亦自动开播；
 - 主机侧输入被忽略（回放设备为纯数据源）；播放随端口 close 停止；整文件读入内存（开发工具定位，数十 MB 量级日志可接受）。
 
 ### 4.5 应答目录（交互型画像）
@@ -132,7 +132,7 @@ LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输出)
 ```
 
-命令应答类画像内部维护行缓冲，按 `\r` 切分出命令行后查表匹配；Echo 与 Replay 不做行缓冲。
+命令应答类画像内部维护行缓冲，按 `\r\n` / `\r` / `\n` 切分出命令行后查表匹配；Echo 与 Replay 不做行缓冲。
 
 ### 7.2 背压模拟
 
@@ -140,11 +140,11 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 
 ### 7.3 参数忽略
 
-`openPort` 对任何 `SerialPortOpenOptions` 都成功打开，参数不生效，仅记录 debug 级日志便于排查。
+`openPort` 对任何 `SerialPortOpenOptions` 都成功打开，参数不生效（静默忽略，无日志）。
 
 ## 8. 虚拟设备控制台（WebviewView）
 
-侧边栏视图，挂在现有 `serialPortTerminalSideBar` 容器下。**全部虚拟设备共享一个控制台**，仅提供通用控制操作，不含画像专属界面。
+侧边栏视图，挂在现有 `serialPortTerminalSideBar` 容器下。**全部虚拟设备共享一个控制台**：通用控制操作（目标设备、在线/拔出、背压、延迟、注入）+ 按设备类别渲染的画像专属控件（Replay 的回放文件/播放控制/速率/循环，交互型画像的应答根目录）。
 
 | 控制项 | 形式 | 说明 |
 |---|---|---|
@@ -155,7 +155,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 回放文件 | 文件选择入口 | 选择纯文本日志文件写入 `testMode.replayFile`；已选后仅显示路径 + [取消选择]（禁止直接更换，取消后可重选） |
 | 播放控制 | 状态按钮组 | 待开始：[开始播放]；播放中：[暂停] [停止]；暂停中：[继续] [停止]；未连接且已选文件时提示「连接设备后自动开始播放」 |
 | 回放速率 | 数值输入 | 精确值，播放中即时生效 |
-| 回放循环 | 状态按钮 | 切换 `replayLoop` |
+| 回放循环 | 状态按钮 | 运行时即时切换 `loop`（armed/EOF 结束状态下开启会自动重启播放；不写设置，跨会话不保留） |
 | 应答根目录 | 目录选择入口 | 选择交互型画像应答根目录，写入 `testMode.interactionDir`（约定见 §4.5） |
 | 数据注入 | 文本输入 + 发送 | 以设备侧视角向串口对端注入任意数据，用于模拟设备主动输出 |
 
@@ -266,22 +266,29 @@ classDiagram
         +onError(listener)
     }
     class SerialPortHalVirtual {
-        -profiles: Map~path, VirtualDeviceProfile~
+        -entries: Map~path, VirtualEntry~
         +listDevices()
         +openPort(options)
-        +inject(data)
+        +inject(path, data)
         +setOnline(path, online)
         +setBackpressure(path, blocked)
         +setDelay(path, ms)
         +setRate(path, rate)
+        +setLoop(path, loop)
         +setReplayFile(path, file)
-        +setInteractionDir(dir)
+        +play(path)
+        +pause(path)
+        +stop(path)
+        +setInteractionDir(path, dir)
+        +getConsoleEntries()
     }
     class VirtualPortHandle {
         -profile: VirtualDeviceProfile
+        -runtime: VirtualRuntime
     }
     class VirtualDeviceProfile {
         <<abstract>>
+        +kind
         +onOpen(emit)
         +onInput(data, emit)
         +onClose()
@@ -293,9 +300,7 @@ classDiagram
         -resolve(commandLine)
     }
     class EchoProfile
-    class LinuxShellProfile {
-        -commands: CommandTable
-    }
+    class LinuxShellProfile
     class UBootShellProfile {
         -session: uboot | linux
         -countdown timer
@@ -310,24 +315,25 @@ classDiagram
         -file
         -rate
         -loop
-        -lineIndex
-        -carry
+        -phase: idle / armed / playing / paused
+        -lines / lineIndex / carryMs
     }
     class VirtualDeviceConsole {
         <<WebviewView>>
-        +设备下拉 / 状态按钮 / 数值输入 / 文件入口 / 数据注入
+        +设备下拉 / 状态按钮 / 数值输入 / 文件入口 / 播放控制 / 数据注入
     }
     SerialPortHalVirtual ..|> SerialPortHal : 实现
     SerialPortHalComposite ..|> SerialPortHal : 实现
     VirtualPortHandle ..|> SerialPortHandle : 实现
     SerialPortHalComposite --> SerialPortHalVirtual : VCOM- 前缀路由
     SerialPortHalComposite --> SerialPortHal : 其余路径透传
-    SerialPortHalVirtual --> VirtualPortHandle : 创建
+    SerialPortHalVirtual --> VirtualPortHandle : 创建（共享 runtime 引用）
     VirtualPortHandle --> VirtualDeviceProfile : 持有
     VirtualDeviceProfile <|-- EchoProfile
     VirtualDeviceProfile <|-- CommandShellProfile
     CommandShellProfile <|-- LinuxShellProfile
     CommandShellProfile <|-- UBootShellProfile
+    UBootShellProfile --> LinuxShellProfile : Linux 会话委托
     VirtualDeviceProfile <|-- ReplayProfile
     VirtualDeviceConsole --> SerialPortHalVirtual : 控制面 API（postMessage）
 ```

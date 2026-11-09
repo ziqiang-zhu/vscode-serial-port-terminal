@@ -27,7 +27,7 @@ Consumer 注册时由 Connection 注入，是 Consumer 与连接之间的唯一�
 | `readonly path: string` | 所属设备路径，用于显示与日志 |
 | `readonly config: SerialConfig` | 当前连接的配置参数（终端标题等展示用途） |
 | `readonly label: string \| undefined` | 连接来源标签（快捷配置名）；手动配置连接时为 `undefined` |
-| `send(data: Buffer)` | 向串口发送数据，Consumer 的**唯一**发送途径 |
+| `send(data: Buffer): boolean` | 向串口发送数据，Consumer 的**唯一**发送途径；返回底层 write 的背压信号（`false` = 缓冲满），未 attach 时返回 `false` |
 | `requestDisconnect()` | 请求断开连接，由 Connection 转交 Service 的销毁流程（终端内断开走这里） |
 | `addConsumer(consumer)` | 注册依附型 Consumer（依附型 Consumer 的接入点，如 SerialPortLogRecorder） |
 | `removeConsumer(id)` | 注销指定 Consumer |
@@ -43,7 +43,7 @@ export abstract class SerialPortConsumer {
   onError?(error: Error): void;          // 可选：运行期错误
 
   attach(host: SerialPortConsumerHost): void; // 注册时由 Connection 调用
-  protected send(data: Buffer): void;         // 转发到 host
+  protected send(data: Buffer): boolean;      // 转发到 host，返回背压信号（未 attach 返回 false）
   protected requestDisconnect(): void;        // 转发到 host
   protected addConsumer(consumer): void;      // 转发到 host（依附型 Consumer 注册）
   protected removeConsumer(id): void;         // 转发到 host

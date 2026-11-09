@@ -27,7 +27,7 @@ SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**�
 
 ### 3.2 输入（终端 → 串口）
 
-`Pseudoterminal.handleInput(data)` 收到的是键盘输入字节流，`SerialPortPseudoTerminal` **原样透传**给串口设备，不做缓冲、不做本地行编辑、不丢弃任何控制序列：
+`Pseudoterminal.handleInput(data)` 收到的是键盘输入字节流，`SerialPortPseudoTerminal` **原样透传**给串口设备，不做缓冲、不做本地行编辑、不丢弃任何控制序列——唯一例外是 `logShortcutsEnabled` 开启时拦截 `Ctrl+S`（0x13）触发开始/停止日志记录（该按键不发送给设备，见 [SerialPortLogRecorder设计.md](SerialPortLogRecorder设计.md) §7.4）：
 
 | 输入 | 处理 |
 |---|---|
@@ -53,8 +53,8 @@ SerialPortTerminal 是默认 Consumer，提供基础的终端交互能力：**�
 
 SerialPortTerminal 托管 SerialPortLogRecorder 的生命周期，详见 [SerialPortLogRecorder设计.md](SerialPortLogRecorder设计.md)：
 
-- 终端面板标题栏提供「保存 / 暂停 / 停止」按钮（`view/title` + `when: view == terminal`，context key 驱动显隐）；
-- 命令 `serialPortLog.start / pause / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startLog() / pauseLog() / stopLog()`；
+- 终端面板标题栏提供「保存 / 暂停 / 继续 / 停止」按钮（`view/title` + `when: view == terminal`，context key 驱动显隐）；
+- 命令 `serialPortLog.start / pause / resume / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startLog() / pauseLog() / resumeLog() / stopLog()`；
 - `startLog()` 创建 LogRecorder 并经 `host.addConsumer` 注册；`stopLog()` 注销并销毁；断开时随 Connection 自动收尾。
 
 ### 3.5 Agent 桥接（AgentBridge）
@@ -129,7 +129,8 @@ src/SerialPortConsumer/
 │   ├── parser/                      ← 后续：Parser、字符转义
 │   └── view/                        ← 预留（若未来需要 Webview 增强界面）
 ├── SerialPortLogRecorder/
-│   └── SerialPortLogRecorder.ts     ← 日志记录 Consumer（见 SerialPortLogRecorder设计.md）
+│   ├── SerialPortLogRecorder.ts          ← 日志记录 Consumer（见 SerialPortLogRecorder设计.md）
+│   └── SerialPortLineTimestampBuffer.ts  ← 行时间戳缓冲（见 SerialPortLogRecorder设计.md）
 └── SerialPortAgentBridge/
     └── SerialPortAgentBridge.ts     ← 串口↔TCP 桥（见 SerialPortAgentBridge设计.md）
 ```

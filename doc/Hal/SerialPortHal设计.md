@@ -98,6 +98,7 @@ classDiagram
         +write(data)
         +onData(listener)
         +onError(listener)
+        +onDrain(listener)
     }
     SerialPortHal ..> SerialPortInfo : 返回
     SerialPortHal ..> SerialPortOpenOptions : 入参

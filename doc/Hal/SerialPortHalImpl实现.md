@@ -29,7 +29,7 @@ listDevices(): Promise<SerialPortInfo[]> {
 ```ts
 port = new SerialPort({ ...options, autoOpen: false } as ConstructorParameters<typeof SerialPort>[0]);
 port.open(error => {
-  if (error) { /* 兜底监听 + reject */ }
+  if (error) { /* 兜底 error 监听 + 尽力关闭 + reject */ }
   else { resolve(new SerialPortHandleImpl(port)); }
 });
 ```
@@ -38,7 +38,7 @@ port.open(error => {
 
 1. **`autoOpen: false` + 手动 `open(cb)`**：serialport 默认在下一 tick 自动打开，打开失败以 'error' 事件形式发出；手动 open 将打开错误交付给回调，从而在"打开失败"与"运行期错误"之间划出清晰边界 —— 前者 reject，后者归句柄的 `onError` 订阅者；
 2. **构造包裹 try/catch**：serialport 对非法参数（空路径、参数越界）会同步抛出异常，**必须**转换为 reject，不得让异常逃逸出 Promise 构造器；
-3. **打开失败后挂 noop error 监听**：失败的端口对象仍可能发出迟到的 'error' 事件，无订阅者会触发 Node EventEmitter 的进程异常，挂空监听器兜底（对应契约 3.3 的"任何时点存在 error 监听"要求）。
+3. **打开失败后的兜底与清理**：失败的端口对象仍可能发出迟到的 'error' 事件，挂 error 监听器兜底防止 Node EventEmitter 的进程异常（对应契约 3.3 的"任何时点存在 error 监听"要求）；随后尽力执行 `port.close()` 清理并忽略关闭错误，最后 reject。
 
 ### 3.3 类型适配点
 
@@ -53,7 +53,8 @@ port.open(error => {
 ```ts
 class SerialPortHandleImpl implements SerialPortHandle {
   constructor(private readonly port: SerialPort) {
-    port.on('error', () => {});   // 兜底：订阅者未挂载时防止 error 事件崩溃
+    // 兜底监听：防止订阅者未挂载时 error 事件触发进程异常，同时保留错误可观测性
+    port.on('error', (error) => { console.error('[serial-port] port error:', error); });
   }
 
   close(): Promise<void> {
@@ -65,10 +66,11 @@ class SerialPortHandleImpl implements SerialPortHandle {
   write(data: Buffer): boolean { return this.port.write(data); }
   onData(listener) { this.port.on('data', listener); }
   onError(listener) { this.port.on('error', listener); }
+  onDrain(listener) { this.port.on('drain', listener); }
 }
 ```
 
-- **构造时挂 noop error 监听**：句柄创建与上层订阅 `onError`（Connection 构造时）之间存在窗口，空监听器保证任何时点 error 事件均有订阅者；
+- **构造时挂兜底 error 监听**：句柄创建与上层订阅 `onError`（Connection 构造时）之间存在窗口，该监听器保证任何时点 error 事件均有订阅者；监听器带 `console.error` 输出（保留错误可观测性），永不移除；
 - **close 的 Promise 化**：底层 close 为回调式，Promise 化后销毁流程可 `await` 清理完成。关闭错误有意忽略（尽力而为语义：销毁路径不值得为关闭失败报错）；
 - **write 直通并返回背压信号**：`write` 返回底层 `write` 的背压布尔值（`false` = 缓冲满）；`onDrain` 透传 drain 事件；发送错误仍以 'error' 事件浮现，经 `onError` 订阅者处理。
 

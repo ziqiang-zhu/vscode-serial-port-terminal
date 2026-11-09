@@ -15,7 +15,7 @@
 - **与连接状态无关**：添加、重命名、删除、引用不依赖当前是否连接；
 - **事件驱动**：配置变更经事件发布，视图重渲染走既有订阅模式；
 - **settings 驱动的手动配置**：波特率 / 帧格式取值来自 settings，单值时跳过对应下拉；
-- **旧数据无冲突兼容**：旧版本按设备分区的配置原样保留（仍挂在设备下，可见、可删、只读），新配置写入独立的全局池，与旧数据互不冲突、不迁移、不做版本标记。
+- **旧数据迁移（1.4.3 起）**：旧版本按设备分区的配置在扩展激活时**自动迁移**进全局池并删除旧键（约定见 §4.1）；迁移失败兜底场景下残留的旧数据只读展示（删除不生效），待 1.5.0 随兜底代码一并移除。
 
 ## 3. 数据模型
 
@@ -64,7 +64,7 @@ export interface SerialConfig {
 |---|---|
 | `getConfigs(identity): SerialPortQuickConfig[]` | 某设备的可见配置 = 新全局（引用）+ 旧按设备（原样），无则空数组 |
 | `getGlobalConfigs(identity): SerialPortQuickConfig[]` | 该设备引用的新全局池配置（供校验 / 渲染新配置） |
-| `getLegacyConfigs(identity): SerialPortQuickConfig[]` | 该设备在旧键下的配置（只读展示、可删） |
+| `getLegacyConfigs(identity): SerialPortQuickConfig[]` | 迁移失败兜底的只读读取：正常路径下旧键已在迁移后删除，恒为空数组 |
 | `getAllConfigs(): SerialPortQuickConfig[]` | 全部新全局池配置 |
 | `getUnattachedConfigs(identity): SerialPortQuickConfig[]` | 未被该设备引用的新全局配置（供「选择已存在快捷配置」） |
 | `add(identity, name, config): SerialPortQuickConfig` | 新建配置入全局池并引用，随后发布变更事件 |
@@ -153,7 +153,7 @@ onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 
 ### 7.3 视图刷新
 
-TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影响的设备节点（含子节点）→ `fire()`。加配置后设备节点自动进入展开态，新配置立即可见。
+TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 全局刷新树（`fire()`，视图懒重取子节点）。加配置后设备节点自动进入展开态，新配置立即可见。
 
 ## 8. 命令与菜单
 
@@ -167,7 +167,7 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 重建受影�
 |---|---|---|
 | `view/item/context`（普通组） | 添加快捷配置 | 设备右键菜单，`viewItem =~ /^serialPortDevice\./`（连接与否均可添加） |
 | `view/item/context`（普通组） | 重命名 | 配置子节点右键，`viewItem == serialPortQuickConfig`（旧配置不提供重命名） |
-| `view/item/context`（普通组） | 删除 | 配置子节点右键，`viewItem =~ /^serialPortQuickConfig/`（新旧配置均可删） |
+| `view/item/context`（普通组） | 删除 | 配置子节点右键，`viewItem =~ /^serialPortQuickConfig/`（正则同时命中 legacy 节点，但 legacy 删除为 no-op——旧数据只读，待 1.5.0 随兜底一并移除） |
 
 ## 9. 组件结构
 

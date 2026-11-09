@@ -58,7 +58,7 @@ stateDiagram-v2
 - **视图入口**：TreeView 命令转发 → Service 按 device 经映射查找并销毁；
 - **Connection 内部入口**（Terminal 发起）：Consumer 经 host 的 `requestDisconnect` 发起，由 Connection 转交 Service。
 
-销毁动作收敛于 Service 单一入口（映射注销 → 销毁 Connection → 状态回写），两处入口不产生第二套销毁逻辑。设备已从 Detector 消失时，销毁请求自然短路，无递归风险。
+销毁动作收敛于 Service 单一入口（销毁 Connection → 注销映射 → 状态回写），两处入口不产生第二套销毁逻辑。设备已从 Detector 消失时，销毁请求自然短路，无递归风险；`close()` 的 await 窗口期内并发的断开请求会取到同一 Connection，由销毁与状态回写的幂等性保证结果一致。
 
 ## 5. 功能设计
 
@@ -66,11 +66,10 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    A[TreeView 命令转发 connect\n（携带 config，可为默认）] --> B[Service 校验 config 并映射打开参数]
+    A[TreeView 命令转发 connect\n（携带 config 与 label，可为默认）] --> B[Service 校验 config 并映射打开参数]
     B --> C[Service 经 HAL 打开串口]
-    C -->|成功| D[构造 SerialPortConnection\n注入 device 与端口句柄]
-    D --> E[注册默认 Consumer]
-    E --> F[Service 置状态为已连接]
+    C -->|成功| D[构造 SerialPortConnection\n注入 device、端口句柄、config、label、\n关闭回调与默认 Consumer\n——首 Consumer 在句柄订阅前挂载]
+    D --> F[Service 置状态为已连接]
     C -->|失败| G[提示具体原因]
     G --> H[Service 回滚状态为未连接]
 ```
@@ -97,7 +96,8 @@ Service 每次状态写入后发布 `onDidChangeDeviceStatus`，TreeView 订阅�
 
 连接参数以**命名配置集合**形态存在，完整的配置域设计（数据模型、存储、CRUD、交互向导）见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md)。本节只定义连接服务的契约：
 
-- `connect(device, config?)`：连接参数由调用方随连接请求传入（UI 经参数选择器收集）；未传时使用默认值 115200-8-N-1；
+- `connect(device, config?, label?)`：连接参数由调用方随连接请求传入（UI 经参数选择器收集）；未传时使用默认值 115200-8-N-1；`label` 为可选的连接标签（随选择器配置名传入，用于终端标题）；
+- `getConnection(path)`：按设备路径查询当前 Connection（宏发送定位活动设备等场景使用）；
 - `getConnectionConfig(path)`：当前连接配置的只读查询，供视图高亮，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §6.3.1「当前连接高亮」；
 - Service 不查询配置存储：配置的选择与传递是视图层职责，扩展不做启动自动连接（避免连接非预期设备引发破坏性事件）；
 - 持久化归 SerialPortConfigStore（键为设备身份，换口重插自动找回）。
@@ -124,15 +124,16 @@ Consumer 的通用规范见 [SerialPortConsumer设计.md](ConsumerDesign/SerialP
 ```mermaid
 classDiagram
     class SerialPortConnectionService {
-        +connect(device, config?)
+        +connect(device, config?, label?)
         +disconnect(device)
+        +getConnection(path)
         +getConnectionConfig(path)
+        +dispose()
         +onDidChangeDeviceStatus
-        +载入配置并打开串口
         -Device↔Connection 映射
     }
     class SerialPortConnection {
-        +constructor(device, handle, config)
+        +constructor(device, handle, config, label, onCloseRequested, initialConsumer?)
         +config
         +close / 销毁清理
         +addConsumer(consumer)

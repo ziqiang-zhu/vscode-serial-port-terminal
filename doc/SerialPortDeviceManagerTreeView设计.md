@@ -36,7 +36,7 @@ classDiagram
 - **设备悬浮提示**：展示 Path / VendorID / ProductID / SerialNumber / Manufacturer，缺失字段按「Unknown 为空标记」原则显示；连接时在末尾追加当前连接配置的参数详情；
 - item 列表按 Detector 事件的 added/removed 精确增删，随后 `fire()`；
 - **快捷配置子节点**：设备拥有快捷配置时节点变为可折叠，子节点为各配置项（label = 名称、description = 参数摘要、tooltip = 完整参数），渲染时查询 ConfigStore，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §7；当前连接的配置子节点高亮（radio-tower 图标 + "当前连接"标注，见该文档 §6.3.1）；
-- 空状态：无设备时经 `treeView.message` 显示引导提示（"未检测到串口设备"）。
+- 空状态：无设备时经 `treeView.message` 显示引导提示（"未检测到串口设备"）。已知缺口：提示仅在 Detector 发生设备增删事件时刷新——**初始打开窗口即无设备**的场景不会触发事件，引导提示不显示（仅"曾有设备后全部拔出"才出现）；
 
 ## 4. 命令与菜单
 
@@ -56,7 +56,7 @@ classDiagram
 | `view/title` | 扫描 | 常驻视图标题栏 |
 | `view/item/context`（inline 组） | 连接 | 悬停条目时行内显示，仅未连接状态可见 |
 | `view/item/context`（inline 组） | 断开连接 | 悬停条目时行内显示，仅已连接状态可见 |
-| `view/item/context`（普通组） | 连接/断开/设备信息/添加快捷配置 | 设备右键菜单 |
+| `view/item/context`（普通组） | 添加快捷配置 | 设备右键菜单（连接 / 断开仅保留 inline 组行内按钮） |
 | `view/item/context`（普通组） | 重命名/删除 | 配置子节点右键菜单 |
 
 ### 4.3 contextValue 约定
@@ -91,7 +91,7 @@ connecting 态不匹配任何连接 / 断开按钮（用于禁用连接操作）
 - **连接状态变化**：`connectionService.onDidChangeDeviceStatus` → `fire()`（item 渲染时从模型同步外观）；
 - **高亮查询**：渲染时经 `connectionService.getConnectionConfig(path)` 查询当前连接配置，配置子节点做值比较（`serialConfigEquals`）、设备行追加参数摘要；断开后查询返回 undefined，高亮随状态事件流自动消失；
 - **选中直连**：`treeView.onDidChangeSelection` 跟踪单选；点设备连接按钮时，若选中项是该设备的配置子节点则直接以该配置连接（跳过参数选择器），否则走选择器流程；
-- **配置变更**：`configStore.onDidChangeConfigs` → 重建受影响设备节点（含配置子节点）→ `fire()`；
+- **配置变更**：`configStore.onDidChangeConfigs` → 全局刷新树（`fire()`，视图懒重取全部子节点；不按事件负载做局部刷新）；
 - **手动配置读取**：手动配置向导的波特率 / 帧格式读取自 `serialPortTerminal.baudRates` / `serialPortTerminal.frameFormats` 设置，见 [SerialPortQuickConfig设计.md](SerialPortQuickConfig设计.md) §6.5；每次打开向导实时读取，设置修改无需重启；
 - **轮询启停**：`treeView.onDidChangeVisibility` → 可见时 `detector.start()`，隐藏时 `detector.stop()`；
 - 首次订阅时机：视图构造时订阅并触发一次 `detector.scan()` 同步全量列表；
