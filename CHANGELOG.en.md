@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.6]
+
+### Improved
+- Connection robustness: if an error occurs in the initialization window after the serial port opens (a consumer-factory or connection-constructor throw), the opened port handle is now closed and the connection state rolled back, preventing the handle from being left unowned and the port occupied when that window throws
+
 ## [1.4.5]
 
 ### Improved

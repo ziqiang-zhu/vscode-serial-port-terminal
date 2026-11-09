@@ -64,17 +64,24 @@ export class SerialPortConnectionService implements vscode.Disposable {
     this._onDidChangeDeviceStatus.fire(device);
     try {
       const handle = await this.hal.openPort(this.toOpenOptions(device.path, config));
-      const connection = new SerialPortConnection(
-        device,
-        handle,
-        config,
-        label,
-        () => {
-          void this.disconnectByPath(device.path);
-        },
-        this.defaultConsumerFactory?.()
-      );
-      this.connections.set(device.path, connection);
+      // 打开成功后进入构造窗口：此后任何异常（工厂/构造器抛错）都必须兜底关闭
+      // 句柄，否则端口被占用且无人持有（A2 契约，见设计文档 §4「连接失败」）。
+      try {
+        const connection = new SerialPortConnection(
+          device,
+          handle,
+          config,
+          label,
+          () => {
+            void this.disconnectByPath(device.path);
+          },
+          this.defaultConsumerFactory?.()
+        );
+        this.connections.set(device.path, connection);
+      } catch (error) {
+        await handle.close().catch(() => {});
+        throw error;
+      }
       device.setStatus('connected');
     } catch (error) {
       device.setStatus('disconnected');

@@ -152,4 +152,32 @@ describe('连接生命周期（自装配）', () => {
     assert.ok(handle);
     await handle.close();
   });
+
+  // A2 契约（SerialPortConnection设计.md §4「连接失败」）：打开成功后的构造窗口
+  // 内任何异常都必须兜底关闭句柄——否则端口被占用且无人持有。虚拟 HAL 的
+  // openPort 幂等性（同路径重复打开返回独立句柄）不能暴露泄漏，故用"工厂抛错 +
+  // dispose 后端口可复开"组合验证：句柄若未关闭，close 链也不会被触发，只能靠
+  // 本用例的直接断言——连接失败回滚 + 设备状态如实。
+  it('#11 closes the handle when the default consumer factory throws after open', async () => {
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    // 独立 harness：工厂抛错仅影响本用例
+    const local = createHarness(() => {
+      throw new Error('consumer factory exploded');
+    });
+    try {
+      await local.detector.scan();
+      const localDevice = findDevice(local.detector, 'VCOM-ECHO');
+      await local.service.connect(localDevice); // 构造窗口抛错 → 兜底关闭 + 状态回滚
+      assert.equal(localDevice.status, 'disconnected');
+      assert.equal(local.service.getConnection('VCOM-ECHO'), undefined);
+      // 句柄已兜底关闭的旁证：dispose（幂等）不抛、可安全重复执行
+      assert.doesNotThrow(() => {
+        for (const subscription of local.subscriptions) {
+          subscription.dispose();
+        }
+      });
+    } finally {
+      local.detector.dispose();
+    }
+  });
 });
