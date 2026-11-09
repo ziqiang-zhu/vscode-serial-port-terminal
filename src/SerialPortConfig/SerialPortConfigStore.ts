@@ -26,8 +26,9 @@ export class SerialPortConfigStore {
   }
 
   // 一次性数据迁移（1.4.3，约定见 doc/SerialPortQuickConfig设计.md §4.1/§9）：
-  // 旧键 serialPortQuickConfigs 的两种形态并入全局池与引用，随后删除旧键作为
-  // 迁移完成标记——写入失败时旧键保留，下次构造幂等重跑自愈。
+  // 旧键 serialPortQuickConfigs 的两种形态并入全局池与引用，**持久化成功后**才
+  // 删除旧键作为迁移完成标记——持久化失败时旧键自然保留（从未被删），下次构造
+  // 幂等重跑自愈；会话内内存态即时生效，不受持久化时序影响。
   // 对象形态（v1.2.0-）：分区配置逐条并入池，并为分区 identity 建立引用；
   // 数组形态（v1.2.1/1.2.2）：内容并入池（引用已在 refs，无需重建）。
   // 合并按 id 去重：旧条目 id 已在池中则跳过（refs 引用落到池内同 id 条目）。
@@ -74,10 +75,18 @@ export class SerialPortConfigStore {
       }
     }
     if (changed) {
-      this.writePool(pool);
-      this.writeRefs(refs);
+      // 原子性（A3）：池与引用持久化都成功后才删除旧键——任一写入失败时旧键
+      // 从未离开存储，下次构造幂等重跑（已入池条目按 id 去重跳过，仅补齐缺失引用）。
+      const updates: Thenable<void>[] = [this.writePool(pool), this.writeRefs(refs)];
+      void Promise.all(updates.map(update => Promise.resolve(update)))
+        .then(() => this.storage.update(LEGACY_KEY, undefined))
+        .catch(error => {
+          console.error('[config-store] legacy migration persistence failed; the legacy key is kept for the next attempt:', error);
+        });
+    } else {
+      // 无需持久化（全部去重/无新增/残缺条目）：旧键可安全清除
+      void this.storage.update(LEGACY_KEY, undefined);
     }
-    void this.storage.update(LEGACY_KEY, undefined);
   }
 
   // 可见配置 = 新全局（引用）+ 旧按设备（原样）。
@@ -210,9 +219,9 @@ export class SerialPortConfigStore {
     return this.pool;
   }
 
-  private writePool(pool: SerialPortQuickConfig[]): void {
+  private writePool(pool: SerialPortQuickConfig[]): Thenable<void> {
     this.pool = pool;
-    void this.storage.update(POOL_KEY, pool);
+    return this.storage.update(POOL_KEY, pool);
   }
 
   private readRefs(): Record<string, string[]> {
@@ -222,9 +231,9 @@ export class SerialPortConfigStore {
     return this.refs;
   }
 
-  private writeRefs(refs: Record<string, string[]>): void {
+  private writeRefs(refs: Record<string, string[]>): Thenable<void> {
     this.refs = refs;
-    void this.storage.update(REFS_KEY, refs);
+    return this.storage.update(REFS_KEY, refs);
   }
 
   private assertValidName(identity: string, name: string, excludeId?: string): string {

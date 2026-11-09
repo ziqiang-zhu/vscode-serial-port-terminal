@@ -56,7 +56,7 @@ export interface SerialConfig {
 - 若确定**不兼容**，必须随改动提供**迁移方案**，把旧数据无损转换为新结构；
 - 兼容 / 迁移方案**至少保持一个 minor 版本**：只有在**下一个 minor 版本**才允许彻底移除旧结构支持；
 - 移除旧结构支持时，**发布须知（CHANGELOG）必须明示**：该版本起不再兼容旧数据，用户升级可能丢失串口配置；
-- **自动迁移约定（1.4.3 起）**：`SerialPortConfigStore` 构造时执行一次性幂等迁移——检测旧键 `serialPortQuickConfigs`：对象形态按分区并入全局池并为分区 identity 建立引用；数组形态内容并入池（引用已在 `serialPortDeviceConfigRefs`）；合并按 **id 去重**（旧条目 id 已在池中则跳过，refs 引用落到池内同 id 条目）；迁移保真，不触发名称/参数校验；写入池与引用后**删除旧键作为迁移完成标记**（写入失败时旧键保留，下次激活幂等重跑自愈）。
+- **自动迁移约定（1.4.3 起）**：`SerialPortConfigStore` 构造时执行一次性幂等迁移——检测旧键 `serialPortQuickConfigs`：对象形态按分区并入全局池并为分区 identity 建立引用；数组形态内容并入池（引用已在 `serialPortDeviceConfigRefs`）；合并按 **id 去重**（旧条目 id 已在池中则跳过，refs 引用落到池内同 id 条目）；迁移保真，不触发名称/参数校验；池与引用**持久化成功后**才删除旧键作为迁移完成标记（持久化失败时旧键自然保留，下次激活幂等重跑自愈；删除前的短暂窗口内旧数据仍只读可见）。
 
 ## 5. 配置仓库（SerialPortConfigStore）
 

@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.7]
+
+### Improved
+- Atomic quick-config migration writes: the background migration now deletes the legacy data key only after the global pool and references have been persisted successfully; on a persistence failure the legacy key is kept naturally and the migration retries automatically on the next launch, preventing the loss of legacy keys when a write fails in an edge case
+
 ## [1.4.6]
 
 ### Improved
