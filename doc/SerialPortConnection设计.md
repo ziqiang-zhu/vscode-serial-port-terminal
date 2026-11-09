@@ -47,7 +47,9 @@ stateDiagram-v2
 | 经 SerialPortTerminal 断开 | Terminal 是特殊 Consumer，经 `requestDisconnect` 发起，由 Service 间接销毁 |
 | 连接失败 | 不构造 Connection —— 构造时机在打开成功之后，失败仅回滚状态，无销毁负担 |
 | 设备拔除 | Service 订阅 Detector 的 removed 事件，销毁对应 Connection 并清理 |
-| 扩展停用 | 订阅均入 context.subscriptions，框架统一清理 |
+| 扩展停用 | Service 自身实现 `Disposable` 并注册入 context.subscriptions：停用时框架调用 `dispose()`，逐个关闭端口句柄、注销全部 Consumer、清理连接映射，并把设备状态回写 disconnected；dispose 幂等，之后拒绝新连接 |
+
+> **已知限制（平台行为）**：卸载 / 禁用扩展在扩展宿主重启前**不会执行清理**——宿主进程存活并持有串口句柄，串口持续占用至宿主重启；扩展代码无法拦截该路径（`deactivate` / dispose 为尽力而为，卸载即卸载的路径不同步调用）。窗口关闭 / 重载路径不受影响（进程退出释放全部句柄 + dispose 链优雅收尾）。
 
 ### 4.1 断开回传机制
 

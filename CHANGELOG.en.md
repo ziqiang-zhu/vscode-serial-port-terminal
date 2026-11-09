@@ -2,6 +2,14 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.5]
+
+### Improved
+- Deactivation cleanup completed: `SerialPortConnectionService` now implements `Disposable` and registers with the extension's subscriptions — deactivation closes every port handle, detaches all consumers, clears the connection map, and writes device statuses back to disconnected (contract alignment; no user-visible behavior change in the current version: on window close/reload the port was already released by the OS when the host process exited)
+
+### Known Limitations
+- Uninstalling / disabling the extension does not run any cleanup until the extension host restarts — the serial port stays occupied until then (VS Code platform behavior; extension code cannot intercept it)
+
 ## [1.4.4]
 
 ### Added

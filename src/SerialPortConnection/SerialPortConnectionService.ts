@@ -14,11 +14,12 @@ const DEFAULT_CONFIG: SerialConfig = {
   flowControl: 'none'
 };
 
-export class SerialPortConnectionService {
+export class SerialPortConnectionService implements vscode.Disposable {
   private _onDidChangeDeviceStatus = new vscode.EventEmitter<SerialPortDeviceInterface>();
   readonly onDidChangeDeviceStatus = this._onDidChangeDeviceStatus.event;
 
   private connections = new Map<string, SerialPortConnection>();
+  private disposed = false;
 
   constructor(
     private readonly hal: SerialPortHal,
@@ -26,7 +27,10 @@ export class SerialPortConnectionService {
     context: vscode.ExtensionContext,
     private readonly defaultConsumerFactory?: () => SerialPortConsumer
   ) {
+    // Service 自身入订阅列表：扩展停用时框架调用 dispose()，统一销毁全部
+    // 连接并关闭端口（履行"Connection 随扩展停用销毁"的契约，见设计文档 §1/§4）。
     context.subscriptions.push(
+      this,
       detector.onDidChangeDevices(event => {
         for (const device of event.removed) {
           void this.disconnect(device);
@@ -35,8 +39,25 @@ export class SerialPortConnectionService {
     );
   }
 
+  // 扩展停用入口：逐个断开（关闭端口句柄、注销 Consumer）并把设备状态回写为
+  // disconnected（端口已关闭，状态须如实；停用路径 fire 状态事件无意义——无监听者
+  // 存活，只做资源回收与状态归位）。destroyConnection 级幂等，重复 dispose 安全。
+  dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    for (const [path, connection] of this.connections) {
+      void connection.close().catch(() => {});
+      this.connections.delete(path);
+      const device = this.detector.getDevices().find(item => item.path === path);
+      device?.setStatus('disconnected');
+    }
+    this._onDidChangeDeviceStatus.dispose();
+  }
+
   public async connect(device: SerialPortDeviceInterface, config: SerialConfig = DEFAULT_CONFIG, label?: string): Promise<void> {
-    if (!device || device.status !== 'disconnected') {
+    if (!device || device.status !== 'disconnected' || this.disposed) {
       return;
     }
     device.setStatus('connecting');

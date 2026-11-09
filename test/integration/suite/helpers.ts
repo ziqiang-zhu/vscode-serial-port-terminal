@@ -19,15 +19,18 @@ export interface TestHarness {
   virtual: SerialPortHalVirtual;
   detector: SerialPortDeviceDetector;
   service: SerialPortConnectionService;
+  /** context.subscriptions（Service 与 Detector 均已注册其中）——dispose 模拟扩展停用。 */
+  subscriptions: { dispose(): unknown }[];
 }
 
 export function createHarness(defaultConsumerFactory?: () => SerialPortConsumer): TestHarness {
-  const stubContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+  const subscriptions: { dispose(): unknown }[] = [];
+  const stubContext = { subscriptions } as unknown as vscode.ExtensionContext;
   const virtual = new SerialPortHalVirtual();
   const hal = new SerialPortHalComposite(new SerialPortHalImpl(), virtual);
   const detector = new SerialPortDeviceDetector(hal, stubContext);
   const service = new SerialPortConnectionService(hal, detector, stubContext, defaultConsumerFactory);
-  return { virtual, detector, service };
+  return { virtual, detector, service, subscriptions };
 }
 
 export const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));

@@ -120,4 +120,36 @@ describe('连接生命周期（自装配）', () => {
     await waitFor('auto-disconnect after last consumer removed', () => device.status === 'disconnected');
     assert.ok(consumer.closed);
   });
+
+  // A1 契约（SerialPortConnection设计.md §1/§4）：扩展停用时 Connection 全部销毁、
+  // 端口关闭。经 context.subscriptions 的 dispose 链验证（与真实停用路径同构）。
+  it('#10 disposes all connections when the extension host disposes the service', async () => {
+    const deviceA = findDevice(harness.detector, 'VCOM-LINUX');
+    const deviceB = findDevice(harness.detector, 'VCOM-REPLAY');
+    await harness.service.connect(deviceA);
+    await harness.service.connect(deviceB);
+    assert.equal(deviceA.status, 'connected');
+    assert.equal(deviceB.status, 'connected');
+    assert.ok(harness.service.getConnection('VCOM-LINUX'));
+    assert.ok(harness.service.getConnection('VCOM-REPLAY'));
+
+    const consumer = new RecordingConsumer('rec-dispose');
+    harness.service.getConnection('VCOM-LINUX')?.addConsumer(consumer);
+
+    // 模拟扩展停用：框架遍历 subscriptions 调用 dispose（Service 已注册其中）
+    for (const subscription of harness.subscriptions) {
+      subscription.dispose();
+    }
+
+    assert.equal(harness.service.getConnection('VCOM-LINUX'), undefined, 'connections must be cleared');
+    assert.equal(harness.service.getConnection('VCOM-REPLAY'), undefined);
+    assert.ok(consumer.closed, 'consumers must receive onClosed during dispose');
+    // 停用后连接被拒绝（disposed 守卫）
+    await harness.service.connect(deviceA);
+    assert.equal(deviceA.status, 'disconnected');
+    // 端口确实已关闭：dispose 后重新打开同一路径仍成功（虚拟 HAL 单实例句柄独立）
+    const handle = await harness.virtual.openPort({ path: 'VCOM-LINUX', baudRate: 115200 });
+    assert.ok(handle);
+    await handle.close();
+  });
 });
