@@ -135,4 +135,30 @@ describe('AgentBridge TCP（自装配）', () => {
       await harness.service.disconnect(device);
     }
   });
+
+  // stripAnsi=false（未来纯字节流 Consumer 的预留接口）：字节原样透传——
+  // ANSI 转义序列不被剥离，且不经剥离行缓冲（无换行半行即时到达，无 200ms 空闲刷出滞留）。
+  it('#22 stripAnsi=false passes bytes through raw without idle hold', async () => {
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device);
+    const connection = harness.service.getConnection('VCOM-ECHO');
+    assert.ok(connection);
+    const bridge = new SerialPortAgentBridge('127.0.0.1', 0, false, false);
+    assert.equal(bridge.isStripAnsi(), false);
+    const address = await bridge.listen();
+    connection.addConsumer(bridge);
+    const client = new TcpTestClient(address.port);
+    try {
+      await client.connected();
+      const payload = '\x1b[31mRED\x1b[0m raw'; // 含 ANSI 转义 + 无换行（若走剥离会被行缓冲滞留）
+      connection.send(Buffer.from(payload, 'utf8'));
+      await waitFor('raw bytes on client', () => client.text.includes(payload));
+      assert.ok(client.text.includes('\x1b[31mRED\x1b[0m'), 'escape sequence must be preserved');
+      await sleep(300);
+      assert.ok(client.text.includes('raw'), 'tail must not be held by line buffering');
+    } finally {
+      client.dispose();
+      await harness.service.disconnect(device);
+    }
+  });
 });

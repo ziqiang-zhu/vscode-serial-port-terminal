@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.4.8]
+
+### Improved
+- AgentBridge gains a `stripAnsi` constructor parameter (default `true`, reserved interface): it allows future raw byte-stream consumers to disable ANSI stripping and the idle flush, achieving passthrough of binary data as-is; the current default behavior is identical to the terminal semantics
+
 ## [1.4.7]
 
 ### Improved

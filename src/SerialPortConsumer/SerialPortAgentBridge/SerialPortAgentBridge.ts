@@ -26,7 +26,11 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
     private readonly port: number,
     // 只读模式（安全增强）：客户端仅能接收设备数据，发送的字节被忽略——
     // 不挂 data handler，内核未读缓冲自动丢弃，设备侧收不到任何注入。
-    private readonly readonlyMode = false
+    private readonly readonlyMode = false,
+    // ANSI 剥离开关：默认开启（终端语义，
+    // 颜色码剥离 + 空闲刷出）；关闭时字节原样透传——不经剥离行缓冲、不挂空闲
+    // 刷出（消除 200ms 固有延迟），二进制协议不被 UTF-8 往返损坏。
+    private readonly stripAnsi = true
   ) {
     super();
     this.bindHost = host;
@@ -36,6 +40,10 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
 
   isReadonly(): boolean {
     return this.readonlyMode;
+  }
+
+  isStripAnsi(): boolean {
+    return this.stripAnsi;
   }
 
   listen(): Promise<AgentBridgeAddress> {
@@ -60,15 +68,22 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
     if (this.closed || this.sockets.size === 0) {
       return;
     }
-    this.broadcast(this.ansiStripper.process(data));
-    this.armIdleFlush();
+    if (this.stripAnsi) {
+      this.broadcast(this.ansiStripper.process(data));
+      this.armIdleFlush(); // 空闲刷出仅为剥离行缓冲服务；透传模式数据即时到达
+    } else {
+      this.broadcast(data);
+    }
   }
 
   onClosed(): void {
     this.closed = true;
     this.disarmIdleFlush();
-    // 断开收尾：先向在线客户端刷出保留的半行，再销毁连接。
-    this.broadcast(this.ansiStripper.flush());
+    // 断开收尾：剥离模式下先向在线客户端刷出保留的半行，再销毁连接；
+    // 透传模式无缓冲，直接销毁。
+    if (this.stripAnsi) {
+      this.broadcast(this.ansiStripper.flush());
+    }
     for (const socket of this.sockets) {
       socket.destroy();
     }

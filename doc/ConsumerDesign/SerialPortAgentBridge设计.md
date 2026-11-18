@@ -39,15 +39,17 @@ class SerialPortAgentBridge extends SerialPortConsumer {
   readonly id = 'serialPortAgentBridge';
   readonly displayName = 'Serial Port Agent Bridge';
 
-  constructor(host: string, port: number, readonlyMode = false);
+  constructor(host: string, port: number, readonlyMode = false, stripAnsi = true);
   listen(): Promise<{ host: string; port: number }>;  // 启动监听；端口占用则 reject
   isReadonly(): boolean;        // 只读模式标记
-  onData(data: Buffer): void;   // 剥离 ANSI 后广播给所有已连接 socket
+  isStripAnsi(): boolean;       // ANSI 剥离开关标记
+  onData(data: Buffer): void;   // 剥离模式：剥离 ANSI 后广播；透传模式：原样广播
   onClosed(): void;             // 关闭全部 socket 与 server（幂等）
 }
 ```
 
 - `readonlyMode`（1.4.3 起，安全增强）：只读观察者模式——socket **不挂 `data` handler**，客户端发送的字节被丢弃、永不到达设备；设备 → 客户端的广播方向不受影响。承载方式为设置项 `serialPortTerminal.agentBridge.readonly`（默认 `false`，见 §8），由 Terminal 创建桥时读取；
+- `stripAnsi`（预留接口，供未来纯字节流 Consumer 使用）：默认 `true`（终端语义：剥离 ANSI 转义序列 + 200ms 空闲刷出）；`false` 时字节**原样透传**——不经剥离行缓冲、不挂空闲刷出（数据即时到达，二进制协议不被 UTF-8 往返损坏）；
 - 注册时序：Terminal 先 `addConsumer(this)`、后 `await listen()`；listen 失败（如 EADDRINUSE）时 `removeConsumer` 回滚注销并报错；
 - `onData` 广播给 `Set<net.Socket>` 中所有 socket；非只读模式下任一 socket `'data'` 经 `send()` 转发到串口；
 - 无客户端时 `onData` 数据直接丢弃（不缓冲、不补发）。
