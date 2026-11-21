@@ -66,9 +66,15 @@ const workspace = {
 // 错误提示记录器：扫描失败去重用例经 __shownErrorMessages() 断言弹出次数。
 const shownErrorMessages = [];
 
+// 信息提示记录器：日志「文件已保存」提示用例经 __shownInfoMessages() 断言弹出次数。
+const shownInfoMessages = [];
+
 const window = {
   showErrorMessage(message) {
     shownErrorMessages.push(String(message));
+  },
+  showInformationMessage(message) {
+    shownInfoMessages.push(String(message));
   },
 };
 
@@ -89,6 +95,10 @@ const vscodeStub = {
   // 测试专用钩子（非 vscode API）：读取已记录的错误提示副本。
   __shownErrorMessages() {
     return [...shownErrorMessages];
+  },
+  // 测试专用钩子（非 vscode API）：读取已记录的信息提示副本。
+  __shownInfoMessages() {
+    return [...shownInfoMessages];
   },
 };
 

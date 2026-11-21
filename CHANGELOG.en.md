@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.4]
+
+### Improved
+- Log robustness: every write failure (disk full, unwritable directory, etc.) now shows a write-error notification, and retrying is always allowed - recording resumes automatically once the disk is cleaned or restored; the file-saved notice now requires a confirmed file creation, so it no longer appears when the log file could not be opened
+
 ## [1.5.3]
 
 ### Improved

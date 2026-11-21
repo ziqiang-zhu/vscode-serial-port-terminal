@@ -81,8 +81,18 @@ export class SerialPortLogRecorder extends SerialPortConsumer {
       return;
     }
     this.stream = fs.createWriteStream(this.currentSegmentPath(), { flags: 'a' });
-    this.stream.on('error', () => {});
-    this.fileCreated = true;
+    const stream = this.stream;
+    // 保存失败时，丢弃数据，并提示，新流仍可以尝试保存，失败时继续提示，直到用户修复故障，例如清理 / 恢复磁盘等
+    this.stream.on('error', (error: Error) => {
+      if (this.stream === stream) {
+        this.stream = undefined;
+      }
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to write log: {0}', `${error}`));
+    });
+    // 文件以 open 事件确认创建成功：建流时置位会把「打开失败」也当成已保存。
+    this.stream.once('open', () => {
+      this.fileCreated = true;
+    });
   }
 
   private rotate(): void {
