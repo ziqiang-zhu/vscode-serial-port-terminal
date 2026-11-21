@@ -30,7 +30,8 @@ export interface VirtualConsoleEntry {
 interface VirtualEntry {
   profile: VirtualDeviceProfile;
   runtime: VirtualRuntime;
-  handle?: VirtualPortHandle;
+  // 显式联合 undefined：close 回调在 exactOptionalPropertyTypes 下清空引用（同 SerialPortInfo 约定）。
+  handle?: VirtualPortHandle | undefined;
 }
 
 const defaultEntries = (): { profile: VirtualDeviceProfile }[] => [
@@ -72,7 +73,13 @@ export class SerialPortHalVirtual implements SerialPortHal {
     if (!entry.runtime.online) {
       return Promise.reject(new Error(`Virtual port offline: ${options.path}`));
     }
-    const handle = new VirtualPortHandle(entry.profile, entry.runtime);
+    const handle = new VirtualPortHandle(entry.profile, entry.runtime, () => {
+      // 句柄关闭时清空门面存活引用（控制台 connected 复位）；引用比对防双开后
+      // 关闭旧句柄误清新句柄。
+      if (entry.handle === handle) {
+        entry.handle = undefined;
+      }
+    });
     entry.handle = handle;
     return Promise.resolve(handle);
   }

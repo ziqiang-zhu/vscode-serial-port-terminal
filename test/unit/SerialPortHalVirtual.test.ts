@@ -359,4 +359,36 @@ describe('SerialPortHalVirtual 控制面（P3）', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('#27 clears the facade reference on close so the console reads disconnected', async () => {
+    const hal = new SerialPortHalVirtual();
+    const handle = (await hal.openPort(openOptions())) as VirtualPortHandle;
+    assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-ECHO')?.connected, true);
+    await handle.close();
+    assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-ECHO')?.connected, false);
+  });
+
+  it('#28 restores connected and the inject path when the port reopens', async () => {
+    const hal = new SerialPortHalVirtual();
+    const first = (await hal.openPort(openOptions())) as VirtualPortHandle;
+    await first.close();
+    assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-ECHO')?.connected, false);
+    const second = (await hal.openPort(openOptions())) as VirtualPortHandle;
+    assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-ECHO')?.connected, true);
+    const received = collect(second);
+    hal.inject('VCOM-ECHO', Buffer.from('again'));
+    assert.deepEqual(received, ['again']);
+    await second.close();
+  });
+
+  it('#29 closing a stale handle keeps the current reference intact', async () => {
+    const hal = new SerialPortHalVirtual();
+    const stale = (await hal.openPort(openOptions())) as VirtualPortHandle; // 旧句柄
+    const current = (await hal.openPort(openOptions())) as VirtualPortHandle; // 双开：引用被顶到新句柄
+    assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-ECHO')?.connected, true);
+    await stale.close(); // 引用比对 → 不清 current
+    assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-ECHO')?.connected, true);
+    await current.close();
+    assert.equal(hal.getConsoleEntries().find(e => e.path === 'VCOM-ECHO')?.connected, false);
+  });
 });

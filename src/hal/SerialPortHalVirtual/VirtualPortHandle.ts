@@ -25,7 +25,10 @@ export class VirtualPortHandle implements SerialPortHandle {
   constructor(
     private readonly profile: VirtualDeviceProfile,
     // 运行态按引用共享（与 HAL 持有的是同一对象）：控制面修改即时作用于存活句柄。
-    private readonly runtime: VirtualRuntime = { online: true, delayMs: 0, backpressure: false }
+    private readonly runtime: VirtualRuntime = { online: true, delayMs: 0, backpressure: false },
+    // close 完成回调（门面用）：句柄关闭时清空门面的存活引用，控制台 connected
+    // 随之复位；重复 close 不再触发。
+    private readonly onClosed?: () => void
   ) {}
 
   // 背压阻塞：write 排队返回 false（模拟驱动缓冲，字节不丢失）；放行后按序送达。
@@ -88,6 +91,7 @@ export class VirtualPortHandle implements SerialPortHandle {
     this.pendingTimers.clear();
     this.queued.length = 0;
     this.profile.onClose();
+    this.onClosed?.();
     this.dataListeners.clear();
     this.errorListeners.clear();
     this.drainListeners.clear();
