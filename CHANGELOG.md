@@ -2,6 +2,11 @@
 
 > 🇬🇧 [English](CHANGELOG.en.md)
 
+## [1.5.1]
+
+### 优化
+- Marketplace 分类修正：由占位值 Other 改为有效分类（Programming Languages / Debuggers / Visualization），扩展可在分类浏览页被检索到
+
 ## [1.5.0]
 
 ### 移除

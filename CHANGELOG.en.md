@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.1]
+
+### Improved
+- Marketplace categories fixed: the placeholder Other is replaced with valid categories (Programming Languages / Debuggers / Visualization), so the extension is discoverable in category browsing
+
 ## [1.5.0]
 
 ### Removed
