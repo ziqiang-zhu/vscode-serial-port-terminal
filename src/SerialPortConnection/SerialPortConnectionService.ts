@@ -64,6 +64,16 @@ export class SerialPortConnectionService implements vscode.Disposable {
     this._onDidChangeDeviceStatus.fire(device);
     try {
       const handle = await this.hal.openPort(this.toOpenOptions(device.path, config));
+      // 拔除竞态防护：openPort 的 await 窗口内设备可能被拔（removed 事件链触发
+      // disconnect、状态回写 disconnected），恢复执行后复核——同路径仍为同一设备
+      // 模型且仍处 connecting 才继续，否则关闭句柄静默放弃（设备拔除不是连接
+      // 失败，不弹错误提示）。无此复核将产生孤儿连接：销毁请求经 disconnectByPath
+      // 永久短路，连接持续整个会话，依附 Consumer 不收尾。
+      const current = this.detector.getDevices().find(item => item.path === device.path);
+      if (this.disposed || current !== device || current.status !== 'connecting') {
+        await handle.close().catch(() => {});
+        return;
+      }
       // 打开成功后进入构造窗口：此后任何异常（工厂/构造器抛错）都必须兜底关闭
       // 句柄，否则端口被占用且无人持有（A2 契约，见设计文档 §4「连接失败」）。
       try {

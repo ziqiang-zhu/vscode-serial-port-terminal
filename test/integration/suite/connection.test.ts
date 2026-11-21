@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'mocha';
+import * as vscode from 'vscode';
 
+import { SerialPortHal, SerialPortHandle, SerialPortOpenOptions } from '../../../src/hal/SerialPortHal';
+import { SerialPortHalComposite } from '../../../src/hal/SerialPortHalComposite';
+import { SerialPortHalImpl } from '../../../src/hal/SerialPortHalImpl';
+import { SerialPortHalVirtual } from '../../../src/hal/SerialPortHalVirtual/SerialPortHalVirtual';
+import { SerialPortDeviceDetector } from '../../../src/SerialPortDeviceDetector/SerialPortDeviceDetector';
+import { SerialPortConnectionService } from '../../../src/SerialPortConnection/SerialPortConnectionService';
 import { createHarness, findDevice, RecordingConsumer, waitFor, type TestHarness } from './helpers';
 
-// 连接生命周期契约（doc/Test/开发测试体系.md §6.10 #2–#9）：
+// 连接生命周期契约（doc/Test/开发测试体系.md §6.10 #2–#12）：
 // 状态事件序列、断开单一入口、重复 connect 守卫、离线 connect 回退、
-// 拔出自动断开（真实销毁链）、Consumer 清零自动关闭。真实异步，无 mock.timers。
+// 拔出自动断开（真实销毁链）、Consumer 清零自动关闭、扩展停用销毁、
+// 构造窗口句柄兜底、拔除竞态防护。真实异步，无 mock.timers。
 describe('连接生命周期（自装配）', () => {
   let harness: TestHarness;
 
@@ -178,6 +186,63 @@ describe('连接生命周期（自装配）', () => {
       });
     } finally {
       local.detector.dispose();
+    }
+  });
+
+  // A1 契约（SerialPortConnection设计.md §5.1「拔除竞态防护」）：openPort 的 await
+  // 窗口内设备被拔（removed 链回写 disconnected），打开成功后复核不通过 → 关闭
+  // 句柄、静默放弃，不构造 Connection。虚拟 HAL 的 openPort 即时 resolve，无法
+  // 制造窗口，故以受控 stub HAL（手工放行 + close 追踪）确定性复现竞态时序。
+  it('#12 abandons the connection when the device disappears while the port is opening', async () => {
+    let release: ((handle: SerialPortHandle) => void) | undefined;
+    let opened = false;
+    let handleClosed = false;
+    const stubHandle: SerialPortHandle = {
+      close: async () => {
+        handleClosed = true;
+      },
+      write: () => true,
+      onDrain: () => {},
+      onData: () => {},
+      onError: () => {},
+    };
+    const virtual = new SerialPortHalVirtual();
+    const composite = new SerialPortHalComposite(new SerialPortHalImpl(), virtual);
+    // 打开动作挂起直到测试放行：制造确定性的 await 窗口（独立虚拟 HAL 实例，
+    // 不触碰共享 harness 的设备清单）
+    const hal: SerialPortHal = {
+      listDevices: () => composite.listDevices(),
+      openPort: (_options: SerialPortOpenOptions) => {
+        opened = true;
+        return new Promise<SerialPortHandle>(resolve => {
+          release = resolve;
+        });
+      },
+    };
+    const subscriptions: { dispose(): unknown }[] = [];
+    const stubContext = { subscriptions } as unknown as vscode.ExtensionContext;
+    const detector = new SerialPortDeviceDetector(hal, stubContext);
+    const service = new SerialPortConnectionService(hal, detector, stubContext);
+    try {
+      await detector.scan();
+      const device = findDevice(detector, 'VCOM-ECHO');
+      const connectPromise = service.connect(device);
+      await waitFor('connect entered the openPort window', () => opened);
+      // 窗口内拔除：removed 事件链触发 disconnect，状态回写 disconnected
+      virtual.setOnline('VCOM-ECHO', false);
+      await detector.scan();
+      await waitFor('status flipped to disconnected by the removal chain', () => device.status === 'disconnected');
+      release!(stubHandle); // 放行 openPort：复核不通过 → 关句柄静默放弃
+      await connectPromise;
+      assert.equal(device.status, 'disconnected', 'must not flip to connected');
+      assert.equal(service.getConnection('VCOM-ECHO'), undefined, 'no orphan connection in the map');
+      assert.ok(handleClosed, 'the opened handle must be closed');
+      assert.equal(detector.getDevices().some(item => item.path === 'VCOM-ECHO'), false);
+    } finally {
+      for (const subscription of subscriptions) {
+        subscription.dispose();
+      }
+      detector.dispose();
     }
   });
 });

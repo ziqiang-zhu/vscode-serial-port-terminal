@@ -43,6 +43,7 @@ stateDiagram-v2
 | 事件 | 行为 |
 |---|---|
 | 点击连接且打开成功 | Service 构造 Connection，注入 device 与端口句柄与默认 Consumer（首 Consumer 在句柄订阅前挂载，确保 HAL 画像 onOpen 初始输出可达），置 connected |
+| 打开成功但复核不通过 | 打开动作的 await 窗口内设备被拔（removed 链已触发 disconnect 并回写状态）：复核设备不在场或已非 connecting → 关闭句柄、静默放弃，不构造 Connection（防孤儿连接——设备模型消失后销毁请求经 `disconnectByPath` 永久短路，孤儿将持续整个会话且依附 Consumer 不收尾） |
 | 视图点击断开 | Service 销毁 Connection，连带销毁其全部 Consumer，端口在销毁时关闭 |
 | 经 SerialPortTerminal 断开 | Terminal 是特殊 Consumer，经 `requestDisconnect` 发起，由 Service 间接销毁 |
 | 连接失败 | 不构造 Connection —— 构造时机在打开成功之后，失败仅回滚状态，无销毁负担 |
@@ -68,13 +69,16 @@ stateDiagram-v2
 flowchart TD
     A[TreeView 命令转发 connect\n（携带 config 与 label，可为默认）] --> B[Service 校验 config 并映射打开参数]
     B --> C[Service 经 HAL 打开串口]
-    C -->|成功| D[构造 SerialPortConnection\n注入 device、端口句柄、config、label、\n关闭回调与默认 Consumer\n——首 Consumer 在句柄订阅前挂载]
+    C -->|成功| C2{复核：同路径仍为\n同一设备模型\n且仍处 connecting}
+    C2 -->|通过| D[构造 SerialPortConnection\n注入 device、端口句柄、config、label、\n关闭回调与默认 Consumer\n——首 Consumer 在句柄订阅前挂载]
+    C2 -->|窗口内被拔| I[关闭句柄、静默放弃\n不构造 Connection]
     D --> F[Service 置状态为已连接]
     C -->|失败| G[提示具体原因]
     G --> H[Service 回滚状态为未连接]
 ```
 
 - 打开动作在 Service 侧：失败时 Connection 尚未产生，失败路径没有销毁负担；
+- **拔除竞态防护**：打开动作为异步，await 窗口内设备可能被拔（removed 事件链触发 disconnect、状态回写 disconnected）。打开成功后复核同路径仍为同一设备模型且仍处 connecting，不满足则关闭句柄静默放弃——设备拔除不是连接失败，不弹错误提示。无此复核将产生孤儿连接：销毁请求经 `disconnectByPath` 永久短路，连接持续整个会话、依附 Consumer 不收尾、映射覆盖不执行旧连接收尾；
 - 端口句柄所有权在构造时移交 Connection：此后数据的收发与关闭由 Connection 负责；
 - 守卫规则：目标设备状态非 disconnected 时连接请求**必须**被拒绝（防止并发重复打开）。
 

@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.2]
+
+### Improved
+- Connection robustness: unplugging race guard - when the device disappears while the port-open operation is still pending, the successful open is now re-checked and abandoned with the handle closed, instead of leaving a stale connection that survives the whole session and cannot be disconnected from the device list
+
 ## [1.5.1]
 
 ### Improved
