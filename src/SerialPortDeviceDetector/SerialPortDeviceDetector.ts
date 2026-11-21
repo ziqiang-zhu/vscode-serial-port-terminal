@@ -15,6 +15,7 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
   private devices = new Map<string, SerialPortDeviceImpl>();
   private pollingTimer: ReturnType<typeof setInterval> | undefined;
   private active = false;
+  private scanFailureNotified = false;
 
   constructor(
     private readonly hal: SerialPortHal,
@@ -33,9 +34,14 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
     return [...this.devices.values()];
   }
 
-  public async scan(): Promise<void> {
+  // isPolling = true 时为轮询扫描：失败提示按失败轮次去重——连续失败仅首次弹出
+  // 错误提示（后续仅 console.error），扫描成功后复位、再遇失败重新提示，防止底层
+  // 持续失败时按轮询周期（1–15 秒）弹窗轰炸；缺省（手动刷新 / 初始扫描 / 测试）
+  // 始终提示。见设计文档 §6「扫描失败提示去重」。
+  public async scan(isPolling = false): Promise<void> {
     try {
       const infos = await this.hal.listDevices();
+      this.scanFailureNotified = false;
 
       const added: SerialPortDeviceImpl[] = [];
       const removed: SerialPortDeviceImpl[] = [];
@@ -67,7 +73,10 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
       }
     } catch (error) {
       console.error('Device scan error:', error);
-      vscode.window.showErrorMessage(vscode.l10n.t('Failed to list serial ports: {0}', `${error}`));
+      if (!isPolling || !this.scanFailureNotified) {
+        vscode.window.showErrorMessage(vscode.l10n.t('Failed to list serial ports: {0}', `${error}`));
+      }
+      this.scanFailureNotified = true;
     }
   }
 
@@ -78,7 +87,7 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
       return;
     }
     this.pollingTimer = setInterval(() => {
-      void this.scan();
+      void this.scan(true);
     }, this.pollingIntervalSeconds * 1000);
   }
 

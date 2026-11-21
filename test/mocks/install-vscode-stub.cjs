@@ -57,12 +57,26 @@ const workspace = {
       },
     };
   },
+  // Detector 构造器注册配置监听：桩返回一次性 Disposable 即可（单测不触发配置变更）。
+  onDidChangeConfiguration() {
+    return new Disposable(() => {});
+  },
+};
+
+// 错误提示记录器：扫描失败去重用例经 __shownErrorMessages() 断言弹出次数。
+const shownErrorMessages = [];
+
+const window = {
+  showErrorMessage(message) {
+    shownErrorMessages.push(String(message));
+  },
 };
 
 const vscodeStub = {
   Disposable,
   EventEmitter,
   l10n,
+  window,
   workspace,
   // 测试专用钩子（非 vscode API）：注入 workspace 配置值，undefined 表示清除。
   __setConfiguration(key, value) {
@@ -71,6 +85,10 @@ const vscodeStub = {
     } else {
       workspace._configuration.set(key, value);
     }
+  },
+  // 测试专用钩子（非 vscode API）：读取已记录的错误提示副本。
+  __shownErrorMessages() {
+    return [...shownErrorMessages];
   },
 };
 

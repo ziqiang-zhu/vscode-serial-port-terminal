@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.3]
+
+### Improved
+- Device scan robustness: polling scan failures now show the error notification only on the first failure of an episode (consecutive failures log to the console only, and a new notification appears if the scan fails again after recovering); manual refresh and the initial scan always notify
+
 ## [1.5.2]
 
 ### Improved
