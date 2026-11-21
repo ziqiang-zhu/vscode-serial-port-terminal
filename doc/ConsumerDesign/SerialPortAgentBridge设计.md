@@ -58,6 +58,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 
 ```
 终端标题栏按钮「开启 Agent Bridge」→ Terminal.startBridge()
+    → 重入守卫：选端口窗口（QuickPick）内二次调用静默返回（bridgeStarting 标志，防双桥竞态）；listen 窗口由 agentBridge 置位后的空值守卫自然拦截
     → 读配置 ports → QuickPick 选端口（单值跳过）→ new AgentBridge(host, port, readonly)
     → host.addConsumer(bridge)（先注册）→ await listen() 成功 → 回显 host:port（只读追加标记）→ setContext(active)
     → listen() 失败（端口占用）→ removeConsumer 回滚注销 + showErrorMessage

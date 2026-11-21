@@ -99,6 +99,10 @@ export class SerialPortTerminal extends SerialPortConsumer {
   private agentBridge: SerialPortAgentBridge | undefined;
   private agentBridgeAddress: string | undefined;
   private agentBridgeReadonly: boolean | undefined;
+  // 选端口窗口内的重入守卫：多端口配置时 QuickPick 可挂起任意久，期间二次调用
+  // 会穿透 agentBridge 空守卫并产生双桥（同 id 注册顶掉旧桥，状态错乱）。listen
+  // 窗口无需持锁——agentBridge 已置位，原守卫自然拦截二次调用。
+  private bridgeStarting = false;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -183,34 +187,39 @@ export class SerialPortTerminal extends SerialPortConsumer {
   }
 
   async startBridge(): Promise<void> {
-    if (this.agentBridge) {
+    if (this.agentBridge || this.bridgeStarting) {
       return;
     }
-    const port = await this.pickAgentBridgePort();
-    if (port === undefined) {
-      return;
-    }
-    const readonlyMode = this.getAgentBridgeReadonly();
-    const bridge = new SerialPortAgentBridge(this.getAgentBridgeHost(), port, readonlyMode);
-    this.agentBridge = bridge;
-    this.agentBridgeReadonly = readonlyMode;
-    this.addConsumer(bridge);
-    refreshLogContext();
+    this.bridgeStarting = true;
     try {
-      const address = await bridge.listen();
-      this.agentBridgeAddress = `${address.host}:${address.port}`;
+      const port = await this.pickAgentBridgePort();
+      if (port === undefined) {
+        return;
+      }
+      const readonlyMode = this.getAgentBridgeReadonly();
+      const bridge = new SerialPortAgentBridge(this.getAgentBridgeHost(), port, readonlyMode);
+      this.agentBridge = bridge;
+      this.agentBridgeReadonly = readonlyMode;
+      this.addConsumer(bridge);
       refreshLogContext();
-      const suffix = readonlyMode ? ' (read-only)' : '';
-      void vscode.window.showInformationMessage(
-        vscode.l10n.t('Agent Bridge: {0}', `${address.host}:${address.port}${suffix}`)
-      );
-    } catch (error) {
-      this.agentBridge = undefined;
-      this.agentBridgeReadonly = undefined;
-      this.agentBridgeAddress = undefined;
-      this.removeConsumer(bridge.id);
-      refreshLogContext();
-      void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
+      try {
+        const address = await bridge.listen();
+        this.agentBridgeAddress = `${address.host}:${address.port}`;
+        refreshLogContext();
+        const suffix = readonlyMode ? ' (read-only)' : '';
+        void vscode.window.showInformationMessage(
+          vscode.l10n.t('Agent Bridge: {0}', `${address.host}:${address.port}${suffix}`)
+        );
+      } catch (error) {
+        this.agentBridge = undefined;
+        this.agentBridgeReadonly = undefined;
+        this.agentBridgeAddress = undefined;
+        this.removeConsumer(bridge.id);
+        refreshLogContext();
+        void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
+      }
+    } finally {
+      this.bridgeStarting = false;
     }
   }
 

@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.5]
+
+### Improved
+- AgentBridge robustness: repeated start attempts during the port selection window are now ignored instead of building a second bridge, preventing mismatched bridge state
+
 ## [1.5.4]
 
 ### Improved
