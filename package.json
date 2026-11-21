@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal with an AI-agent TCP bridge",
-  "version": "1.4.8",
+  "version": "1.5.0",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -230,7 +230,7 @@
         },
         {
           "command": "serialPortQuickConfig.remove",
-          "when": "view == serialPortDeviceList && viewItem =~ /^serialPortQuickConfig/"
+          "when": "view == serialPortDeviceList && viewItem == serialPortQuickConfig"
         },
         {
           "command": "serialPortMacro.send",

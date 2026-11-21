@@ -5,20 +5,16 @@ import { SerialConfig, SerialPortQuickConfig, formatSerialConfigDetails, formatS
 export class SerialPortQuickConfigTreeItem extends vscode.TreeItem {
   constructor(
     public readonly device: SerialPortDeviceInterface,
-    public readonly quickConfig: SerialPortQuickConfig,
-    public readonly isLegacy: boolean = false
+    public readonly quickConfig: SerialPortQuickConfig
   ) {
     super(quickConfig.name, vscode.TreeItemCollapsibleState.None);
-    this.contextValue = isLegacy ? 'serialPortQuickConfigLegacy' : 'serialPortQuickConfig';
+    this.contextValue = 'serialPortQuickConfig';
     this.iconPath = new vscode.ThemeIcon('debug-configure');
     this.description = formatSerialConfigSummary(quickConfig.config);
     this.tooltip = formatSerialConfigDetails(quickConfig.config);
   }
 
   public syncActiveState(activeConfig: SerialConfig | undefined): void {
-    if (this.isLegacy) {
-      return;
-    }
     const active = activeConfig !== undefined && serialConfigEquals(activeConfig, this.quickConfig.config);
     this.iconPath = new vscode.ThemeIcon(active ? 'radio-tower' : 'debug-configure');
     this.description = active

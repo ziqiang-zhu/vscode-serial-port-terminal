@@ -5,12 +5,11 @@ import * as vscode from 'vscode';
 import { SerialPortConfigStore } from '../../src/SerialPortConfig/SerialPortConfigStore';
 import { SerialConfig } from '../../src/SerialPortConfig/SerialPortQuickConfig';
 
-// ConfigStore 契约（doc/Test/开发测试体系规划.md §6.4）：三键存储（池/引用/legacy 迁移源）、
-// 引用计数归零删除、权威校验、1.4.3 构造期自动迁移（两形态并入池与引用并删旧键）、
-// 变更事件按 identity 触发。
+// ConfigStore 契约（doc/Test/开发测试体系规划.md §6.4）：两键存储（池/引用）、
+// 引用计数归零删除、权威校验、变更事件按 identity 触发。
+// 1.5.0 起不再兼容旧数据结构（1.4.3–1.4.8 的自动迁移代码已随兼容兜底一并移除）。
 // 'vscode' 运行期由模块桩提供（EventEmitter / l10n）；Memento 经 FakeMemento 鸭子类型注入。
 const KEYS = {
-  legacy: 'serialPortQuickConfigs',
   pool: 'serialPortQuickConfigPool',
   refs: 'serialPortDeviceConfigRefs',
   lastUsed: 'serialPortLastUsedConfigs',
@@ -45,12 +44,6 @@ const cfg = (overrides: Partial<SerialConfig> = {}): SerialConfig => ({
   stopBits: 1,
   flowControl: 'none',
   ...overrides,
-});
-
-const legacyConfig = (id: string, name: string): { id: string; name: string; config: SerialConfig } => ({
-  id,
-  name,
-  config: cfg(),
 });
 
 const make = (memento: FakeMemento = new FakeMemento()) => {
@@ -150,8 +143,6 @@ describe('SerialPortConfigStore 参数判重', () => {
     store.add('dev', 'B', cfg({ baudRate: 9600 }));
     assert.equal(store.getAllConfigs().length, 2);
   });
-
-  // 1.4.3 起 legacy 数据构造时自动并入池（迁移保真）并参与查重——同名/同参数与池内一致。
 });
 
 describe('SerialPortConfigStore 引用计数', () => {
@@ -217,94 +208,8 @@ describe('SerialPortConfigStore 生命周期', () => {
   });
 });
 
-describe('SerialPortConfigStore 1.4.3 自动迁移', () => {
-  // A3 原子性：旧键删除发生在池/引用持久化成功之后（异步）——断言前先让微任务链落定
-  const tick = (): Promise<void> => new Promise<void>(resolve => setImmediate(resolve));
-
-  it('#21 migrates the legacy object form into pool and refs, then removes the old key', async () => {
-    const memento = new FakeMemento();
-    void memento.update(KEYS.legacy, {
-      dev: [legacyConfig('L1', 'Old'), legacyConfig('L2', 'Older')],
-      other: [legacyConfig('L3', 'Elsewhere')],
-    });
-    const { store } = make(memento);
-    assert.equal(store.getAllConfigs().length, 3); // 全部并入池（内存态即时生效）
-    assert.equal(store.getGlobalConfigs('dev').length, 2); // 分区引用已建立
-    assert.equal(store.getGlobalConfigs('other').length, 1);
-    await tick();
-    assert.equal(store.getLegacyConfigs('dev').length, 0); // 旧键已删，兜底读取为空
-    assert.equal(memento.get(KEYS.legacy), undefined);
-    // 幂等：同存储再建 Store（模拟再次激活）不重复迁移
-    const again = new SerialPortConfigStore(memento);
-    assert.equal(again.getAllConfigs().length, 3);
-  });
-
-  it('#22 migrates the legacy array form via the existing refs', async () => {
-    const memento = new FakeMemento();
-    void memento.update(KEYS.legacy, [legacyConfig('L1', 'Old')]);
-    void memento.update(KEYS.refs, { dev: ['L1'] });
-    const { store } = make(memento);
-    assert.equal(store.getAllConfigs().length, 1);
-    assert.equal(store.getGlobalConfigs('dev').length, 1); // 原引用继续生效
-    await tick();
-    assert.equal(memento.get(KEYS.legacy), undefined);
-  });
-
-  it('#23 skips pool id collisions and still removes the old key', async () => {
-    const memento = new FakeMemento();
-    void memento.update(KEYS.pool, [legacyConfig('L1', 'Existing')]);
-    void memento.update(KEYS.legacy, { dev: [legacyConfig('L1', 'Old'), legacyConfig('L2', 'New')] });
-    const { store } = make(memento);
-    assert.equal(store.getAllConfigs().length, 2); // L1 去重跳过，L2 并入
-    assert.equal(store.getGlobalConfigs('dev').length, 2); // 引用落到池内同 id 条目
-    await tick();
-    assert.equal(memento.get(KEYS.legacy), undefined);
-  });
-
-  it('#24 leaves storage untouched when no legacy key exists', () => {
-    const memento = new FakeMemento();
-    void memento.update(KEYS.pool, [legacyConfig('C1', 'Kept')]);
-    const { store } = make(memento);
-    assert.equal(store.getAllConfigs().length, 1);
-    assert.deepEqual(memento.get(KEYS.refs), undefined); // 无迁移写入
-  });
-
-  // A3 原子性（当前计划与待办 §一）：持久化失败时旧键必须保留（完成标记未落下），
-  // 下次构造幂等重跑自愈；会话内内存态不受影响。
-  it('#25 keeps the legacy key when persistence fails and still serves the session', async () => {
-    const memento = new FakeMemento();
-    const raw = { dev: [legacyConfig('L1', 'Old')] };
-    void memento.update(KEYS.legacy, raw);
-
-    class FailingPoolMemento extends FakeMemento {
-      update<T>(key: string, value: T): Promise<void> {
-        if (key === KEYS.pool) {
-          return Promise.reject(new Error('simulated persistence failure'));
-        }
-        return super.update<T>(key, value);
-      }
-    }
-    const failing = new FailingPoolMemento();
-    void failing.update(KEYS.legacy, raw);
-
-    const errors: unknown[] = [];
-    const originalError = console.error;
-    console.error = (...parts: unknown[]) => errors.push(parts.join(' '));
-    try {
-      const store = new SerialPortConfigStore(failing);
-      await tick();
-      assert.deepEqual(failing.get(KEYS.legacy), raw, 'legacy key must survive a failed persistence');
-      assert.deepEqual(failing.get(KEYS.pool), undefined, 'failed write must not be persisted');
-      assert.equal(store.getGlobalConfigs('dev').length, 1); // 会话内内存态已迁移可用
-      assert.ok(errors.some(text => String(text).includes('legacy migration persistence failed')));
-    } finally {
-      console.error = originalError;
-    }
-  });
-});
-
 describe('SerialPortConfigStore 其他', () => {
-  it('#26 filters dirty refs and round-trips the last-used config without events', () => {
+  it('#21 filters dirty refs and round-trips the last-used config without events', () => {
     const memento = new FakeMemento();
     void memento.update(KEYS.pool, [{ id: 'C1', name: 'C1', config: cfg() }]);
     void memento.update(KEYS.refs, { dev: ['C1', 'GHOST'] });

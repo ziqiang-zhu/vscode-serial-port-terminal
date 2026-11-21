@@ -124,19 +124,17 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   getChildren(element?: ViewItem): Thenable<ViewItem[]> {
     if (element instanceof SerialPortDeviceTreeItem) {
       const identity = element.device.identity;
-      const global = this.configStore
-        .getGlobalConfigs(identity)
-        .map(config => new SerialPortQuickConfigTreeItem(element.device, config));
-      const legacy = this.configStore
-        .getLegacyConfigs(identity)
-        .map(config => new SerialPortQuickConfigTreeItem(element.device, config, true));
-      return Promise.resolve([...global, ...legacy]);
+      return Promise.resolve(
+        this.configStore
+          .getGlobalConfigs(identity)
+          .map(config => new SerialPortQuickConfigTreeItem(element.device, config))
+      );
     }
     return Promise.resolve([...this.items.values()]);
   }
 
   private hasQuickConfigs(identity: string): boolean {
-    return this.configStore.getConfigs(identity).length > 0;
+    return this.configStore.getGlobalConfigs(identity).length > 0;
   }
 
   private async connectDevice(item: SerialPortDeviceTreeItem): Promise<void> {
@@ -146,7 +144,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       return;
     }
     const identity = item.device.identity;
-    const saved = this.configStore.getConfigs(identity);
+    const saved = this.configStore.getGlobalConfigs(identity);
     const lastUsed = this.configStore.getLastUsedConfig(identity);
     const orderedSaved = lastUsed
       ? [...saved].sort(
@@ -205,7 +203,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (choice.value === 'save') {
       const name = await vscode.window.showInputBox({
         prompt: vscode.l10n.t('Enter a config name'),
-        value: vscode.l10n.t('Config {0}', this.configStore.getConfigs(identity).length + 1),
+        value: vscode.l10n.t('Config {0}', this.configStore.getGlobalConfigs(identity).length + 1),
         validateInput: value => this.validateConfigName(identity, value)
       });
       if (!name) {
@@ -250,7 +248,7 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
   private async createQuickConfig(item: SerialPortDeviceTreeItem, identity: string): Promise<void> {
     const name = await vscode.window.showInputBox({
       prompt: vscode.l10n.t('Enter a config name'),
-      value: vscode.l10n.t('Config {0}', this.configStore.getConfigs(identity).length + 1),
+      value: vscode.l10n.t('Config {0}', this.configStore.getGlobalConfigs(identity).length + 1),
       validateInput: value => this.validateConfigName(identity, value)
     });
     if (!name) {

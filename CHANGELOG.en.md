@@ -2,6 +2,14 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.0]
+
+### Removed
+- QuickConfig legacy data compatibility fully removed: the automatic migration code from 1.4.3–1.4.8 and the legacy data read-only fallback (`getLegacyConfigs` / legacy tree node rendering) are deleted
+
+### ⚠️ Release Notes
+- **Only saved quick serial configs are affected**: the legacy quick-config data structure from the v1.2 preview is no longer supported; users who skip the 1.4.3–1.4.8 migration window and upgrade directly to 1.5.0 will not have their legacy quick configs migrated. **If you find your quick configs missing after the upgrade, please recreate and save them.** Users who already migrated via 1.4.3–1.4.8 are unaffected
+
 ## [1.4.8]
 
 ### Improved

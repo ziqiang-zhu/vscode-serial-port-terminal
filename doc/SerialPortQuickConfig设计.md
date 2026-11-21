@@ -15,7 +15,7 @@
 - **与连接状态无关**：添加、重命名、删除、引用不依赖当前是否连接；
 - **事件驱动**：配置变更经事件发布，视图重渲染走既有订阅模式；
 - **settings 驱动的手动配置**：波特率 / 帧格式取值来自 settings，单值时跳过对应下拉；
-- **旧数据迁移（1.4.3 起）**：旧版本按设备分区的配置在扩展激活时**自动迁移**进全局池并删除旧键（约定见 §4.1）；迁移失败兜底场景下残留的旧数据只读展示（删除不生效），待 1.5.0 随兜底代码一并移除。
+- **旧数据（1.5.0 起不再兼容）**：v1.2 预览版引入的旧结构在 1.4.3–1.4.8 期间经自动迁移过渡后，1.5.0 起完全移除兼容（见 §4.1）；。
 
 ## 3. 数据模型
 
@@ -42,7 +42,7 @@ export interface SerialConfig {
 
 - **全局池（新）**：`serialPortQuickConfigPool`（globalState），结构 `SerialPortQuickConfig[]`；
 - **每设备引用（新）**：`serialPortDeviceConfigRefs`（globalState），结构 `Record<deviceIdentity, string[]>`（引用计数键）；
-- **旧数据键（迁移中）**：`serialPortQuickConfigs`（globalState）——v1.2.0 及更早为 `Record<deviceIdentity, SerialPortQuickConfig[]>`（按设备分区对象），v1.2.1/1.2.2 迁移后为 `SerialPortQuickConfig[]`（全局数组，引用在 `serialPortDeviceConfigRefs`）；**1.4.3 起构造时自动迁移**（见 §4.1 迁移约定）并删除旧键；
+- **旧数据（1.5.0 起不再兼容）**：v1.2 预览版引入的旧结构（旧键 `serialPortQuickConfigs` 两种形态）在 1.4.3–1.4.8 期间经自动迁移过渡后，1.5.0 起完全移除兼容——扩展不再读取旧键，残留数据不清理、不展示；
 - **引用计数**：`remove` 仅去引用；某配置被引用数归 0 时从全局池删除；
 - 上次使用的配置：键 `serialPortLastUsedConfigs`（globalState），结构 `Record<deviceIdentity, SerialConfig>`，连接成功后由视图记录，选择器置顶用；
 - 设备消失时引用**保留**（拔除不等于失去配置）；
@@ -56,15 +56,13 @@ export interface SerialConfig {
 - 若确定**不兼容**，必须随改动提供**迁移方案**，把旧数据无损转换为新结构；
 - 兼容 / 迁移方案**至少保持一个 minor 版本**：只有在**下一个 minor 版本**才允许彻底移除旧结构支持；
 - 移除旧结构支持时，**发布须知（CHANGELOG）必须明示**：该版本起不再兼容旧数据，用户升级可能丢失串口配置；
-- **自动迁移约定（1.4.3 起）**：`SerialPortConfigStore` 构造时执行一次性幂等迁移——检测旧键 `serialPortQuickConfigs`：对象形态按分区并入全局池并为分区 identity 建立引用；数组形态内容并入池（引用已在 `serialPortDeviceConfigRefs`）；合并按 **id 去重**（旧条目 id 已在池中则跳过，refs 引用落到池内同 id 条目）；迁移保真，不触发名称/参数校验；池与引用**持久化成功后**才删除旧键作为迁移完成标记（持久化失败时旧键自然保留，下次激活幂等重跑自愈；删除前的短暂窗口内旧数据仍只读可见）。
+- **迁移历史（1.4.3–1.4.8）**：此期间 `SerialPortConfigStore` 构造时执行一次性幂等迁移，将旧键并入全局池与引用（id 去重、迁移保真、持久化成功后才删除旧键）。**1.5.0 起迁移代码与兼容兜底已完全移除**——不再读取旧键，跨过迁移窗口（1.4.3–1.4.8）直接升级的用户旧配置不迁移。
 
 ## 5. 配置仓库（SerialPortConfigStore）
 
 | 成员 | 契约 |
 |---|---|
-| `getConfigs(identity): SerialPortQuickConfig[]` | 某设备的可见配置 = 新全局（引用）+ 旧按设备（原样），无则空数组 |
-| `getGlobalConfigs(identity): SerialPortQuickConfig[]` | 该设备引用的新全局池配置（供校验 / 渲染新配置） |
-| `getLegacyConfigs(identity): SerialPortQuickConfig[]` | 迁移失败兜底的只读读取：正常路径下旧键已在迁移后删除，恒为空数组 |
+| `getGlobalConfigs(identity): SerialPortQuickConfig[]` | 该设备引用的全局池配置（供校验 / 渲染 / 连接选择器），无则空数组 |
 | `getAllConfigs(): SerialPortQuickConfig[]` | 全部新全局池配置 |
 | `getUnattachedConfigs(identity): SerialPortQuickConfig[]` | 未被该设备引用的新全局配置（供「选择已存在快捷配置」） |
 | `add(identity, name, config): SerialPortQuickConfig` | 新建配置入全局池并引用，随后发布变更事件 |
@@ -77,8 +75,8 @@ export interface SerialConfig {
 
 校验规则（权威校验归 Store，add/rename 强制校验并抛出）：
 
-- 名称必须非空，同设备内（**新配置范围**）名称必须唯一——旧数据不参与判重，与旧配置同名不冲突；
-- 参数组合全局唯一：不允许创建与新全局池中已有配置参数完全相同的快捷配置（复用走「选择已存在快捷配置」）——旧数据不参与判重；
+- 名称必须非空，同设备内名称必须唯一；
+- 参数组合全局唯一：不允许创建与全局池中已有配置参数完全相同的快捷配置（复用走「选择已存在快捷配置」）；
 - 参数合法性：波特率正整数、数据位 ∈ {5,6,7,8}、停止位 ∈ {1,1.5,2}、校验/流控 ∈ 枚举（TS 类型约束）；
 - UI 输入框的 `validateInput` 做同名即时反馈预校验（同样只校验新配置范围），不替代 Store 的权威校验。
 
@@ -138,9 +136,8 @@ onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 
 ### 7.1 配置子节点
 
-- 设备节点有配置时变为可折叠（`TreeItemCollapsibleState`），子节点为**该设备引用的**新配置项 + 该设备在旧键下的配置项；
-- 配置项呈现：label = 名称；description = 参数摘要（如 `115200 8-N-1`）；tooltip = 完整参数信息；当前连接的配置子节点高亮（`radio-tower` 图标 + "当前连接"标注，见 6.3.1）；
-- 旧配置子节点（`serialPortQuickConfigLegacy`）仅提供删除，不参与「当前连接」高亮。
+- 设备节点有配置时变为可折叠（`TreeItemCollapsibleState`），子节点为**该设备引用的**全局池配置项；
+- 配置项呈现：label = 名称；description = 参数摘要（如 `115200 8-N-1`）；tooltip = 完整参数信息；当前连接的配置子节点高亮（`radio-tower` 图标 + "当前连接"标注，见 6.3.1）。
 
 ### 7.2 contextValue 约定
 
@@ -148,8 +145,7 @@ onDidChangeConfigs → 视图展开设备节点、新配置子节点出现
 |---|---|
 | `serialPortDevice.disconnected` | 设备未连接（设备级连接按钮显示于此态，有/无快捷配置一致） |
 | `serialPortDevice.connecting` / `serialPortDevice.connected` | 与配置无关，维持不变 |
-| `serialPortQuickConfig` | 新配置子节点（重命名/删除菜单匹配此值） |
-| `serialPortQuickConfigLegacy` | 旧版本配置子节点（仅删除菜单匹配，不提供重命名、不高亮当前连接） |
+| `serialPortQuickConfig` | 配置子节点（重命名/删除菜单匹配此值） |
 
 ### 7.3 视图刷新
 
@@ -166,17 +162,15 @@ TreeView 订阅第三个事件源：`store.onDidChangeConfigs` → 全局刷新�
 | 位置 | 命令 | 展示方式 |
 |---|---|---|
 | `view/item/context`（普通组） | 添加快捷配置 | 设备右键菜单，`viewItem =~ /^serialPortDevice\./`（连接与否均可添加） |
-| `view/item/context`（普通组） | 重命名 | 配置子节点右键，`viewItem == serialPortQuickConfig`（旧配置不提供重命名） |
-| `view/item/context`（普通组） | 删除 | 配置子节点右键，`viewItem =~ /^serialPortQuickConfig/`（正则同时命中 legacy 节点，但 legacy 删除为 no-op——旧数据只读，待 1.5.0 随兜底一并移除） |
+| `view/item/context`（普通组） | 重命名 | 配置子节点右键，`viewItem == serialPortQuickConfig` |
+| `view/item/context`（普通组） | 删除 | 配置子节点右键，`viewItem == serialPortQuickConfig` |
 
 ## 9. 组件结构
 
 ```mermaid
 classDiagram
     class SerialPortConfigStore {
-        +getConfigs(identity)
         +getGlobalConfigs(identity)
-        +getLegacyConfigs(identity)
         +getAllConfigs()
         +getUnattachedConfigs(identity)
         +add(identity, name, config)
