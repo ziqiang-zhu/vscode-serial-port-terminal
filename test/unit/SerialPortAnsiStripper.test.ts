@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { SerialPortAnsiStripper } from '../../src/SerialPortConsumer/SerialPortDataParsers/SerialPortAnsiStripper';
 
-// 行缓冲式剥离契约（doc/Test/开发测试体系规划.md §6.1，已实现）：
+// 行缓冲式剥离契约（doc/Test/开发测试体系.md §6.1，已实现）：
 // 以 \n 为行单位，转义序列不跨行生效；未获得换行时尾行保留，断开时 flush 刷出剩余半行。
 describe('SerialPortAnsiStripper（行缓冲契约）', () => {
   const run = (s: SerialPortAnsiStripper, text: string): string =>

@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import { SerialPortConfigStore } from '../../src/SerialPortConfig/SerialPortConfigStore';
 import { SerialConfig } from '../../src/SerialPortConfig/SerialPortQuickConfig';
 
-// ConfigStore 契约（doc/Test/开发测试体系规划.md §6.4）：两键存储（池/引用）、
+// ConfigStore 契约（doc/Test/开发测试体系.md §6.4）：两键存储（池/引用）、
 // 引用计数归零删除、权威校验、变更事件按 identity 触发。
 // 1.5.0 起不再兼容旧数据结构（1.4.3–1.4.8 的自动迁移代码已随兼容兜底一并移除）。
 // 'vscode' 运行期由模块桩提供（EventEmitter / l10n）；Memento 经 FakeMemento 鸭子类型注入。

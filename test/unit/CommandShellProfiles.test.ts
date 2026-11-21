@@ -9,7 +9,7 @@ import { UBootShellProfile } from '../../src/hal/SerialPortHalVirtual/UBootShell
 import { VirtualPortHandle } from '../../src/hal/SerialPortHalVirtual/VirtualPortHandle';
 import { SerialPortHalVirtual } from '../../src/hal/SerialPortHalVirtual/SerialPortHalVirtual';
 
-// 命令壳画像契约（doc/Test/开发测试体系规划.md §6.6 / doc/Hal/SerialPortHalVirtual规划.md
+// 命令壳画像契约（doc/Test/开发测试体系.md §6.6 / doc/Hal/SerialPortHalVirtual规划.md
 // §4.2/§4.3/§4.5、§10.2）：远端回显（\r 回显 \r\n）、按 \r/\n 行缓冲、内置表 +
 // 应答目录覆盖（精确文件 > 精确内置 > 参数化内置 > 未知回退）、复合命令按 ';' 依次执行；
 // 应答与提示符行尾 \r\n；interactionDir 经构造注入（临时目录 + fs 验证覆盖逻辑）。
@@ -231,7 +231,7 @@ describe('应答目录覆盖（interactionDir）', () => {
   });
 });
 
-// U-Boot → Linux 开机链路契约（doc/Test/开发测试体系规划.md §6.9 /
+// U-Boot → Linux 开机链路契约（doc/Test/开发测试体系.md §6.9 /
 // doc/Hal/SerialPortHalVirtual规划.md §4.3 开机链路）：打开输出横幅 + 倒计时（无提示符）；
 // 倒计时按秒退格更新（2 → \b1 → \b0）；窗口内首个输入块中断（整块消费）；到期或
 // `boot` 切换 Linux 会话（命令表整体切换）；close 复位；VCOM-LINUX 独立不受影响。

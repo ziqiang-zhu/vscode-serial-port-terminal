@@ -8,7 +8,7 @@ import { ReplayProfile } from '../../src/hal/SerialPortHalVirtual/ReplayProfile'
 import { VirtualPortHandle } from '../../src/hal/SerialPortHalVirtual/VirtualPortHandle';
 import { SerialPortHalVirtual } from '../../src/hal/SerialPortHalVirtual/SerialPortHalVirtual';
 
-// 回放画像契约（doc/Test/开发测试体系规划.md §6.7 / doc/Hal/SerialPortHalVirtual规划.md
+// 回放画像契约（doc/Test/开发测试体系.md §6.7 / doc/Hal/SerialPortHalVirtual规划.md
 // §4.4、§10.3）：速率 = 行/秒（100ms 节拍批发、余数累进，ms 基整数规避浮点漂移）；
 // 文件打开时读取、原始字节切片（\r\n 与多字节字节级保真）；EOF 按 loop 循环 / 停止；
 // 无文件或不可读 → 静默设备；主机输入忽略；close 停播。临时文件 + fs 验证，mock.timers 控时。

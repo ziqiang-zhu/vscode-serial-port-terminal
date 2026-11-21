@@ -12,7 +12,7 @@ import { SerialPortDeviceInterface } from '../../../src/SerialPortDeviceDetector
 import { SerialPortConnectionService } from '../../../src/SerialPortConnection/SerialPortConnectionService';
 import { SerialPortConsumer } from '../../../src/SerialPortConnection/SerialPortConsumer';
 
-// 自装配基础设施（契约见 doc/Test/开发测试体系规划.md §3 P1）：
+// 自装配基础设施（契约见 doc/Test/开发测试体系.md §3 P1）：
 // 鸭子类型 context（业务模块仅用到 subscriptions）+ 虚拟 HAL 混排（与产品测试构建
 // 的 createSerialPortHal 装配同构）。全部运行在真实 vscode API 之上。
 export interface TestHarness {

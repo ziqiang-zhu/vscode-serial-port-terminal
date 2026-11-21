@@ -6,7 +6,7 @@ import { SerialPortHalComposite } from '../../src/hal/SerialPortHalComposite';
 import { SerialPortHalVirtual } from '../../src/hal/SerialPortHalVirtual/SerialPortHalVirtual';
 import { VirtualPortHandle } from '../../src/hal/SerialPortHalVirtual/VirtualPortHandle';
 
-// 混排路由契约（doc/Test/开发测试体系规划.md §6.9 / doc/Hal/SerialPortHalVirtual规划.md §5、§10.5）：
+// 混排路由契约（doc/Test/开发测试体系.md §6.9 / doc/Hal/SerialPortHalVirtual规划.md §5、§10.5）：
 // listDevices 并集（真实在前、虚拟在后）；openPort 按 VCOM- 前缀路由——前缀命中走虚拟
 // （含离线拒绝），其余透传真实 HAL（未知设备的明确报错由真实侧给出）；VCOMX（无连字符）
 // 不命中前缀。真实侧以桩注入（构造注入接口，不依赖 serialport），虚拟侧用真实虚拟 HAL。

@@ -3,7 +3,7 @@ import { after, describe, it } from 'mocha';
 
 import { createHarness, findDevice, RecordingConsumer, waitFor, type TestHarness } from './helpers';
 
-// 开机链路端到端（doc/Test/开发测试体系规划.md §6.10 #20）：
+// 开机链路端到端（doc/Test/开发测试体系.md §6.10 #20）：
 // 经 ConnectionService 连接 VCOM-UBOOT（默认 Consumer 经工厂在构造时注入——产品路径，
 // 横幅经 onOpen 同步送达首个 Consumer），真实异步下验证横幅 + 倒计时到达、任意键
 // 中断收束到 U-Boot 提示符（单测以 mock.timers 覆盖的链路在真实时钟下复验）。

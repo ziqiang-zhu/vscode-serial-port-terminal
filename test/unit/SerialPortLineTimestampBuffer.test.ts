@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 
 import { SerialPortLineTimestampBuffer } from '../../src/SerialPortConsumer/SerialPortLogRecorder/SerialPortLineTimestampBuffer';
 
-// 契约（doc/Test/开发测试体系规划.md §6.2）：按 \n 行缓冲加时间戳，
+// 契约（doc/Test/开发测试体系.md §6.2）：按 \n 行缓冲加时间戳，
 // 未完成尾行保留、flush 刷出；格式经 workspace 配置注入，空/空白回退默认。
 // 模块桩配置表跨用例共享：每个用例开头显式设置或清除格式，避免顺序污染。
 // 时钟不可注入：仅用无占位符恒定格式与 {SSS} 结构断言，不做墙钟精确比对。

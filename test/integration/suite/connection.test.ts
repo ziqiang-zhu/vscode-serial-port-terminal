@@ -3,7 +3,7 @@ import { after, describe, it } from 'mocha';
 
 import { createHarness, findDevice, RecordingConsumer, waitFor, type TestHarness } from './helpers';
 
-// 连接生命周期契约（doc/Test/开发测试体系规划.md §6.10 #2–#9）：
+// 连接生命周期契约（doc/Test/开发测试体系.md §6.10 #2–#9）：
 // 状态事件序列、断开单一入口、重复 connect 守卫、离线 connect 回退、
 // 拔出自动断开（真实销毁链）、Consumer 清零自动关闭。真实异步，无 mock.timers。
 describe('连接生命周期（自装配）', () => {

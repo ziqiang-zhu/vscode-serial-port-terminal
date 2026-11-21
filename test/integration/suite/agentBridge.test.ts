@@ -4,7 +4,7 @@ import { after, describe, it } from 'mocha';
 import { SerialPortAgentBridge } from '../../../src/SerialPortConsumer/SerialPortAgentBridge/SerialPortAgentBridge';
 import { createHarness, findDevice, sleep, TcpTestClient, waitFor, withTempDir, type TestHarness } from './helpers';
 
-// AgentBridge TCP 契约（doc/Test/开发测试体系规划.md §6.10 #15–#19）：
+// AgentBridge TCP 契约（doc/Test/开发测试体系.md §6.10 #15–#19）：
 // 实际端口解析、单/多客户端收流（ANSI 剥离后）、双向透传、半行空闲刷出
 //（IDLE_FLUSH_MS ≈ 200ms）、断开时客户端 socket 被销毁。
 describe('AgentBridge TCP（自装配）', () => {

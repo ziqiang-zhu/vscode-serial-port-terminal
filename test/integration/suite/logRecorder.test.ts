@@ -7,7 +7,7 @@ import { after, describe, it } from 'mocha';
 import { SerialPortLogRecorder } from '../../../src/SerialPortConsumer/SerialPortLogRecorder/SerialPortLogRecorder';
 import { createHarness, findDevice, waitFor, withTempDir, type TestHarness } from './helpers';
 
-// 日志落盘契约（doc/Test/开发测试体系规划.md §6.10 #10–#14）：
+// 日志落盘契约（doc/Test/开发测试体系.md §6.10 #10–#14）：
 // 延迟建文件、ANSI 剥离透传、按大小分割、时间戳行前缀、断开收尾补齐半行。
 // 写盘为异步流：onClosed 后轮询断言文件内容（超时 2s）。配置类用例经 workspace
 // update(Global) 设置并在 finally 恢复默认。

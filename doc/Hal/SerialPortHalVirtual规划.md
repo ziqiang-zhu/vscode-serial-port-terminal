@@ -187,7 +187,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 2 | HAL 骨架 | `src/hal/SerialPortHalVirtual/`：`SerialPortHalVirtual`（`listDevices` 返回已注册画像、`openPort` 任意参数成功）、`VirtualPortHandle`（write / onData / onError / onDrain / close，含 `responseDelay` 延迟管线与 close 时定时器清理）、`VirtualDeviceProfile` 抽象基类（`onOpen` / `onInput(data, emit)` / `onClose`） |
 | 3 | Echo 画像 | `EchoProfile`：`onInput` 将输入原样 `emit`；P0 仅注册此一台（`VCOM-ECHO`，manufacturer=`Virtual`） |
 | 4 | 防误发布校验 | `scripts/verify-hal-selection.js`：校验 `halSelection.ts` 中开关字面量为 `false`；`vscode:prepublish` 追加该前置 |
-| 5 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.5（11 例：设备枚举、参数忽略、回显、保序、延迟、close 语义、订阅口完整性） |
+| 5 | 单元测试 | 用例清单见 `doc/Test/开发测试体系.md` §6.5（11 例：设备枚举、参数忽略、回显、保序、延迟、close 语义、订阅口完整性） |
 
 实现约束：虚拟 HAL 不 import `vscode` 与第三方包（`responseDelay` 经构造参数注入、由装配层读配置传入），保持纯逻辑可直接单测；背压 P0 恒为放行（`write` 恒返回 `true`），仅保留接口。
 
@@ -201,11 +201,11 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 4 | 复合命令解析 | 按 `;` 分隔依次执行、输出顺序拼接——**设计点，支撑 agent-bridge-skills 的标准模式** `echo __MARK_BEGIN__; <命令>; echo __MARK_END__`（标记检测要求各标记独占一行，无此解析则虚拟 Linux 无法配合技能仓库） |
 | 5 | 应答目录覆盖 | 画像构造参数注入 `interactionDir`（装配层读 `testMode.interactionDir` 传入，纯逻辑约束不变）；子目录 `linux/`、`uboot/`；文件名 = 命令行 + `.txt`、内容 = 应答文本；**优先级：精确文件 > 精确内置 > 参数化内置 > 未知回退**；目录/文件缺省回退内置；Windows 非法文件名字符的命令无法覆盖，保留内置表 |
 | 6 | 注册 | `halSelection.ts` 测试分支注册三台设备（Echo + Linux + UBoot），`listDevices` 返回三项；均 manufacturer=`Virtual` |
-| 7 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.6（20 例） |
+| 7 | 单元测试 | 用例清单见 `doc/Test/开发测试体系.md` §6.6（20 例） |
 
 行为细节（实现即定稿）：应答与提示符行尾一律 `\r\n`（真实串口终端习惯，term.js 的独占一行标记检测兼容）；空回车（仅 `\r`）只回显换行 + 新提示符；`responseDelay` 延迟作用于整个 `onInput` 分发（回显与应答同时延迟到达），逐 chunk 时序微调归 P3 控制台。
 
-> **现状（2026-11-05）**：P1 已实现——`CommandShellProfile` 基类 + Linux / U-Boot 两画像按上表落地，20 例单测全绿（`doc/Test/开发测试体系规划.md` §6.6），复合命令解析（#4）按推荐实现。
+> **现状（2026-11-05）**：P1 已实现——`CommandShellProfile` 基类 + Linux / U-Boot 两画像按上表落地，20 例单测全绿（`doc/Test/开发测试体系.md` §6.6），复合命令解析（#4）按推荐实现。
 
 ### 10.3 P2 实施拆分
 
@@ -213,7 +213,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 |---|---|---|
 | 1 | Replay 画像 | `ReplayProfile`（继承 `VirtualDeviceProfile`，不经命令壳基类）：构造注入 `(file?, rate = 100, loop = false)`；`onOpen` 读取文件 + 启动 100ms 节拍批发（余数累进）；EOF 按 `loop` 循环/停止；`onClose` 清定时器；`onInput` 忽略；文件按原始字节切片（含行尾），内容字节级保真 |
 | 2 | 装配 | `halSelection.ts` 注册第四台设备（读 `replayFile` / `replayRate` / `replayLoop` 配置注入）；`SerialPortHalVirtual` 默认注册集扩为四台 |
-| 3 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.7（13 例，`mock.timers` 控时） |
+| 3 | 单元测试 | 用例清单见 `doc/Test/开发测试体系.md` §6.7（13 例，`mock.timers` 控时） |
 
 实现约束沿用 §10.1：纯逻辑（仅 Node 内建 fs）、无 vscode 依赖；运行时速率调整归 P3 控制面 API。
 
@@ -225,11 +225,11 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 2 | 控制面 API | `SerialPortHalVirtual` 增 per-profile 运行态（`online` / `delay` / `backpressure` / `rate` / `loop` / `file`）与 `inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `setInteractionDir`；`listDevices` 过滤离线画像、`openPort` 拒绝离线路径；`ReplayProfile` / `CommandShellProfile` 增对应 setter（interactionDir 即时生效） |
 | 3 | 控制台视图 | `src/view/SerialPortConsoleView.ts`：`WebviewView` 提供器（挂 `serialPortTerminalSideBar`）+ 内联 HTML/JS（CSP nonce）+ postMessage 协议 + `state` 推送；生产构建渲染「仅在测试构建可用」占位 |
 | 4 | 装配与清单 | `halSelection` 导出 `USE_VIRTUAL_HAL` + `createVirtualHal()`（返回 `SerialPortHalVirtual \| undefined`）；`extension.ts` 注册控制台（携带虚拟 HAL 实例）；`package.json` contributes.views 声明 `serialPortConsole` + configuration 声明 5 个 `testMode.*` 设置 |
-| 5 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.8（13 例：控制面语义 + 背压队列 / drain + 在线拔出 + live 调整；Webview 页面本身归 P1 集成测试范围） |
+| 5 | 单元测试 | 用例清单见 `doc/Test/开发测试体系.md` §6.8（13 例：控制面语义 + 背压队列 / drain + 在线拔出 + live 调整；Webview 页面本身归 P1 集成测试范围） |
 
-> **现状（2026-11-05）**：P2 已实现——`ReplayProfile` 按上表落地（节拍累进采用 ms 基整数规避浮点漂移），13 例单测全绿（`doc/Test/开发测试体系规划.md` §6.7），四台虚拟设备齐备（§3 最终形态）。
+> **现状（2026-11-05）**：P2 已实现——`ReplayProfile` 按上表落地（节拍累进采用 ms 基整数规避浮点漂移），13 例单测全绿（`doc/Test/开发测试体系.md` §6.7），四台虚拟设备齐备（§3 最终形态）。
 
-> **现状（2026-11-06）**：P3 已实现——上表五项全部落地：控制面运行态（`VirtualRuntime` 按引用共享，控制面修改即时作用于存活句柄）、8 个控制面 API + 离线过滤/拒绝、控制台视图（`state` 推送 + 占位页）、装配与清单（`createVirtualHal()`、`serialPortConsole` 视图、5 个 `testMode.*` 设置）、13 例控制面单测全绿（`doc/Test/开发测试体系规划.md` §6.8）。Webview 页面交互归 P1 集成测试范围。
+> **现状（2026-11-06）**：P3 已实现——上表五项全部落地：控制面运行态（`VirtualRuntime` 按引用共享，控制面修改即时作用于存活句柄）、8 个控制面 API + 离线过滤/拒绝、控制台视图（`state` 推送 + 占位页）、装配与清单（`createVirtualHal()`、`serialPortConsole` 视图、5 个 `testMode.*` 设置）、13 例控制面单测全绿（`doc/Test/开发测试体系.md` §6.8）。Webview 页面交互归 P1 集成测试范围。
 
 > **P1 补充（2026-11-07，控制台回放状态机）**：回放画像增播放状态机（`idle / armed / playing / paused`，见 §4.4），控制面 API 增 `play` / `pause` / `stop`，快照字段增 `playback` / `connected`；控制台回放区改按钮组交互——选文件不自动播（显式 [开始播放]）、已选文件禁止直接更换（[取消选择] 后可重选）。连接时文件已选仍自动开播（P2 契约不变）。
 
@@ -240,13 +240,13 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 1 | 开机链路状态机 | `UBootShellProfile`：会话状态（`uboot` / `linux`，`close` 复位）；`onOpen` 覆写为输出横幅 + 倒计时行并启动按秒退格更新（画像自带定时器，`onClose` 清理并复位）；倒计时窗口内 `onInput` 首个输入块中断（整块消费、不回显不缓冲）；到期或 `boot` 命令 → 内核启动信息 + Linux 会话切换（`banner` / `prompt` / 内置表 / 未知格式按会话取值，Linux 侧委托内嵌 `LinuxShellProfile`，避免命令表双份维护）；`VCOM-LINUX` 画像不变 |
 | 2 | 混排路由 | `src/hal/SerialPortHalComposite.ts`：实现 `SerialPortHal`，构造注入 `(real, virtual, prefix = 'VCOM-')`（依赖接口而非具体实现，测试以桩注入真实侧）；`listDevices` = 两侧并集（真实在前）；`openPort` 按前缀路由——前缀命中走虚拟（含离线拒绝），其余透传真实 HAL（未知设备的明确报错由真实侧给出） |
 | 3 | 装配 | `halSelection.ts`：恢复 `createSerialPortHal(virtualHal)` 工厂——`virtualHal` 非空（`USE_VIRTUAL_HAL = true`）→ `new SerialPortHalComposite(new SerialPortHalImpl(), virtualHal)`（混排，真实 + 虚拟共存）；`undefined` → 纯 `SerialPortHalImpl`（现状不变）；`extension.ts` 改用该工厂获取 HAL（虚拟实例仍单独持有，供控制台使用）；`verify-hal-selection.js` 校验逻辑不变 |
-| 4 | 单元测试 | 用例清单见 `doc/Test/开发测试体系规划.md` §6.9（开机链路 12 例 + 混排路由 6 例，`mock.timers` 控时；新测试文件，套件版本 minor +1） |
+| 4 | 单元测试 | 用例清单见 `doc/Test/开发测试体系.md` §6.9（开机链路 12 例 + 混排路由 6 例，`mock.timers` 控时；新测试文件，套件版本 minor +1） |
 | 5 | 构建参数化开关 | `scripts/build.js` 读 `USE_VIRTUAL_HAL` 环境变量、产物级注入开关值（替换后断言恰好命中 1 处，防发射格式漂移静默失效）、指纹增 `virtualHal` 字段；`.vscode/tasks.json` 增 `compile:test-hal` 任务（`options.env` 注入）、`launch.json` 默认 `Debug` 挂测试构建、新增 `Debug (real HAL)` 挂默认构建；源码字面量自此恒 `false`（配置方法与原理见 [../编译指导.md](../编译指导.md)） |
 | 6 | 产品化打包 | `scripts/package.js`（`npm run package`）：备份清单 → 净化（移除 `serialPortConsole` 视图、5 个 `testMode.*` 配置及对应本地化键，前后结构断言）→ `vsce package` → `finally` 恢复清单；`scripts/verify-release-manifest.js` 挂 prepublish 链尾机械拦截未净化打包；发布 VSIX 无虚拟设备控制台面板与 `testMode.*` 设置项（产物中虚拟 HAL 编译物运行时不可达，彻底剔除归打包器 tree-shaking，不为此引入依赖） |
 
 实现约束沿用 §10.1：纯逻辑、无 vscode 依赖；倒计时定时器归画像自带（同 `ReplayProfile` 先例）；控制台不新增画像专属控件（§8 通用控制定位不变，开机链路无需控制面 API）。
 
-> **现状（2026-11-06）**：P4 已实现——上表四项全部落地：开机链路状态机（`UBootShellProfile` 会话切换 + 按秒退格倒计时定时器 + close 复位，Linux 命令表/提示符委托内嵌 `LinuxShellProfile`）、`SerialPortHalComposite` 混排路由（前缀路由 + 并集枚举真实在前）、装配（`createSerialPortHal(virtualHal)` 组合混排，生产构建纯真实 HAL 不变）、18 例单测全绿（`doc/Test/开发测试体系规划.md` §6.9）。**HalVirtual 演进路线（P0–P4）至此全部完成。**
+> **现状（2026-11-06）**：P4 已实现——上表四项全部落地：开机链路状态机（`UBootShellProfile` 会话切换 + 按秒退格倒计时定时器 + close 复位，Linux 命令表/提示符委托内嵌 `LinuxShellProfile`）、`SerialPortHalComposite` 混排路由（前缀路由 + 并集枚举真实在前）、装配（`createSerialPortHal(virtualHal)` 组合混排，生产构建纯真实 HAL 不变）、18 例单测全绿（`doc/Test/开发测试体系.md` §6.9）。**HalVirtual 演进路线（P0–P4）至此全部完成。**
 
 ## 11. 组件结构
 

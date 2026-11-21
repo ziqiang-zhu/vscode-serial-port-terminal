@@ -1,7 +1,7 @@
 'use strict';
 
 // 测试专用模块桩：经 `node --require ./test/mocks/install-vscode-stub.cjs` 预加载，
-// 劫持 Module._load 把 'vscode' 重定向到最小测试替身（见 doc/Test/开发测试体系规划.md §5.2）。
+// 劫持 Module._load 把 'vscode' 重定向到最小测试替身（见 doc/Test/开发测试体系.md §5.2）。
 // 仅实现 P0 单元测试所需成员；业务源码零改动。
 
 const { EventEmitter: NodeEventEmitter } = require('node:events');

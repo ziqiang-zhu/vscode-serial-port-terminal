@@ -13,7 +13,7 @@
 ## 2. 设计目标
 
 - **行缓冲式**：以 `\n` 为行单位处理，转义序列不跨行生效；未完成尾行按原始字节跨调用保留，`flush()` 刷出——chunk 边界由上游驱动读取产生，经字节级缓冲后对剥离逻辑成为无关量；
-- **零运行时依赖**：不 import `vscode` 与第三方包，纯 Node 可单测（见 `doc/Test/开发测试体系规划.md` §6.1）；
+- **零运行时依赖**：不 import `vscode` 与第三方包，纯 Node 可单测（见 `doc/Test/开发测试体系.md` §6.1）；
 - **不误伤**：`\r\n`、`\t`、退格等有语义的控制字符与全部可打印文本原样保留；
 - **调用方零约束**：不感知上游 Consumer 类型，任何 Consumer 均可复用，但断开收尾时必须调用 `flush()`。
 
@@ -83,10 +83,10 @@ classDiagram
 
 ## 7. 测试
 
-`SerialPortAnsiStripper` 由 19 例单元测试覆盖（§4 各行为均含用例），经 `npm test` 运行，当前全部通过；用例清单见 `doc/Test/开发测试体系规划.md` §6.1。
+`SerialPortAnsiStripper` 由 19 例单元测试覆盖（§4 各行为均含用例），经 `npm test` 运行，当前全部通过；用例清单见 `doc/Test/开发测试体系.md` §6.1。
 
 ## 8. 演进路线
 
-- **已实现：行缓冲式改造**——契约与 19 例用例见 `doc/Test/开发测试体系规划.md` §6.1，LogRecorder / AgentBridge 已联动（调用 `process`、断开 `flush` 收尾）；
+- **已实现：行缓冲式改造**——契约与 19 例用例见 `doc/Test/开发测试体系.md` §6.1，LogRecorder / AgentBridge 已联动（调用 `process`、断开 `flush` 收尾）；
 - **待评估**：OSC 参数集扩展（含空格等字符的正则修订，消除 #5 前缀吞食）；
 - **关联 M3-P3**：分帧 Parser、不可见字符可视化等新增数据处理类落位于本目录，沿用「`process` / `flush` 行缓冲」的契约模式。

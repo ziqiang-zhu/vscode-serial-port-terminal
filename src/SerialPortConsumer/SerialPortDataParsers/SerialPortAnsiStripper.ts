@@ -3,7 +3,7 @@ const ANSI_ESCAPE_SEQUENCE =
 
 const LINE_FEED = 0x0a;
 
-// 行缓冲式 ANSI 剥离（契约见 doc/Test/开发测试体系规划.md §6.1）：
+// 行缓冲式 ANSI 剥离（契约见 doc/Test/开发测试体系.md §6.1）：
 // 以 \n 为行单位，转义序列不跨行生效；未获得换行时尾行按原始字节保留，
 // 等待后续数据，断开收尾经 flush() 剥离刷出。
 export class SerialPortAnsiStripper {

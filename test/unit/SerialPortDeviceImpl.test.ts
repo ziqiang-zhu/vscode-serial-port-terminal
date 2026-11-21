@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { SerialPortDeviceImpl } from '../../src/SerialPortDeviceDetector/SerialPortDeviceImpl';
 import { SerialPortInfo } from '../../src/hal/SerialPortHal';
 
-// 身份退化链与 Unknown 兜底契约（doc/Test/开发测试体系规划.md §6.3）：
+// 身份退化链与 Unknown 兜底契约（doc/Test/开发测试体系.md §6.3）：
 // serial（非空非全 0）→ vid+pid+locationId（三者齐备）→ path；
 // 信息字段缺失经 l10n 返回「Unknown」空标记。运行期 'vscode' 由模块桩提供。
 const makeInfo = (overrides: Partial<SerialPortInfo> = {}): SerialPortInfo => ({

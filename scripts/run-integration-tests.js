@@ -1,4 +1,4 @@
-// 集成测试运行器（契约见 doc/Test/开发测试体系规划.md §3 P1 / §5.1）：
+// 集成测试运行器（契约见 doc/Test/开发测试体系.md §3 P1 / §5.1）：
 // 1) 探测宿主二进制：本机已安装 VS Code（resources/app/package.json 版本 ≥ engines
 //    要求）优先——零下载；缺失或过低时退回 @vscode/test-electron 下载（缓存复用）。
 // 2) 以测试构建编译 dist（USE_VIRTUAL_HAL=true 产物级注入）。

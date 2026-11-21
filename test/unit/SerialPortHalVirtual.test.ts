@@ -11,7 +11,7 @@ import { LinuxShellProfile } from '../../src/hal/SerialPortHalVirtual/LinuxShell
 import { ReplayProfile } from '../../src/hal/SerialPortHalVirtual/ReplayProfile';
 import { SerialPortOpenOptions } from '../../src/hal/SerialPortHal';
 
-// 虚拟 HAL 契约（doc/Test/开发测试体系规划.md §6.5 / doc/Hal/SerialPortHalVirtual规划.md §7、§10.1）：
+// 虚拟 HAL 契约（doc/Test/开发测试体系.md §6.5 / doc/Hal/SerialPortHalVirtual规划.md §7、§10.1）：
 // 设备枚举、参数忽略、Echo 回显与保序、responseDelay 延迟管线、close 语义、订阅口完整性。
 // 控制面契约（§6.8 / 规划 §7.2、§8、§10.4）：inject / 在线拔出 / 背压排队与 drain / live 调整。
 // 纯逻辑模块（无 vscode / 第三方依赖），延迟经 node:test 的 mock.timers 控时。
@@ -155,7 +155,7 @@ describe('VirtualPortHandle 回显与延迟管线', () => {
   });
 });
 
-// 控制面契约（doc/Test/开发测试体系规划.md §6.8 / doc/Hal/SerialPortHalVirtual规划.md §7.2、§8、§10.4）：
+// 控制面契约（doc/Test/开发测试体系.md §6.8 / doc/Hal/SerialPortHalVirtual规划.md §7.2、§8、§10.4）：
 // inject / 在线拔出 / 背压排队与 drain / live 调整。注意拔出仅影响 listDevices 可见性
 // 与 openPort 可达性——连接销毁经 Detector removed 事件链，属上层职责。
 describe('SerialPortHalVirtual 控制面（P3）', () => {
