@@ -2,6 +2,14 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.13]
+
+### Added
+- Localization: the virtual device console UI copy is now localized - the English UI no longer shows Chinese placeholder or control text, while the Chinese UI copy is unchanged
+
+### Improved
+- The Chinese language pack gains translations for the console view title and the product test mode settings; packaging sanitization now covers both language packs; the language pack key sets are symmetrized (the English bundle catches up with the read-only mode notices)
+
 ## [1.5.12]
 
 ### Improved

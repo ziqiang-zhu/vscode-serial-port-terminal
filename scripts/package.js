@@ -1,8 +1,9 @@
-// 产品化打包：净化清单（移除虚拟设备控制台视图、testMode.* 设置及对应本地化键）后
-// 调用 vsce package，打包结束（无论成败）恢复清单——git 工作区不留痕迹。prepublish
-// 链中的 verify-release-manifest.js 在净化后执行，机械拦截绕过本脚本直接 vsce package
-// 的打包。用法：npm run package（参数透传给 vsce，如 npm run package -- --no-yarn）。
-// 原理与净化边界见 doc/编译指导.md §4.3。
+// 产品化打包：净化清单（移除虚拟设备控制台视图、testMode.* 设置及对应本地化键——
+// 英文与中文两份 package.nls 同步净化）后调用 vsce package，打包结束（无论成败）
+// 恢复清单——git 工作区不留痕迹。prepublish 链中的 verify-release-manifest.js 在
+// 净化后执行，机械拦截绕过本脚本直接 vsce package 的打包。用法：npm run package
+// （参数透传给 vsce，如 npm run package -- --no-yarn）。原理与净化边界见
+// doc/编译指导.md §4.3。
 'use strict';
 
 const { execSync } = require('child_process');
@@ -13,6 +14,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const manifestPath = path.join(root, 'package.json');
 const nlsPath = path.join(root, 'package.nls.json');
+const nlsZhPath = path.join(root, 'package.nls.zh-cn.json');
 
 const VIEW_ID = 'serialPortConsole';
 const CONFIG_PREFIX = 'serialPortTerminal.testMode.';
@@ -47,14 +49,21 @@ function sanitizeManifest() {
   }
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
-  const nls = JSON.parse(fs.readFileSync(nlsPath, 'utf8'));
-  for (const key of NLS_KEYS) {
-    if (!(key in nls)) {
-      throw new Error(`expected nls key "${key}" in package.nls.json`);
+  // 英文与中文两份 package.nls 同步净化：缺失键抛错（结构漂移响亮失败）。
+  const nlsSources = [
+    { file: nlsPath, label: 'package.nls.json' },
+    { file: nlsZhPath, label: 'package.nls.zh-cn.json' },
+  ];
+  for (const { file, label } of nlsSources) {
+    const nls = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const key of NLS_KEYS) {
+      if (!(key in nls)) {
+        throw new Error(`expected nls key "${key}" in ${label}`);
+      }
+      delete nls[key];
     }
-    delete nls[key];
+    fs.writeFileSync(file, `${JSON.stringify(nls, null, 2)}\n`, 'utf8');
   }
-  fs.writeFileSync(nlsPath, `${JSON.stringify(nls, null, 2)}\n`, 'utf8');
 }
 
 // 调用 vsce（此时磁盘清单已净化，prepublish 链含 verify-release-manifest 校验）。
@@ -68,13 +77,17 @@ function runVsce(args) {
 }
 
 const stamp = Date.now();
-const backupManifest = path.join(os.tmpdir(), `spt-package-${stamp}-package.json`);
-const backupNls = path.join(os.tmpdir(), `spt-package-${stamp}-package.nls.json`);
+const backups = [
+  { source: manifestPath, backup: path.join(os.tmpdir(), `spt-package-${stamp}-package.json`) },
+  { source: nlsPath, backup: path.join(os.tmpdir(), `spt-package-${stamp}-package.nls.json`) },
+  { source: nlsZhPath, backup: path.join(os.tmpdir(), `spt-package-${stamp}-package.nls.zh-cn.json`) },
+];
 let exitCode = 0;
 
 // 字节级备份 → 净化 → 打包 → finally 恢复（打包中途被杀同样恢复）。
-fs.copyFileSync(manifestPath, backupManifest);
-fs.copyFileSync(nlsPath, backupNls);
+for (const { source, backup } of backups) {
+  fs.copyFileSync(source, backup);
+}
 try {
   sanitizeManifest();
   exitCode = runVsce(process.argv.slice(2).join(' '));
@@ -82,10 +95,10 @@ try {
   console.error(`[package] ${err instanceof Error ? err.message : err}`);
   exitCode = 1;
 } finally {
-  fs.copyFileSync(backupManifest, manifestPath);
-  fs.copyFileSync(backupNls, nlsPath);
-  fs.rmSync(backupManifest, { force: true });
-  fs.rmSync(backupNls, { force: true });
+  for (const { source, backup } of backups) {
+    fs.copyFileSync(backup, source);
+    fs.rmSync(backup, { force: true });
+  }
   console.log('[package] manifest restored');
 }
 process.exit(exitCode);

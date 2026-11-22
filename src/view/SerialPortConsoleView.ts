@@ -180,6 +180,37 @@ export class SerialPortConsoleView implements vscode.WebviewViewProvider {
 
   private html(webview: vscode.Webview): string {
     const nonce = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    // 界面文案集中在宿主侧 l10n 定值后注入模板（webview 内无 l10n 运行时）；
+    // 脚本内经 JSON 序列化整体下发为 JS 对象，键名见 bundle 双语包。
+    const L = {
+      loading: vscode.l10n.t('Loading…'),
+      testBuildOnly: vscode.l10n.t('The virtual device console is only available in test builds (USE_VIRTUAL_HAL).'),
+      noDevices: vscode.l10n.t('No virtual devices.'),
+      targetDevice: vscode.l10n.t('Target device'),
+      bringOnline: vscode.l10n.t('Bring online'),
+      unplug: vscode.l10n.t('Unplug'),
+      backpressureOpen: vscode.l10n.t('Backpressure: release'),
+      backpressureHold: vscode.l10n.t('Backpressure: hold'),
+      responseDelay: vscode.l10n.t('Response delay (ms)'),
+      applyDelay: vscode.l10n.t('Apply delay'),
+      injectData: vscode.l10n.t('Inject data (device-side output)'),
+      inject: vscode.l10n.t('Inject'),
+      replayFile: vscode.l10n.t('Replay file'),
+      selectLogFile: vscode.l10n.t('Select log file'),
+      clearSelection: vscode.l10n.t('Clear selection'),
+      autoStart: vscode.l10n.t('Playback starts automatically once the device is connected'),
+      pause: vscode.l10n.t('Pause'),
+      stop: vscode.l10n.t('Stop'),
+      resume: vscode.l10n.t('Resume'),
+      startPlayback: vscode.l10n.t('Start playback'),
+      replayRate: vscode.l10n.t('Replay rate (lines/s)'),
+      applyRate: vscode.l10n.t('Apply rate'),
+      loop: vscode.l10n.t('Loop'),
+      loopOn: vscode.l10n.t('Loop: on'),
+      loopOff: vscode.l10n.t('Loop: off'),
+      responseDir: vscode.l10n.t('Response directory (linux/ and uboot/ subfolders)'),
+      selectResponseDir: vscode.l10n.t('Select response directory'),
+    };
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -198,10 +229,11 @@ label { display: block; margin-top: 8px; }
 </style>
 </head>
 <body>
-<div id="root"><div class="muted">Loading…</div></div>
+<div id="root"><div class="muted">${L.loading}</div></div>
 <script nonce="${nonce}">
 (function () {
   const vscode = acquireVsCodeApi();
+  const L = ${JSON.stringify(L)};
   const root = document.getElementById('root');
   let state = { mode: 'unavailable', selected: undefined, entries: [] };
 
@@ -236,12 +268,12 @@ label { display: block; margin-top: 8px; }
 
   function render() {
     if (state.mode === 'unavailable') {
-      root.innerHTML = '<div class="muted">虚拟设备控制台仅在测试构建（USE_VIRTUAL_HAL）中可用。</div>';
+      root.innerHTML = '<div class="muted">' + L.testBuildOnly + '</div>';
       return;
     }
     const entry = state.entries.find((e) => e.path === state.selected) || state.entries[0];
     if (!entry) {
-      root.innerHTML = '<div class="muted">无虚拟设备。</div>';
+      root.innerHTML = '<div class="muted">' + L.noDevices + '</div>';
       return;
     }
     state.selected = entry.path;
@@ -252,35 +284,35 @@ label { display: block; margin-top: 8px; }
     if (entry.kind === 'replay') {
       // 文件区：未选 → 选择入口；已选 → 只显示路径 + 取消选择（禁止直接换文件）。
       const filePart = entry.file
-        ? '<label>回放文件</label><div><span class="muted">' + esc(entry.file) + '</span>'
-          + ' <button id="btnClearReplayFile" class="muted">取消选择</button></div>'
-        : '<label>回放文件</label><div><button id="btnReplayFile" class="muted">选择日志文件</button></div>';
+        ? '<label>' + L.replayFile + '</label><div><span class="muted">' + esc(entry.file) + '</span>'
+          + ' <button id="btnClearReplayFile" class="muted">' + L.clearSelection + '</button></div>'
+        : '<label>' + L.replayFile + '</label><div><button id="btnReplayFile" class="muted">' + L.selectLogFile + '</button></div>';
       // 播放区：状态机按钮组（未连接且已选文件 → 提示连接后自动播放）。
       let playPart = '';
       if (entry.file) {
         if (!entry.connected) {
-          playPart = '<div class="muted">连接设备后自动开始播放</div>';
+          playPart = '<div class="muted">' + L.autoStart + '</div>';
         } else if (entry.playback === 'playing') {
-          playPart = '<button id="btnPause">暂停</button><button id="btnStop">停止</button>';
+          playPart = '<button id="btnPause">' + L.pause + '</button><button id="btnStop">' + L.stop + '</button>';
         } else if (entry.playback === 'paused') {
-          playPart = '<button id="btnResume">继续</button><button id="btnStop">停止</button>';
+          playPart = '<button id="btnResume">' + L.resume + '</button><button id="btnStop">' + L.stop + '</button>';
         } else {
-          playPart = '<button id="btnPlay">开始播放</button>';
+          playPart = '<button id="btnPlay">' + L.startPlayback + '</button>';
         }
       }
       replayControls = filePart + playPart
-        + '<label>回放速率（行/秒）</label><input type="number" id="rate" min="1" value="' + esc(entry.rate ?? 100) + '"><button id="btnRate">应用速率</button>'
-        + '<label>循环回放</label><button id="btnLoop">' + (entry.loop ? '循环：开' : '循环：关') + '</button>';
+        + '<label>' + L.replayRate + '</label><input type="number" id="rate" min="1" value="' + esc(entry.rate ?? 100) + '"><button id="btnRate">' + L.applyRate + '</button>'
+        + '<label>' + L.loop + '</label><button id="btnLoop">' + (entry.loop ? L.loopOn : L.loopOff) + '</button>';
     }
     const interactionControls = entry.kind === 'linux' || entry.kind === 'uboot'
-      ? '<label>应答目录（linux/ 与 uboot/ 子目录）</label><div><button id="btnInteractionDir" class="muted">选择应答目录</button></div>'
+      ? '<label>' + L.responseDir + '</label><div><button id="btnInteractionDir" class="muted">' + L.selectResponseDir + '</button></div>'
       : '';
     root.innerHTML =
-      '<label>目标设备</label><select id="sel">' + options + '</select>'
-      + '<div class="row"><button id="btnOnline">' + (entry.online ? '拔出设备' : '上线设备') + '</button>'
-      + '<button id="btnBp">' + (entry.backpressure ? '背压：放行' : '背压：阻塞') + '</button></div>'
-      + '<label>应答延迟（ms）</label><input type="number" id="delay" min="0" value="' + esc(entry.delayMs) + '"><button id="btnDelay">应用延迟</button>'
-      + '<label>注入数据（设备侧输出）</label><textarea id="inject" rows="3"></textarea><button id="btnInject">注入</button>'
+      '<label>' + L.targetDevice + '</label><select id="sel">' + options + '</select>'
+      + '<div class="row"><button id="btnOnline">' + (entry.online ? L.unplug : L.bringOnline) + '</button>'
+      + '<button id="btnBp">' + (entry.backpressure ? L.backpressureOpen : L.backpressureHold) + '</button></div>'
+      + '<label>' + L.responseDelay + '</label><input type="number" id="delay" min="0" value="' + esc(entry.delayMs) + '"><button id="btnDelay">' + L.applyDelay + '</button>'
+      + '<label>' + L.injectData + '</label><textarea id="inject" rows="3"></textarea><button id="btnInject">' + L.inject + '</button>'
       + replayControls
       + interactionControls;
     wire(entry);

@@ -164,7 +164,8 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 - Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `play` / `pause` / `stop` / `pickReplayFile` / `clearReplayFile` / `pickInteractionDir` / `inject` 与反向的 `state`（携带 `mode` 与全量设备快照）；文件与目录不走协议传值，由主进程弹出选择器并把结果写入 `testMode.*` 设置（见上表）；
 - `SerialPortHalVirtual` 在 `SerialPortHal` 契约之外暴露**控制面 API**（`inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `play` / `pause` / `stop` / `setInteractionDir`），仅控制台使用，不影响 HAL 契约本身；
 - 控制台快照 `connected` 取自门面存活句柄引用：句柄 `close` 时经回调清空引用（引用比对防双开后关闭旧句柄误清新句柄），重开即恢复；
-- 控制台随编译期开关进入构建：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；生产构建的页面渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分），控制面逻辑不生效。
+- 控制台随编译期开关进入构建：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；生产构建的页面渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分），控制面逻辑不生效。界面文案集中在宿主侧经 `l10n.t` 定值后注入模板（webview 内无 l10n 运行时），双语键见 `l10n/bundle.*.json`；
+- 控制台快照 `connected` 取自门面存活句柄引用：句柄 `close` 时经回调清空引用（引用比对防双开后关闭旧句柄误清新句柄），重开即恢复；
 
 ## 9. 不做范围
 

@@ -33,5 +33,11 @@
   "serialPortTerminal.agentBridge.ports.description": "Agent Bridge 的候选端口列表；启动时下拉选择，单值时直接使用。",
   "serialPortTerminal.agentBridge.readonly.description": "开启后，客户端将无法通过 Agent Bridge 向设备发送数据；修改后需重新开启 Agent Bridge 方可生效。适用于只需安全监听设备输出的场景。",
   "serialPortTerminal.baudRates.description": "手动配置时可选的波特率列表（正整数）。",
-  "serialPortTerminal.frameFormats.description": "手动配置时可选的帧格式（数据位-校验-停止位）列表，如 \"8-N-1\"。"
+  "serialPortTerminal.frameFormats.description": "手动配置时可选的帧格式（数据位-校验-停止位）列表，如 \"8-N-1\"。",
+  "serialPortConsole.View.title": "虚拟设备控制台",
+  "serialPortTerminal.testMode.responseDelay.description": "虚拟设备的应答延迟（毫秒）（产品测试模式）。",
+  "serialPortTerminal.testMode.replayFile.description": "由 VCOM-REPLAY 虚拟设备回放的纯文本日志文件（产品测试模式）。",
+  "serialPortTerminal.testMode.replayRate.description": "回放速率（行/秒）（产品测试模式）。",
+  "serialPortTerminal.testMode.replayLoop.description": "回放文件播放到末尾后是否循环（产品测试模式）。",
+  "serialPortTerminal.testMode.interactionDir.description": "交互型虚拟终端的应答根目录：linux/ 与 uboot/ 子目录存放按命令命名的 .txt 应答（产品测试模式）。"
 }
