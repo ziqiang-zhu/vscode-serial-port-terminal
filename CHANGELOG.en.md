@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.9]
+
+### Improved
+- Log and forwarding robustness: the line buffers in the ANSI stripper and the timestamp buffer now enforce a 64KB half-line guard - devices that never send newlines (e.g. binary protocols) no longer hold data back indefinitely; buffered content is emitted in segments as it grows (nothing is lost, only the line break happens earlier)
+
 ## [1.5.8]
 
 ### Improved

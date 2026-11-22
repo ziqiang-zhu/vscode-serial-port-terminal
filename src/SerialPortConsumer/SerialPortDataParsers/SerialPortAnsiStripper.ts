@@ -2,6 +2,9 @@ const ANSI_ESCAPE_SEQUENCE =
   /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]+)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
 const LINE_FEED = 0x0a;
+// 半行保护上限：永不换行的流会让 pending 无界增长——超限即按整行剥离刷出
+// （内容不丢失，仅提前断行）。任何真实终端行远低于此值。
+const PENDING_LIMIT = 64 * 1024;
 
 // 行缓冲式 ANSI 剥离（契约见 doc/Test/开发测试体系.md §6.1）：
 // 以 \n 为行单位，转义序列不跨行生效；未获得换行时尾行按原始字节保留，
@@ -9,7 +12,8 @@ const LINE_FEED = 0x0a;
 export class SerialPortAnsiStripper {
   private pending: Buffer = Buffer.alloc(0);
 
-  // 处理一个 chunk：输出其中完整行的剥离结果，尾行保留。
+  // 处理一个 chunk：输出其中完整行的剥离结果，尾行保留；尾行超过上限（永不
+  // 换行的流）即按整行剥离刷出，防 pending 无界增长。
   process(data: Buffer): Buffer {
     if (data.length > 0) {
       this.pending = Buffer.concat([this.pending, data]);
@@ -23,6 +27,12 @@ export class SerialPortAnsiStripper {
       }
     }
     this.pending = this.pending.subarray(start);
+    // 半行保护：内容不丢失，仅提前断行；剥离契约不受影响（序列不跨行，整段
+    // 剥离与逐行剥离同结果）。
+    if (this.pending.length > PENDING_LIMIT) {
+      outputs.push(this.stripLine(this.pending));
+      this.pending = Buffer.alloc(0);
+    }
     return Buffer.from(outputs.join(''), 'utf-8');
   }
 

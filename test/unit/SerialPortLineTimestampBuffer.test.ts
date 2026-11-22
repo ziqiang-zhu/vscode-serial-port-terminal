@@ -160,4 +160,16 @@ describe('SerialPortLineTimestampBuffer（行缓冲契约）', () => {
     assert.equal(text(s.process(Buffer.from('tail'))), '');
     assert.equal(text(s.flush()), 'T|tail');
   });
+
+  // 半行保护（doc/Test/开发测试体系.md §6.2 / LogRecorder设计 §6）：
+  // 「永不换行的流」超过 64KB 上限即整段带时间戳刷出——内容不丢失仅提前断行，
+  // pending 复位后常规缓冲继续。
+  it('#21 emits a held half-line with a timestamp once it exceeds the 64KB guard', () => {
+    setFormat('T|');
+    const s = new SerialPortLineTimestampBuffer();
+    const chunk = 'x'.repeat(65 * 1024); // 无换行：超限整段带时间戳刷出
+    assert.equal(text(s.process(Buffer.from(chunk, 'utf-8'))), `T|${chunk}`);
+    assert.equal(text(s.process(Buffer.from('tail\n'))), 'T|tail\n'); // pending 已复位
+    assert.equal(text(s.flush()), '');
+  });
 });

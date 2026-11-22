@@ -130,4 +130,23 @@ describe('SerialPortAnsiStripper（行缓冲契约）', () => {
     assert.equal(typeof s.process, 'function');
     assert.equal(typeof s.flush, 'function');
   });
+
+  // 半行保护（doc/Test/开发测试体系.md §6.1 / DataParsers设计 §4 #7）：
+  // 「永不换行的流」超过 64KB 上限即按整行剥离刷出——内容不丢失仅提前断行，
+  // pending 复位后常规缓冲继续。
+  it('#20 emits a held half-line once it exceeds the 64KB guard', () => {
+    const s = new SerialPortAnsiStripper();
+    const chunk = `\x1b[31m${'x'.repeat(65 * 1024)}\x1b[0m`; // 无换行：超限整段剥离
+    assert.equal(run(s, chunk), 'x'.repeat(65 * 1024));
+    assert.equal(run(s, 'tail\n'), 'tail\n'); // pending 已复位：常规缓冲继续
+    assert.equal(s.flush().toString('utf-8'), '');
+  });
+
+  it('#21 keeps normal line splitting intact within an oversized chunk', () => {
+    const s = new SerialPortAnsiStripper();
+    const huge = `${'y'.repeat(65 * 1024)}more text\nrest\n`;
+    // 先常规切分完整行、后超限检查：总输出恰为原内容（无重复、无丢失）
+    assert.equal(run(s, huge), huge);
+    assert.equal(s.flush().toString('utf-8'), '');
+  });
 });

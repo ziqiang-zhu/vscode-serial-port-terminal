@@ -3,6 +3,9 @@ import * as vscode from 'vscode';
 const DEFAULT_TIMESTAMP_FORMAT = '[{HH}:{mm}:{ss}.{SSS}] ';
 const TIMESTAMP_TOKEN = /\{YYYY\}|\{MM\}|\{DD\}|\{HH\}|\{mm\}|\{ss\}|\{SSS\}/g;
 const LINE_FEED = 0x0a;
+// 半行保护上限：永不换行的流会让 pending 无界增长——超限即视为整行加时间戳刷出
+// （内容不丢失，仅提前断行）。同 AnsiStripper 的 PENDING_LIMIT。
+const PENDING_LIMIT = 64 * 1024;
 
 export class SerialPortLineTimestampBuffer {
   private readonly timestampFormat: string;
@@ -14,7 +17,8 @@ export class SerialPortLineTimestampBuffer {
     this.timestampFormat = format && format.trim() ? format : DEFAULT_TIMESTAMP_FORMAT;
   }
 
-  // 行缓冲：按原始字节累积、以 \n 切分完整行——多字节字符跨 chunk 不会损坏。
+  // 行缓冲：按原始字节累积、以 \n 切分完整行——多字节字符跨 chunk 不会损坏；
+  // 尾行超过上限（永不换行的流）即视为整行加时间戳刷出，防 pending 无界增长。
   process(data: Buffer): Buffer {
     if (data.length > 0) {
       this.pending = Buffer.concat([this.pending, data]);
@@ -28,6 +32,11 @@ export class SerialPortLineTimestampBuffer {
       }
     }
     this.pending = this.pending.subarray(start);
+    // 半行保护：内容不丢失，仅提前断行。
+    if (this.pending.length > PENDING_LIMIT) {
+      lines.push(this.pending);
+      this.pending = Buffer.alloc(0);
+    }
     if (lines.length === 0) {
       return Buffer.alloc(0);
     }
