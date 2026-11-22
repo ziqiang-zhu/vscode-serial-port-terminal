@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.6]
+
+### Improved
+- Connection robustness: a port-open operation that hangs for more than 5 seconds is now treated as a timeout - the connection state rolls back automatically with a timeout notification and can be retried immediately, instead of getting stuck in the connecting state forever
+
 ## [1.5.5]
 
 ### Improved

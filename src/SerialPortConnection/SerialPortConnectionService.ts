@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SerialPortHal, SerialPortOpenOptions } from '../hal/SerialPortHal';
+import { SerialPortHal, SerialPortHandle, SerialPortOpenOptions } from '../hal/SerialPortHal';
 import { SerialPortDeviceDetector } from '../SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortDeviceInterface } from '../SerialPortDeviceDetector/SerialPortDeviceInterface';
 import { SerialConfig } from '../SerialPortConfig/SerialPortQuickConfig';
@@ -14,6 +14,11 @@ const DEFAULT_CONFIG: SerialConfig = {
   flowControl: 'none'
 };
 
+const CONNECT_TIMEOUT_MS = 5_000;
+
+// 打开挂起超时的专属错误类型：catch 路径据此区分提示文案（连接超时 vs 连接失败）。
+export class PortOpenTimeoutError extends Error {}
+
 export class SerialPortConnectionService implements vscode.Disposable {
   private _onDidChangeDeviceStatus = new vscode.EventEmitter<SerialPortDeviceInterface>();
   readonly onDidChangeDeviceStatus = this._onDidChangeDeviceStatus.event;
@@ -25,7 +30,10 @@ export class SerialPortConnectionService implements vscode.Disposable {
     private readonly hal: SerialPortHal,
     private readonly detector: SerialPortDeviceDetector,
     context: vscode.ExtensionContext,
-    private readonly defaultConsumerFactory?: () => SerialPortConsumer
+    private readonly defaultConsumerFactory?: () => SerialPortConsumer,
+    // 打开挂起超时（毫秒）：驱动假死时 openPort 永不返回，设备将永久停在
+    // connecting（UI 无重试入口）。缺省 5 秒；测试注入更短值做确定性验证。
+    private readonly connectTimeoutMs: number = CONNECT_TIMEOUT_MS,
   ) {
     // Service 自身入订阅列表：扩展停用时框架调用 dispose()，统一销毁全部
     // 连接并关闭端口（履行"Connection 随扩展停用销毁"的契约，见设计文档 §1/§4）。
@@ -63,7 +71,7 @@ export class SerialPortConnectionService implements vscode.Disposable {
     device.setStatus('connecting');
     this._onDidChangeDeviceStatus.fire(device);
     try {
-      const handle = await this.hal.openPort(this.toOpenOptions(device.path, config));
+      const handle = await this.openPortWithTimeout(device.path, config, this.connectTimeoutMs);
       // 拔除竞态防护：openPort 的 await 窗口内设备可能被拔（removed 事件链触发
       // disconnect、状态回写 disconnected），恢复执行后复核——同路径仍为同一设备
       // 模型且仍处 connecting 才继续，否则关闭句柄静默放弃（设备拔除不是连接
@@ -95,9 +103,43 @@ export class SerialPortConnectionService implements vscode.Disposable {
       device.setStatus('connected');
     } catch (error) {
       device.setStatus('disconnected');
-      vscode.window.showErrorMessage(vscode.l10n.t('Connection failed: {0}', `${error}`));
+      if (error instanceof PortOpenTimeoutError) {
+        vscode.window.showErrorMessage(vscode.l10n.t('Connection timed out: {0}', device.path));
+      } else {
+        vscode.window.showErrorMessage(vscode.l10n.t('Connection failed: {0}', `${error}`));
+      }
     }
     this._onDidChangeDeviceStatus.fire(device);
+  }
+
+  // 打开挂起超时：定时器先到即按超时失败回滚，底层 openPort 迟到成功时其句柄已
+  // 无人持有，竞速内直接关闭（防幽灵句柄占用端口）；openPort 先失败则原样透传。
+  private async openPortWithTimeout(path: string, config: SerialConfig, timeoutMs: number): Promise<SerialPortHandle> {
+    return new Promise<SerialPortHandle>((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        settled = true;
+        reject(new PortOpenTimeoutError());
+      }, timeoutMs);
+      this.hal.openPort(this.toOpenOptions(path, config)).then(
+        handle => {
+          clearTimeout(timer);
+          if (settled) {
+            void handle.close().catch(() => {});
+          } else {
+            settled = true;
+            resolve(handle);
+          }
+        },
+        error => {
+          clearTimeout(timer);
+          if (!settled) {
+            settled = true;
+            reject(error);
+          }
+        }
+      );
+    });
   }
 
   public getConnectionConfig(path: string): SerialConfig | undefined {

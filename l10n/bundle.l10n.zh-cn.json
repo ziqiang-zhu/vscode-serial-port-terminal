@@ -29,6 +29,7 @@
   "Enter a new name": "输入新名称",
   "Delete config \"{0}\"?": "删除配置 \"{0}\"？",
   "Connection failed: {0}": "连接失败: {0}",
+  "Connection timed out: {0}": "连接超时: {0}",
   "Failed to start log: {0}": "开始记录日志失败: {0}",
   "Failed to open log directory: {0}": "打开日志目录失败: {0}",
   "File saved to: {0}": "文件已保存到：{0}",

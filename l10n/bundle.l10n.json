@@ -29,6 +29,7 @@
   "Enter a new name": "Enter a new name",
   "Delete config \"{0}\"?": "Delete config \"{0}\"?",
   "Connection failed: {0}": "Connection failed: {0}",
+  "Connection timed out: {0}": "Connection timed out: {0}",
   "Failed to start log: {0}": "Failed to start log: {0}",
   "Failed to open log directory: {0}": "Failed to open log directory: {0}",
   "File saved to: {0}": "File saved to: {0}",
