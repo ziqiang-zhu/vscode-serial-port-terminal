@@ -159,11 +159,6 @@
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Agent Bridge 候选端口列表（启动时下拉选择，单值直接使用） |
 | `serialPortTerminal.agentBridge.readonly` | `false` | 只读模式：禁止客户端通过 Agent Bridge 向设备发送数据（发送的字节被丢弃）；修改后重新开启 Agent Bridge 生效 |
 | `serialPortTerminal.virtualConsole` | `false` | 启用虚拟设备控制台与 VCOM- 虚拟设备；修改后重启扩展宿主或重启 VS Code 生效 |
-| `serialPortTerminal.testMode.responseDelay` | `0` | 虚拟设备应答延迟（毫秒） |
-| `serialPortTerminal.testMode.replayFile` | 空 | VCOM-REPLAY 回放的纯文本日志文件 |
-| `serialPortTerminal.testMode.replayRate` | `100` | 回放速率（行/秒） |
-| `serialPortTerminal.testMode.replayLoop` | `false` | 回放到末尾后是否循环 |
-| `serialPortTerminal.testMode.interactionDir` | 空 | 交互型虚拟终端应答根目录（`linux/`、`uboot/` 子目录按命令存放 .txt 应答） |
 
 ## 📦 安装
 

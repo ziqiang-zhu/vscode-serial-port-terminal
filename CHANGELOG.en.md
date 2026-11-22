@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.16]
+
+### Changed
+- Virtual device parameters are no longer exposed as settings: the five testMode.* entries are removed and fully managed by the Virtual Device Console - runtime adjustments from the console reset to defaults on restart (no long-term storage); the release gate now also blocks testMode settings from coming back
+
 ## [1.5.15]
 
 ### Added

@@ -121,14 +121,12 @@ export class SerialPortConsoleView implements vscode.WebviewViewProvider {
         });
         if (picked?.[0]) {
           hal.setReplayFile(path, picked[0].fsPath);
-          void this.persist('replayFile', picked[0].fsPath);
         }
         break;
       }
       case 'clearReplayFile': {
         if (hal && path) {
           hal.setReplayFile(path, '');
-          void this.persist('replayFile', '');
         }
         break;
       }
@@ -142,19 +140,11 @@ export class SerialPortConsoleView implements vscode.WebviewViewProvider {
         });
         if (picked?.[0]) {
           hal.setInteractionDir(path, picked[0].fsPath);
-          void this.persist('interactionDir', picked[0].fsPath);
         }
         break;
       }
     }
     void this.pushState();
-  }
-
-  // 文件 / 目录选择入口同时写 workspace 设置（跨会话保留）；live 生效走控制面 API。
-  private persist(key: 'replayFile' | 'interactionDir', value: string): Thenable<void> {
-    return vscode.workspace
-      .getConfiguration('serialPortTerminal.testMode')
-      .update(key, value, vscode.ConfigurationTarget.Workspace);
   }
 
   private async pushState(): Promise<void> {

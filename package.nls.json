@@ -35,10 +35,5 @@
   "serialPortTerminal.agentBridge.readonly.description": "When enabled, clients cannot send data to the device through Agent Bridge; changes take effect the next time Agent Bridge starts. Recommended for observe-only scenarios that require a safe listening environment.",
   "serialPortTerminal.baudRates.description": "Baud rates offered in the manual configuration picker (positive integers).",
   "serialPortTerminal.frameFormats.description": "Frame formats (data bits-parity-stop bits) offered in the manual configuration picker, e.g. \"8-N-1\".",
-  "serialPortTerminal.testMode.responseDelay.description": "Virtual device response delay in milliseconds (product test mode).",
-  "serialPortTerminal.testMode.replayFile.description": "Plain-text log file replayed by the VCOM-REPLAY virtual device (product test mode).",
-  "serialPortTerminal.testMode.replayRate.description": "Replay rate in lines per second (product test mode).",
-  "serialPortTerminal.testMode.replayLoop.description": "Loop the replay file after reaching the end (product test mode).",
-  "serialPortTerminal.testMode.interactionDir.description": "Response directory root for the interactive virtual shells: linux/ and uboot/ subfolders hold per-command .txt answers (product test mode).",
   "serialPortTerminal.virtualConsole.description": "Enable the Virtual Device Console and the virtual serial devices (VCOM- prefix) it controls. Takes effect after restarting the extension host or restarting VS Code."
 }

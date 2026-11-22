@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import { SerialPortHal } from './SerialPortHal';
 import { SerialPortHalComposite } from './SerialPortHalComposite';
 import { SerialPortHalImpl } from './SerialPortHalImpl';
@@ -18,19 +17,19 @@ export const USE_VIRTUAL_HAL = false;
 // 由 build.js 产物注入 true）|| 用户设置 virtualConsole（产品构建，激活期一次性读取，
 // 修改后重启扩展宿主/VS Code 生效）。本函数不再读 USE_VIRTUAL_HAL——导出字面量的
 // 发射形态是 build.js 产物注入的锚点，必须原样保留。
+// 运行参数取固定默认（延迟 0ms / 速率 100 行每秒 / 不循环 / 无回放文件 / 无应答目录）：
+// VDC 仅用于测试，不做长期存储——运行参数经控制台调节（控制面 API），重启回归默认。
 export function createVirtualHal(enabled: boolean): SerialPortHalVirtual | undefined {
   if (!enabled) {
     return undefined;
   }
-  const delayMs = readResponseDelay();
-  const interactionDir = readInteractionDir();
-  const onlineRuntime = { online: true, delayMs, backpressure: false };
+  const onlineRuntime = { online: true, delayMs: 0, backpressure: false };
   return new SerialPortHalVirtual([
     { profile: new EchoProfile(), runtime: { ...onlineRuntime } },
-    { profile: new LinuxShellProfile(interactionDir), runtime: { ...onlineRuntime } },
-    { profile: new UBootShellProfile(interactionDir), runtime: { ...onlineRuntime } },
+    { profile: new LinuxShellProfile(undefined), runtime: { ...onlineRuntime } },
+    { profile: new UBootShellProfile(undefined), runtime: { ...onlineRuntime } },
     {
-      profile: new ReplayProfile(readReplayFile(), readReplayRate(), readReplayLoop()),
+      profile: new ReplayProfile(undefined, 100, false),
       runtime: { ...onlineRuntime },
     },
   ]);
@@ -41,38 +40,4 @@ export function createSerialPortHal(virtualHal: SerialPortHalVirtual | undefined
   return virtualHal
     ? new SerialPortHalComposite(new SerialPortHalImpl(), virtualHal)
     : new SerialPortHalImpl();
-}
-
-function readResponseDelay(): number {
-  const raw = vscode.workspace
-    .getConfiguration('serialPortTerminal.testMode')
-    .get<number>('responseDelay', 0);
-  return Number.isFinite(raw) && raw > 0 ? raw : 0;
-}
-
-function readInteractionDir(): string | undefined {
-  const raw = vscode.workspace
-    .getConfiguration('serialPortTerminal.testMode')
-    .get<string>('interactionDir', '');
-  return raw && raw.trim() ? raw.trim() : undefined;
-}
-
-function readReplayFile(): string | undefined {
-  const raw = vscode.workspace
-    .getConfiguration('serialPortTerminal.testMode')
-    .get<string>('replayFile', '');
-  return raw && raw.trim() ? raw.trim() : undefined;
-}
-
-function readReplayRate(): number {
-  const raw = vscode.workspace
-    .getConfiguration('serialPortTerminal.testMode')
-    .get<number>('replayRate', 100);
-  return Number.isFinite(raw) && raw >= 1 ? raw : 100;
-}
-
-function readReplayLoop(): boolean {
-  return vscode.workspace
-    .getConfiguration('serialPortTerminal.testMode')
-    .get<boolean>('replayLoop', false);
 }

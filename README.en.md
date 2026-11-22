@@ -159,11 +159,6 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Candidate ports for Agent Bridge (picker shown when starting, a single value is used directly) |
 | `serialPortTerminal.agentBridge.readonly` | `false` | Read-only mode: clients cannot send data to the device through Agent Bridge (sent bytes are discarded); changes take effect the next time Agent Bridge starts |
 | `serialPortTerminal.virtualConsole` | `false` | Enable the Virtual Device Console and the VCOM- virtual devices; takes effect after restarting the extension host or restarting VS Code |
-| `serialPortTerminal.testMode.responseDelay` | `0` | Virtual device response delay (ms) |
-| `serialPortTerminal.testMode.replayFile` | empty | Plain-text log file replayed by VCOM-REPLAY |
-| `serialPortTerminal.testMode.replayRate` | `100` | Replay rate (lines per second) |
-| `serialPortTerminal.testMode.replayLoop` | `false` | Loop the replay after reaching the end |
-| `serialPortTerminal.testMode.interactionDir` | empty | Response directory root for the interactive virtual shells (`linux/` and `uboot/` subfolders hold per-command .txt answers) |
 
 ## 📦 Installation
 

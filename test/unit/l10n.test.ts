@@ -7,9 +7,9 @@ import * as path from 'node:path';
 // 四份语言资源键集两两对称——bundle en/zh、package.nls en/zh。漂移（一侧加键、
 // 另一侧漏加）在本守卫即时失败。直读仓库根的真实语言包（__dirname 上三级），
 // 零依赖无桩。
-// 注意：VDC 产品化（1.5.15）起清单不再净化——console/testMode/virtualConsole
-// 键随包常驻，package.nls 无"净化态"，两份文件恒为全量对称；清单 %key% 引用
-// 的存在性归 verify-release-manifest.js 断言。
+// 注意：VDC 产品化（1.5.15）起清单不再净化；选择器去设置化（1.5.16）后 testMode
+// 六键退场，package.nls 无"净化态"、恒为全量对称；清单 %key% 引用的存在性归
+// verify-release-manifest.js 断言。
 
 const repoRoot = path.join(__dirname, '..', '..', '..');
 
@@ -30,7 +30,7 @@ describe('语言包键集对称（l10n 守卫）', () => {
     const en = readKeys('package.nls.json');
     const zh = readKeys('package.nls.zh-cn.json');
     assert.deepEqual(en, zh);
-    // 42 = 当前常规态键数（含 console/testMode 六键与 virtualConsole 描述键）。
-    assert.ok(en.length >= 42, `package.nls keys look too small: ${en.length}`);
+    // 37 = 当前常规态键数（含 console 视图标题与 virtualConsole 描述键，无 testMode）。
+    assert.ok(en.length >= 37, `package.nls keys look too small: ${en.length}`);
   });
 });

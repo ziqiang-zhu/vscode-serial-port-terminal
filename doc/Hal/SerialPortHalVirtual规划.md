@@ -87,9 +87,9 @@ Hit any key to stop autoboot: 2
 
 ### 4.4 Replay（日志回放）
 
-- 数据源为纯文本日志文件（配置 `testMode.replayFile`），**打开端口时读取**（重新连接即加载最新文件），按**原始字节切片**逐行播放（`\r\n` 行尾与多字节字符字节级保真）；
-- **速率语义（已定稿）：行/秒**——`testMode.replayRate` = 每秒播放行数，默认 `100`、最小 `1`；内部以 100ms 节拍批发（每节拍 `N/10` 行，余数累进），高速率自动合并为大批次（契合真实串口的 chunk 到达形态）；
-- 播放完成（EOF）：`testMode.replayLoop=true` 从头循环，`false` 停止播放（设备保持在线、静默）；
+- 数据源为纯文本日志文件（控制台选择，存于虚拟 HAL 内部状态，跨会话不保留），**打开端口时读取**（重新连接即加载最新文件），按**原始字节切片**逐行播放（`\r\n` 行尾与多字节字符字节级保真）；
+- **速率语义（已定稿）：行/秒**——回放速率 = 每秒播放行数，默认 `100`、最小 `1`（构造默认，控制台运行期调节，跨会话不保留）；内部以 100ms 节拍批发（每节拍 `N/10` 行，余数累进），高速率自动合并为大批次（契合真实串口的 chunk 到达形态）；
+- 播放完成（EOF）：循环开启时从头循环，否则停止播放（设备保持在线、静默）；循环为会话态，重启回归关闭；
 - `replayFile` 未配置或文件不可读：设备照常枚举与打开，但无任何输出（静默设备）；
 - **控制台播放状态机（P1 设计需求）**：`idle`（无文件）→ `armed`（已选文件待开始）→ `playing ⇄ paused` → `armed`。选文件进入 armed **不自动播**，由控制台 [开始播放] 显式启动；播放中 [暂停]（进度保留）/ [停止]（回 armed、进度清零、文件保留）；EOF 播放结束回 armed（可再开始）；armed 状态下开启循环（[循环回放] 按钮）会从当前进度自动重启播放；[取消选择] 清除文件回 idle——**已选文件禁止直接更换**，须先取消选择。端口打开时文件已选仍自动开播（连接即回放契约不变），停止后重新连接亦自动开播；
 - 主机侧输入被忽略（回放设备为纯数据源）；播放随端口 close 停止；整文件读入内存（开发工具定位，数十 MB 量级日志可接受）。
@@ -98,7 +98,7 @@ Hit any key to stop autoboot: 2
 
 LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 
-- 配置 `serialPortTerminal.testMode.interactionDir` 指定应答根目录，子目录 `linux/`、`uboot/` 分别对应两个画像（两画像存在同名命令，如 `help`，单层目录会冲突）；
+- 应答根目录经控制台选择（存于虚拟 HAL 内部状态，跨会话不保留），子目录 `linux/`、`uboot/` 分别对应两个画像（两画像存在同名命令，如 `help`，单层目录会冲突）；
 - 文件名 = 命令行（如 `uname -a.txt`、`printenv.txt`），文件内容 = 静态应答文本，输出时自动补换行与提示符；
 - 子目录或命令文件缺省时回退内置默认表；
 - 文件名受 Windows 合法字符限制，含 `\ / : * ? " < > |` 的命令无法以文件覆盖，保留内置表应答；
@@ -109,20 +109,20 @@ LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 - 开关常量（`src/hal/halSelection.ts` 的 `USE_VIRTUAL_HAL`）**源码字面量恒为 `false`**（永不手动修改）；测试构建的开关值由 `scripts/build.js` 在产物级注入（读环境变量替换产物字面量，断言恰好命中 1 处）——该导出字面量的发射形态是注入锚点，不得改动；三种编译形态（产品 / 测试 / 单元测试）的配置方法见 [../编译指导.md](../编译指导.md)；
 - 源码字面量防手改：`vscode:prepublish` 以 `node scripts/verify-hal-selection.js` 为第二道前置（测试门禁之后），脚本校验源码中开关字面量为 `false`，未复位则非零退出、拒绝打包；
 - 测试构建下设备来源为**混排呈现**——`SerialPortHalComposite` 同时持有真实 HAL 与虚拟 HAL，`listDevices` 返回两者并集（真实在前、虚拟在后），`openPort` 按路径前缀路由（`VCOM-` 前缀走虚拟 HAL，其余路径透传真实 HAL）；真实串口命名（`COM*` / `tty*` / `dev/*`）与 `VCOM-` 前缀无冲突；
-- VDC 产品化（1.5.15）：控制台视图与 `testMode.*` 设置随包发布，产品构建由设置 `serialPortTerminal.virtualConsole` 门控（默认关；`extension.ts` 激活期一次性读取，修改后重启扩展宿主/VS Code 生效；测试构建恒开）——生效时混排呈现，否则纯真实 HAL；视图以 `when` 守卫（context key `serialPortTerminal.virtualConsoleActive`，激活期双向显式 setContext）在关闭时整体隐藏；`verify-release-manifest.js` 机械拦截清单漂移（断言存在性），见 [../编译指导.md](../编译指导.md) §4.3；
+- VDC 产品化（1.5.15）：控制台视图随包发布（`testMode.*` 不暴露为设置——虚拟运行参数由控制台管理、重启回归默认），产品构建由设置 `serialPortTerminal.virtualConsole` 门控（默认关；`extension.ts` 激活期一次性读取，修改后重启扩展宿主/VS Code 生效；测试构建恒开）——生效时混排呈现，否则纯真实 HAL；视图以 `when` 守卫（context key `serialPortTerminal.virtualConsoleActive`，激活期双向显式 setContext）在关闭时整体隐藏；`verify-release-manifest.js` 机械拦截清单漂移（断言存在性），见 [../编译指导.md](../编译指导.md) §4.3；
 - 生命周期语义与真实设备一致：断开、关闭终端面板、扩展停用均走上层统一销毁流程，虚拟句柄在 `close` 时停止回放与定时器。
 
-## 6. 配置（草案）
+## 6. 配置
 
-| 配置项 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| `serialPortTerminal.testMode.replayFile` | string | `""` | 回放设备的纯文本日志文件路径 |
-| `serialPortTerminal.testMode.replayRate` | number | `100` | 回放速率（行/秒），最小 1；语义见 §4.4 |
-| `serialPortTerminal.testMode.replayLoop` | boolean | `false` | 播放到文件末尾后是否循环 |
-| `serialPortTerminal.testMode.responseDelay` | number | `0` | 命令应答延迟（ms），模拟真实设备的异步响应 |
-| `serialPortTerminal.testMode.interactionDir` | string | `""` | 交互型画像的应答根目录，约定见 §4.5 |
+虚拟设备**不暴露任何运行参数设置项**（选择器去设置化，1.5.16）：可用性由生效门控决定（§5：测试构建恒开；产品构建按设置 `serialPortTerminal.virtualConsole`，重启扩展宿主/VS Code 生效）；运行参数完全由控制台管理——经控制面 API 运行期调节、存于虚拟 HAL 内部状态，**跨会话不保留、重启回归默认**：
 
-配置项为草案，实现时定稿。虚拟 HAL 的**可用性**由生效门控决定（§5：测试构建恒开；产品构建按设置 `serialPortTerminal.virtualConsole`，重启扩展宿主/VS Code 生效），本表各参数仅作用于已启用的虚拟设备。
+| 参数 | 默认值（构造） | 说明 |
+|---|---|---|
+| 应答延迟 | `0` ms | 控制台数值输入调节；模拟真实设备的异步响应 |
+| 回放文件 | 无 | 控制台选择（§8）；打开端口时读取，重连即加载最新文件 |
+| 回放速率 | `100` 行/秒（最小 1） | 控制台数值输入调节；语义见 §4.4 |
+| 回放循环 | 关 | 控制台状态按钮切换；播放到文件末尾后循环 |
+| 应答根目录 | 无 | 控制台选择（§4.5/§8）；交互型画像的应答覆盖 |
 
 ## 7. 关键机制
 
@@ -152,16 +152,16 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 在线 / 拔出 | 状态按钮 | 拔出时该设备从 `listDevices` 消失，经 Detector removed 事件走真实的连接销毁链；上线后恢复出现在设备列表 |
 | 背压阻塞 / 放行 | 状态按钮 | 控制该设备 `write` 的背压行为（见 §7.2） |
 | 应答延迟 | 数值输入 | 精确值（ms），不用滑杆类模糊控件 |
-| 回放文件 | 文件选择入口 | 选择纯文本日志文件写入 `testMode.replayFile`；已选后仅显示路径 + [取消选择]（禁止直接更换，取消后可重选） |
+| 回放文件 | 文件选择入口 | 选择纯文本日志文件写入虚拟 HAL 内部状态（跨会话不保留，重启后重新选择）；已选后仅显示路径 + [取消选择]（禁止直接更换，取消后可重选） |
 | 播放控制 | 状态按钮组 | 待开始：[开始播放]；播放中：[暂停] [停止]；暂停中：[继续] [停止]；未连接且已选文件时提示「连接设备后自动开始播放」 |
 | 回放速率 | 数值输入 | 精确值，播放中即时生效 |
 | 回放循环 | 状态按钮 | 运行时即时切换 `loop`（armed/EOF 结束状态下开启会自动重启播放；不写设置，跨会话不保留） |
-| 应答根目录 | 目录选择入口 | 选择交互型画像应答根目录，写入 `testMode.interactionDir`（约定见 §4.5） |
+| 应答根目录 | 目录选择入口 | 选择交互型画像应答根目录，写入虚拟 HAL 内部状态（跨会话不保留，重启后重新选择；约定见 §4.5） |
 | 数据注入 | 文本输入 + 发送 | 以设备侧视角向串口对端注入任意数据，用于模拟设备主动输出 |
 
 实现约定：
 
-- Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `play` / `pause` / `stop` / `pickReplayFile` / `clearReplayFile` / `pickInteractionDir` / `inject` 与反向的 `state`（携带 `mode` 与全量设备快照）；文件与目录不走协议传值，由主进程弹出选择器并把结果写入 `testMode.*` 设置（见上表）；
+- Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `play` / `pause` / `stop` / `pickReplayFile` / `clearReplayFile` / `pickInteractionDir` / `inject` 与反向的 `state`（携带 `mode` 与全量设备快照）；文件与目录不走协议传值，由主进程弹出选择器并经控制面 API 写入虚拟 HAL 内部状态（跨会话不保留，见上表）；
 - `SerialPortHalVirtual` 在 `SerialPortHal` 契约之外暴露**控制面 API**（`inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `play` / `pause` / `stop` / `setInteractionDir`），仅控制台使用，不影响 HAL 契约本身；
 - 控制台快照 `connected` 取自门面存活句柄引用：句柄 `close` 时经回调清空引用（引用比对防双开后关闭旧句柄误清新句柄），重开即恢复；
 - 控制台的进入构建与可见性（VDC 产品化，1.5.15）：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；可见性由 `when: serialPortTerminal.virtualConsoleActive` 守卫——测试构建恒开，产品构建按设置 `serialPortTerminal.virtualConsole`（默认关，激活期一次性读取，修改后重启扩展宿主/VS Code 生效），关闭时视图整体隐藏；提供器收到的 `virtualHal` 为 undefined 时渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分）——when 守卫下该占位不可达，仅作守卫失效时的防线冗余。界面文案集中在宿主侧经 `l10n.t` 定值后注入模板（webview 内无 l10n 运行时），双语键见 `l10n/bundle.*.json`；
@@ -201,7 +201,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 | 2 | LinuxShell 画像 | `LinuxShellProfile`：横幅 `Welcome to Virtual Linux (busybox)` + 提示符 `root@localhost:~# `；内置表 `help` / `uname -a` / `ls` / `pwd` / 参数化 `echo <文本>` / 参数化 `cat <路径>`（固定内容块）；未知命令 `bash: <命令>: command not found` |
 | 3 | UBootShell 画像 | `UBootShellProfile`：横幅 `U-Boot 2023.10-virtual` + 提示符 `=> `；内置表 `help` / `version` / `printenv`（预置环境变量块）；未知命令 `Unknown command '<命令>' - try 'help'` |
 | 4 | 复合命令解析 | 按 `;` 分隔依次执行、输出顺序拼接——**设计点，支撑 agent-bridge-skills 的标准模式** `echo __MARK_BEGIN__; <命令>; echo __MARK_END__`（标记检测要求各标记独占一行，无此解析则虚拟 Linux 无法配合技能仓库） |
-| 5 | 应答目录覆盖 | 画像构造参数注入 `interactionDir`（装配层读 `testMode.interactionDir` 传入，纯逻辑约束不变）；子目录 `linux/`、`uboot/`；文件名 = 命令行 + `.txt`、内容 = 应答文本；**优先级：精确文件 > 精确内置 > 参数化内置 > 未知回退**；目录/文件缺省回退内置；Windows 非法文件名字符的命令无法覆盖，保留内置表 |
+| 5 | 应答目录覆盖 | 画像构造参数注入 `interactionDir`（构造默认无，控制台选择后经控制面 API 生效，纯逻辑约束不变）；子目录 `linux/`、`uboot/`；文件名 = 命令行 + `.txt`、内容 = 应答文本；**优先级：精确文件 > 精确内置 > 参数化内置 > 未知回退**；目录/文件缺省回退内置；Windows 非法文件名字符的命令无法覆盖，保留内置表 |
 | 6 | 注册 | `halSelection.ts` 测试分支注册三台设备（Echo + Linux + UBoot），`listDevices` 返回三项；均 manufacturer=`Virtual` |
 | 7 | 单元测试 | 用例清单见 `doc/Test/开发测试体系.md` §6.6（20 例） |
 

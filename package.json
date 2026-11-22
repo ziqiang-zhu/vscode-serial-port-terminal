@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal with an AI-agent TCP bridge",
-  "version": "1.5.15",
+  "version": "1.5.16",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -354,33 +354,6 @@
           "type": "boolean",
           "default": false,
           "description": "%serialPortTerminal.virtualConsole.description%"
-        },
-        "serialPortTerminal.testMode.responseDelay": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
-          "description": "%serialPortTerminal.testMode.responseDelay.description%"
-        },
-        "serialPortTerminal.testMode.replayFile": {
-          "type": "string",
-          "default": "",
-          "description": "%serialPortTerminal.testMode.replayFile.description%"
-        },
-        "serialPortTerminal.testMode.replayRate": {
-          "type": "number",
-          "default": 100,
-          "minimum": 1,
-          "description": "%serialPortTerminal.testMode.replayRate.description%"
-        },
-        "serialPortTerminal.testMode.replayLoop": {
-          "type": "boolean",
-          "default": false,
-          "description": "%serialPortTerminal.testMode.replayLoop.description%"
-        },
-        "serialPortTerminal.testMode.interactionDir": {
-          "type": "string",
-          "default": "",
-          "description": "%serialPortTerminal.testMode.interactionDir.description%"
         }
       }
     }
