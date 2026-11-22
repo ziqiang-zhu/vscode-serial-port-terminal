@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.12]
+
+### Improved
+- Internal refactor: the parsers' 64KB half-line guard is consolidated into a shared constants module (single source of truth), with no runtime behavior change
+
 ## [1.5.11]
 
 ### Improved

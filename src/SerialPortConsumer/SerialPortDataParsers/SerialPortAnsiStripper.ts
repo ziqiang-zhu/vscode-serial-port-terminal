@@ -1,10 +1,9 @@
+import { PENDING_LIMIT } from './constants';
+
 const ANSI_ESCAPE_SEQUENCE =
   /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]+)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
 const LINE_FEED = 0x0a;
-// 半行保护上限：永不换行的流会让 pending 无界增长——超限即按整行剥离刷出
-// （内容不丢失，仅提前断行）。任何真实终端行远低于此值。
-const PENDING_LIMIT = 64 * 1024;
 
 // 行缓冲式 ANSI 剥离（契约见 doc/Test/开发测试体系.md §6.1）：
 // 以 \n 为行单位，转义序列不跨行生效；未获得换行时尾行按原始字节保留，

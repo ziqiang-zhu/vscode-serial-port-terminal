@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 
+import { PENDING_LIMIT } from '../SerialPortDataParsers/constants';
+
 const DEFAULT_TIMESTAMP_FORMAT = '[{HH}:{mm}:{ss}.{SSS}] ';
 const TIMESTAMP_TOKEN = /\{YYYY\}|\{MM\}|\{DD\}|\{HH\}|\{mm\}|\{ss\}|\{SSS\}/g;
 const LINE_FEED = 0x0a;
-// 半行保护上限：永不换行的流会让 pending 无界增长——超限即视为整行加时间戳刷出
-// （内容不丢失，仅提前断行）。同 AnsiStripper 的 PENDING_LIMIT。
-const PENDING_LIMIT = 64 * 1024;
 
 export class SerialPortLineTimestampBuffer {
   private readonly timestampFormat: string;
