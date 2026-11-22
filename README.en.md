@@ -44,6 +44,7 @@ Bridge the current serial terminal to a local TCP port with one click so an AI a
 **🔁 One shared terminal — AI actions visible in real time**
 
 - Every command the agent types is echoed live in the serial terminal panel (the embedded shell must have echo enabled; it is on by default), and each line of device response is visible to you and the agent at the same time;
+- The status bar keeps showing the current AgentBridge client count, so you can tell at a glance whether an agent is connected;
 - Everything stays visible, and you can take over the keyboard directly in the terminal at any time to pull debugging back to manual.
 
 **💾 Save AI operations like any ordinary log**

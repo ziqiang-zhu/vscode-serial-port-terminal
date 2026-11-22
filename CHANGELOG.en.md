@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.14]
+
+### Added
+- AgentBridge client count: the status bar shows the current number of connected clients in real time (`· N`, hidden when there are none); bridge stop and serial disconnect teardown do not count, and no notice content is injected into the terminal panel
+
 ## [1.5.13]
 
 ### Added

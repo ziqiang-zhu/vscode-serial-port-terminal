@@ -34,7 +34,11 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
     // ANSI 剥离开关：默认开启（终端语义，
     // 颜色码剥离 + 空闲刷出）；关闭时字节原样透传——不经剥离行缓冲、不挂空闲
     // 刷出（消除 200ms 固有延迟），二进制协议不被 UTF-8 往返损坏。
-    private readonly stripAnsi = true
+    private readonly stripAnsi = true,
+    // 客户端数变化回调（可选）：客户端接入或断开后触发，count 为当前在线数；
+    // 桥停止/断开收尾销毁 socket 不触发（收尾无用户可感知状态变化）。普通函数
+    // 回调对齐 Connection 构造器 onRequestClose 先例。
+    private readonly onClientCountChanged?: (count: number) => void
   ) {
     super();
     this.bindHost = host;
@@ -124,6 +128,7 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
       return;
     }
     this.sockets.add(socket);
+    this.onClientCountChanged?.(this.sockets.size);
     if (!this.readonlyMode) {
       socket.on('data', chunk => {
         this.send(chunk);
@@ -131,7 +136,11 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
     }
     socket.on('error', () => {});
     socket.on('close', () => {
-      this.sockets.delete(socket);
+      // delete 返回 false = socket 已随 onClosed 收尾清空（destroy 后 'close'
+      // 迟到）——不触发回调，保持收尾静默。
+      if (this.sockets.delete(socket)) {
+        this.onClientCountChanged?.(this.sockets.size);
+      }
     });
   }
 

@@ -99,6 +99,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
   private agentBridge: SerialPortAgentBridge | undefined;
   private agentBridgeAddress: string | undefined;
   private agentBridgeReadonly: boolean | undefined;
+  private agentBridgeClientCount = 0;
   // 选端口窗口内的重入守卫：多端口配置时 QuickPick 可挂起任意久，期间二次调用
   // 会穿透 agentBridge 空守卫并产生双桥（同 id 注册顶掉旧桥，状态错乱）。listen
   // 窗口无需持锁——agentBridge 已置位，原守卫自然拦截二次调用。
@@ -133,6 +134,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
     this.logRecorder = undefined;
     this.agentBridge = undefined;
     this.agentBridgeAddress = undefined;
+    this.agentBridgeClientCount = 0;
     this.detachTerminal();
   }
 
@@ -197,9 +199,17 @@ export class SerialPortTerminal extends SerialPortConsumer {
         return;
       }
       const readonlyMode = this.getAgentBridgeReadonly();
-      const bridge = new SerialPortAgentBridge(this.getAgentBridgeHost(), port, readonlyMode);
+      // stripAnsi 恒取默认 true；第 5 参接线客户端数回调（状态栏计数）。
+      const bridge = new SerialPortAgentBridge(
+        this.getAgentBridgeHost(),
+        port,
+        readonlyMode,
+        true,
+        count => this.onBridgeClientCountChanged(count)
+      );
       this.agentBridge = bridge;
       this.agentBridgeReadonly = readonlyMode;
+      this.agentBridgeClientCount = 0;
       this.addConsumer(bridge);
       refreshLogContext();
       try {
@@ -219,6 +229,7 @@ export class SerialPortTerminal extends SerialPortConsumer {
         this.agentBridge = undefined;
         this.agentBridgeReadonly = undefined;
         this.agentBridgeAddress = undefined;
+        this.agentBridgeClientCount = 0;
         this.removeConsumer(bridge.id);
         refreshLogContext();
         void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
@@ -236,7 +247,16 @@ export class SerialPortTerminal extends SerialPortConsumer {
     this.agentBridge = undefined;
     this.agentBridgeAddress = undefined;
     this.agentBridgeReadonly = undefined;
+    this.agentBridgeClientCount = 0;
     this.removeConsumer(bridge.id);
+    refreshLogContext();
+  }
+
+  // 客户端计数（状态栏 · N）：仅刷新计数字段与状态栏；有意不写终端提示行——
+  // 提示行干扰终端内容本身（用户实测定夺）。refreshLogContext 按活动实例读取，
+  // 非活动终端的桥触发亦安全幂等。
+  private onBridgeClientCountChanged(count: number): void {
+    this.agentBridgeClientCount = count;
     refreshLogContext();
   }
 
@@ -250,6 +270,10 @@ export class SerialPortTerminal extends SerialPortConsumer {
 
   getAgentBridgeAddress(): string | undefined {
     return this.agentBridgeAddress;
+  }
+
+  getAgentBridgeClientCount(): number {
+    return this.agentBridgeClientCount;
   }
 
   private getAgentBridgeReadonly(): boolean {
@@ -367,13 +391,15 @@ export function getActiveSerialPortDevicePath(): string | undefined {
 
 let agentBridgeStatusBarItem: vscode.StatusBarItem | undefined;
 
-function updateAgentBridgeStatus(address: string | undefined, readonlyMode = false): void {
+function updateAgentBridgeStatus(address: string | undefined, readonlyMode = false, clientCount = 0): void {
   if (!agentBridgeStatusBarItem) {
     return;
   }
   if (address) {
     const suffix = readonlyMode ? ' (read-only)' : '';
-    agentBridgeStatusBarItem.text = `$(record) AgentBridge ${address}${suffix}`;
+    // 客户端计数仅在 ≥1 时显示（"0" 是常态噪音）；与地址一样跟随活动终端。
+    const clients = clientCount > 0 ? ` · ${clientCount}` : '';
+    agentBridgeStatusBarItem.text = `$(record) AgentBridge ${address}${suffix}${clients}`;
     agentBridgeStatusBarItem.tooltip = vscode.l10n.t('Agent Bridge: {0} (click to copy)', address);
     agentBridgeStatusBarItem.command = 'serialPortAgentBridge.copyAddress';
     agentBridgeStatusBarItem.show();
@@ -387,7 +413,7 @@ function updateLogContext(instance: SerialPortTerminal | undefined): void {
   void vscode.commands.executeCommand('setContext', CONTEXT_RECORDING, instance?.isRecording() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_PAUSED, instance?.isPaused() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_AGENT_BRIDGE, instance?.isBridgeActive() ?? false);
-  updateAgentBridgeStatus(instance?.getAgentBridgeAddress(), instance?.isAgentBridgeReadonly() ?? false);
+  updateAgentBridgeStatus(instance?.getAgentBridgeAddress(), instance?.isAgentBridgeReadonly() ?? false, instance?.getAgentBridgeClientCount() ?? 0);
 }
 
 function refreshLogContext(): void {
