@@ -7,12 +7,23 @@ import { SerialPortDeviceDetector } from './SerialPortDeviceDetector/SerialPortD
 import { SerialPortTerminal, registerSerialPortLogCommands } from './SerialPortConsumer/SerialPortTerminal/SerialPortTerminal';
 import { SerialPortConfigStore } from './SerialPortConfig/SerialPortConfigStore';
 import { SerialPortDeviceManagerTreeView } from './view/SerialPortDeviceManagerTreeView';
-import { SerialPortConsoleView, registerVirtualDeviceConsole } from './view/SerialPortConsoleView';
+import { registerVirtualDeviceConsole } from './view/SerialPortConsoleView';
 import { SerialPortMacroManager } from './SerialPortMacroSender/SerialPortMacroManager';
+
+// 与 package.json 中 serialPortConsole 视图的 when 守卫同名：设置开启（或测试构建）
+// 时显示虚拟设备控制台视图，关闭时整个隐藏。
+const CONTEXT_VIRTUAL_CONSOLE = 'serialPortTerminal.virtualConsoleActive';
 
 export function activate(context: vscode.ExtensionContext) {
   logBuildInfo();
-  const virtualHal = USE_VIRTUAL_HAL ? createVirtualHal() : undefined;
+  // VDC 生效门控：测试构建（build.js 产物注入 USE_VIRTUAL_HAL=true）恒开，保持
+  // F5 开发与集成测试现状；产品构建按设置——激活期一次性读取，修改后重启扩展
+  // 宿主或重启 VS Code 生效（有意不监听配置变更）。Restart Extension Host 不清空
+  // 窗口 context key，必须双向显式 setContext，防止上次会话的残留值。
+  const virtualEnabled = USE_VIRTUAL_HAL ||
+    vscode.workspace.getConfiguration('serialPortTerminal').get<boolean>('virtualConsole', false);
+  void vscode.commands.executeCommand('setContext', CONTEXT_VIRTUAL_CONSOLE, virtualEnabled);
+  const virtualHal = createVirtualHal(virtualEnabled);
   const hal = createSerialPortHal(virtualHal);
   const detector = new SerialPortDeviceDetector(hal, context);
   context.subscriptions.push(detector);

@@ -7,9 +7,9 @@ import * as path from 'node:path';
 // 四份语言资源键集两两对称——bundle en/zh、package.nls en/zh。漂移（一侧加键、
 // 另一侧漏加）在本守卫即时失败。直读仓库根的真实语言包（__dirname 上三级），
 // 零依赖无桩。
-// 注意：package.nls 须容忍"净化态"——npm run package 会在磁盘上临时剥除
-// console/testMode 六键（scripts/package.js 同步净化双 nls 并断言键存在），
-// 故 package.nls 只断言对称性与数量下限，存在性归打包脚本断言。
+// 注意：VDC 产品化（1.5.15）起清单不再净化——console/testMode/virtualConsole
+// 键随包常驻，package.nls 无"净化态"，两份文件恒为全量对称；清单 %key% 引用
+// 的存在性归 verify-release-manifest.js 断言。
 
 const repoRoot = path.join(__dirname, '..', '..', '..');
 
@@ -26,11 +26,11 @@ describe('语言包键集对称（l10n 守卫）', () => {
     assert.ok(en.length >= 90, `bundle keys look too small: ${en.length}`);
   });
 
-  it('#2 package.nls en/zh key sets are identical (sanitized state tolerated)', () => {
+  it('#2 package.nls en/zh key sets are identical', () => {
     const en = readKeys('package.nls.json');
     const zh = readKeys('package.nls.zh-cn.json');
     assert.deepEqual(en, zh);
-    // 35 = 净化态下限（剥除 console/testMode 六键后）；常规态为 41。
-    assert.ok(en.length >= 35, `package.nls keys look too small: ${en.length}`);
+    // 42 = 当前常规态键数（含 console/testMode 六键与 virtualConsole 描述键）。
+    assert.ok(en.length >= 42, `package.nls keys look too small: ${en.length}`);
   });
 });

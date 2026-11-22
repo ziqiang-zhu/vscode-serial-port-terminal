@@ -2,6 +2,12 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.15]
+
+### Added
+- Virtual Device Console productization: a new "Virtual Device Console" setting (off by default) enables the console; changes take effect after restarting the extension host or restarting VS Code - 4 VCOM- virtual devices (Echo / Linux / U-Boot / Replay) appear in the device tree, and the sidebar console can plug/unplug devices, inject data, adjust delay and backpressure, and replay log files; the console view is fully hidden while the setting is off
+- Virtual device parameter settings (testMode.*) are now shipped visibly: they only affect virtual devices and have no effect while virtual devices are not enabled
+
 ## [1.5.14]
 
 ### Added

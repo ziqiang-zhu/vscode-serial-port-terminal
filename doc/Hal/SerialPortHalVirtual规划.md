@@ -104,12 +104,12 @@ LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 - 文件名受 Windows 合法字符限制，含 `\ / : * ? " < > |` 的命令无法以文件覆盖，保留内置表应答；
 - Echo 无命令表、Replay 属日志型，均不适用本约定。
 
-## 5. 装配与选择（编译期）
+## 5. 装配与选择（编译期开关 + 运行期门控）
 
-- 开关常量（`src/hal/halSelection.ts` 的 `USE_VIRTUAL_HAL`）**源码字面量恒为 `false`**（发布就绪状态，永不手动修改）；测试构建的开关值由 `scripts/build.js` 在产物级注入（读环境变量替换产物字面量，断言恰好命中 1 处），运行期不存在切换，也不提供设置项；三种编译形态（产品 / 测试 / 单元测试）的配置方法见 [../编译指导.md](../编译指导.md)；
-- 本 HAL 仅用于测试模式：`vscode:prepublish` 以 `node scripts/verify-hal-selection.js` 为第二道前置（测试门禁之后），脚本校验源码中开关字面量为 `false`，未复位则非零退出、拒绝打包；
-- 测试构建下设备来源为**混排呈现**——`SerialPortHalComposite` 同时持有真实 HAL 与虚拟 HAL，`listDevices` 返回两者并集（真实在前、虚拟在后），`openPort` 按路径前缀路由（`VCOM-` 前缀走虚拟 HAL，其余路径透传真实 HAL）；真实串口命名（`COM*` / `tty*` / `dev/*`）与 `VCOM-` 前缀无冲突；产品构建（开关 `false`）为纯真实 HAL，`verify-hal-selection.js` 校验不受影响；
-- 产品化打包：发布 VSIX 不含虚拟设备控制台面板与 `testMode.*` 设置项（`scripts/package.js` 打包时净化清单 + `verify-release-manifest.js` 机械拦截未净化打包，见 [../编译指导.md](../编译指导.md) §4.3）；
+- 开关常量（`src/hal/halSelection.ts` 的 `USE_VIRTUAL_HAL`）**源码字面量恒为 `false`**（永不手动修改）；测试构建的开关值由 `scripts/build.js` 在产物级注入（读环境变量替换产物字面量，断言恰好命中 1 处）——该导出字面量的发射形态是注入锚点，不得改动；三种编译形态（产品 / 测试 / 单元测试）的配置方法见 [../编译指导.md](../编译指导.md)；
+- 源码字面量防手改：`vscode:prepublish` 以 `node scripts/verify-hal-selection.js` 为第二道前置（测试门禁之后），脚本校验源码中开关字面量为 `false`，未复位则非零退出、拒绝打包；
+- 测试构建下设备来源为**混排呈现**——`SerialPortHalComposite` 同时持有真实 HAL 与虚拟 HAL，`listDevices` 返回两者并集（真实在前、虚拟在后），`openPort` 按路径前缀路由（`VCOM-` 前缀走虚拟 HAL，其余路径透传真实 HAL）；真实串口命名（`COM*` / `tty*` / `dev/*`）与 `VCOM-` 前缀无冲突；
+- VDC 产品化（1.5.15）：控制台视图与 `testMode.*` 设置随包发布，产品构建由设置 `serialPortTerminal.virtualConsole` 门控（默认关；`extension.ts` 激活期一次性读取，修改后重启扩展宿主/VS Code 生效；测试构建恒开）——生效时混排呈现，否则纯真实 HAL；视图以 `when` 守卫（context key `serialPortTerminal.virtualConsoleActive`，激活期双向显式 setContext）在关闭时整体隐藏；`verify-release-manifest.js` 机械拦截清单漂移（断言存在性），见 [../编译指导.md](../编译指导.md) §4.3；
 - 生命周期语义与真实设备一致：断开、关闭终端面板、扩展停用均走上层统一销毁流程，虚拟句柄在 `close` 时停止回放与定时器。
 
 ## 6. 配置（草案）
@@ -122,7 +122,7 @@ LinuxShell 与 UBootShell 的命令应答支持文件覆盖：
 | `serialPortTerminal.testMode.responseDelay` | number | `0` | 命令应答延迟（ms），模拟真实设备的异步响应 |
 | `serialPortTerminal.testMode.interactionDir` | string | `""` | 交互型画像的应答根目录，约定见 §4.5 |
 
-配置项为草案，实现时定稿。虚拟 HAL 的启停由编译期开关决定（§5），不设运行期测试模式开关。
+配置项为草案，实现时定稿。虚拟 HAL 的**可用性**由生效门控决定（§5：测试构建恒开；产品构建按设置 `serialPortTerminal.virtualConsole`，重启扩展宿主/VS Code 生效），本表各参数仅作用于已启用的虚拟设备。
 
 ## 7. 关键机制
 
@@ -164,8 +164,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 - Webview ↔ 扩展主进程经 `postMessage` 通信，消息协议包含 `select` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `play` / `pause` / `stop` / `pickReplayFile` / `clearReplayFile` / `pickInteractionDir` / `inject` 与反向的 `state`（携带 `mode` 与全量设备快照）；文件与目录不走协议传值，由主进程弹出选择器并把结果写入 `testMode.*` 设置（见上表）；
 - `SerialPortHalVirtual` 在 `SerialPortHal` 契约之外暴露**控制面 API**（`inject` / `setOnline` / `setBackpressure` / `setDelay` / `setRate` / `setLoop` / `setReplayFile` / `play` / `pause` / `stop` / `setInteractionDir`），仅控制台使用，不影响 HAL 契约本身；
 - 控制台快照 `connected` 取自门面存活句柄引用：句柄 `close` 时经回调清空引用（引用比对防双开后关闭旧句柄误清新句柄），重开即恢复；
-- 控制台随编译期开关进入构建：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；生产构建的页面渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分），控制面逻辑不生效。界面文案集中在宿主侧经 `l10n.t` 定值后注入模板（webview 内无 l10n 运行时），双语键见 `l10n/bundle.*.json`；
-- 控制台快照 `connected` 取自门面存活句柄引用：句柄 `close` 时经回调清空引用（引用比对防双开后关闭旧句柄误清新句柄），重开即恢复；
+- 控制台的进入构建与可见性（VDC 产品化，1.5.15）：**视图在 package.json 静态声明且两种构建均注册提供器**（WebviewView 无动态注册机制——声明后不注册会向用户显示错误占位页）；可见性由 `when: serialPortTerminal.virtualConsoleActive` 守卫——测试构建恒开，产品构建按设置 `serialPortTerminal.virtualConsole`（默认关，激活期一次性读取，修改后重启扩展宿主/VS Code 生效），关闭时视图整体隐藏；提供器收到的 `virtualHal` 为 undefined 时渲染「虚拟设备控制台仅在测试构建可用」占位（经消息下发 `mode` 区分）——when 守卫下该占位不可达，仅作守卫失效时的防线冗余。界面文案集中在宿主侧经 `l10n.t` 定值后注入模板（webview 内无 l10n 运行时），双语键见 `l10n/bundle.*.json`；
 
 ## 9. 不做范围
 
@@ -180,6 +179,7 @@ handle.write(data) → responseDelay 延迟 → 画像处理 → emit onData(输
 - **P2**（实施拆分见 §10.3）：Replay 画像（文件回放、行/秒速率、循环）；
 - **P3**：虚拟设备控制台（WebviewView：设备下拉、状态按钮、精确数值输入、文件入口、数据注入）+ 背压模拟；
 - **P4**（实施拆分见 §10.5）：U-Boot → Linux 开机链路（自动开机倒计时、`boot` 切换会话）+ 混排路由（真实与虚拟设备共存）；
+- **P5**：VDC 产品化（1.5.15）——设置 `serialPortTerminal.virtualConsole` 门控（默认关、重启扩展宿主/VS Code 生效、测试构建恒开）、视图 `when` 守卫隐藏、清单净化取消（`verify-release-manifest` 断言存在性）；
 
 ### 10.1 P0 实施拆分
 

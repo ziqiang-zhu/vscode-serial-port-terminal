@@ -13,9 +13,13 @@ import { SerialPortHalVirtual } from './SerialPortHalVirtual/SerialPortHalVirtua
 // （产品 / 测试 / 单元测试）见 doc/编译指导.md。
 export const USE_VIRTUAL_HAL = false;
 
-// 测试构建：构造虚拟 HAL（画像 + per-profile 运行态）；生产构建：undefined（真实 HAL）。
-export function createVirtualHal(): SerialPortHalVirtual | undefined {
-  if (!USE_VIRTUAL_HAL) {
+// 构造虚拟 HAL（画像 + per-profile 运行态）；enabled 为 false 时返回 undefined（真实 HAL）。
+// 生效门控在调用方（extension.ts）：enabled = USE_VIRTUAL_HAL（编译期测试开关，测试构建
+// 由 build.js 产物注入 true）|| 用户设置 virtualConsole（产品构建，激活期一次性读取，
+// 修改后重启扩展宿主/VS Code 生效）。本函数不再读 USE_VIRTUAL_HAL——导出字面量的
+// 发射形态是 build.js 产物注入的锚点，必须原样保留。
+export function createVirtualHal(enabled: boolean): SerialPortHalVirtual | undefined {
+  if (!enabled) {
     return undefined;
   }
   const delayMs = readResponseDelay();

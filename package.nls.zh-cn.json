@@ -39,5 +39,6 @@
   "serialPortTerminal.testMode.replayFile.description": "由 VCOM-REPLAY 虚拟设备回放的纯文本日志文件（产品测试模式）。",
   "serialPortTerminal.testMode.replayRate.description": "回放速率（行/秒）（产品测试模式）。",
   "serialPortTerminal.testMode.replayLoop.description": "回放文件播放到末尾后是否循环（产品测试模式）。",
-  "serialPortTerminal.testMode.interactionDir.description": "交互型虚拟终端的应答根目录：linux/ 与 uboot/ 子目录存放按命令命名的 .txt 应答（产品测试模式）。"
+  "serialPortTerminal.testMode.interactionDir.description": "交互型虚拟终端的应答根目录：linux/ 与 uboot/ 子目录存放按命令命名的 .txt 应答（产品测试模式）。",
+  "serialPortTerminal.virtualConsole.description": "启用虚拟设备控制台及其管控的虚拟串口设备（VCOM- 前缀）；修改后需重启扩展宿主或重启 VS Code 生效。"
 }

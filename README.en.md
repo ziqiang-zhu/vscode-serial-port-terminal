@@ -35,6 +35,7 @@
 - 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
 - 🤖 **AgentBridge (AI interaction)** — one-click in the terminal title bar bridges the serial port to a local TCP port so AI agents can read/write the embedded Linux terminal (multi-client, ANSI-stripped line-buffered forwarding, persistent status-bar port, click to copy), see below
+- 🧪 **Virtual devices (optional)** — once "Virtual Device Console" is enabled in settings (off by default; takes effect after restarting the extension host or VS Code), 4 VCOM- virtual devices (Echo / Linux / U-Boot / Replay) appear in the device tree; the sidebar console can plug/unplug devices, inject data, adjust delay and backpressure, and replay log files
 - 🌐 **Localization** — English / Simplified Chinese
 
 ## 🤖 AgentBridge — a debugging channel with your AI
@@ -157,6 +158,12 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 | `serialPortTerminal.agentBridge.host` | `127.0.0.1` | Agent Bridge listening address (localhost only by default) |
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Candidate ports for Agent Bridge (picker shown when starting, a single value is used directly) |
 | `serialPortTerminal.agentBridge.readonly` | `false` | Read-only mode: clients cannot send data to the device through Agent Bridge (sent bytes are discarded); changes take effect the next time Agent Bridge starts |
+| `serialPortTerminal.virtualConsole` | `false` | Enable the Virtual Device Console and the VCOM- virtual devices; takes effect after restarting the extension host or restarting VS Code |
+| `serialPortTerminal.testMode.responseDelay` | `0` | Virtual device response delay (ms) |
+| `serialPortTerminal.testMode.replayFile` | empty | Plain-text log file replayed by VCOM-REPLAY |
+| `serialPortTerminal.testMode.replayRate` | `100` | Replay rate (lines per second) |
+| `serialPortTerminal.testMode.replayLoop` | `false` | Loop the replay after reaching the end |
+| `serialPortTerminal.testMode.interactionDir` | empty | Response directory root for the interactive virtual shells (`linux/` and `uboot/` subfolders hold per-command .txt answers) |
 
 ## 📦 Installation
 

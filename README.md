@@ -35,6 +35,7 @@
 - 💾 **日志保存** —— 终端标题栏提供「保存/暂停/停止」按钮，有数据才建文件，文件名精确到秒，剥离 ANSI 转义序列（颜色码等）、可选每行时间戳，停止时提示保存路径；可选快捷键 `Ctrl+S`（开始/停止，默认关闭）
 - 📂 **打开日志目录** —— 设备列表标题栏一键在系统文件管理器中打开日志目录
 - 🤖 **AgentBridge（AI 交互）** —— 终端标题栏一键把串口桥接为本机 TCP 端口，让 AI Agent 读写嵌入式 Linux 终端（多客户端、去 ANSI 行缓冲转发、状态栏常驻端口、点击复制），详见下文
+- 🧪 **虚拟设备（可选）** —— 设置开启「虚拟设备控制台」后（默认关闭，重启扩展宿主或 VS Code 生效），设备树出现 4 台 VCOM- 虚拟设备（Echo / Linux / U-Boot / 回放），侧边栏控制台可拔插设备、注入数据、调延迟与背压、回放日志文件
 - 🌐 **本地化** —— 支持英文 / 简体中文
 
 ## 🤖 AgentBridge——与 AI 协同的调试通道
@@ -157,6 +158,12 @@
 | `serialPortTerminal.agentBridge.host` | `127.0.0.1` | Agent Bridge 监听地址（默认仅本机） |
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Agent Bridge 候选端口列表（启动时下拉选择，单值直接使用） |
 | `serialPortTerminal.agentBridge.readonly` | `false` | 只读模式：禁止客户端通过 Agent Bridge 向设备发送数据（发送的字节被丢弃）；修改后重新开启 Agent Bridge 生效 |
+| `serialPortTerminal.virtualConsole` | `false` | 启用虚拟设备控制台与 VCOM- 虚拟设备；修改后重启扩展宿主或重启 VS Code 生效 |
+| `serialPortTerminal.testMode.responseDelay` | `0` | 虚拟设备应答延迟（毫秒） |
+| `serialPortTerminal.testMode.replayFile` | 空 | VCOM-REPLAY 回放的纯文本日志文件 |
+| `serialPortTerminal.testMode.replayRate` | `100` | 回放速率（行/秒） |
+| `serialPortTerminal.testMode.replayLoop` | `false` | 回放到末尾后是否循环 |
+| `serialPortTerminal.testMode.interactionDir` | 空 | 交互型虚拟终端应答根目录（`linux/`、`uboot/` 子目录按命令存放 .txt 应答） |
 
 ## 📦 安装
 
