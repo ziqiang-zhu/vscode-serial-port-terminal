@@ -5,7 +5,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
 import { SerialPortLogRecorder } from '../SerialPortLogRecorder/SerialPortLogRecorder';
-import { SerialPortAgentBridge } from '../SerialPortAgentBridge/SerialPortAgentBridge';
+import { SerialPortAgentBridge, AgentBridgeCancelledError } from '../SerialPortAgentBridge/SerialPortAgentBridge';
 
 const CONTEXT_FOCUS = 'serialPortTerminal.focus';
 const CONTEXT_RECORDING = 'serialPortTerminal.recording';
@@ -211,6 +211,11 @@ export class SerialPortTerminal extends SerialPortConsumer {
           vscode.l10n.t('Agent Bridge: {0}', `${address.host}:${address.port}${suffix}`)
         );
       } catch (error) {
+        if (error instanceof AgentBridgeCancelledError) {
+          // 启动挂起被取消（启动期间点了停止 / 断开收尾）：清理已由取消方
+          // （stopBridge / onClosed）完成，静默返回。
+          return;
+        }
         this.agentBridge = undefined;
         this.agentBridgeReadonly = undefined;
         this.agentBridgeAddress = undefined;

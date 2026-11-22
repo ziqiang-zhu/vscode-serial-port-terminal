@@ -40,11 +40,14 @@ class SerialPortAgentBridge extends SerialPortConsumer {
   readonly displayName = 'Serial Port Agent Bridge';
 
   constructor(host: string, port: number, readonlyMode = false, stripAnsi = true);
-  listen(): Promise<{ host: string; port: number }>;  // 启动监听；端口占用则 reject
+  listen(): Promise<{ host: string; port: number }>;  // 启动监听；端口占用 reject（透传底层错误），
+                                                      // listening 送达前被关闭则 reject 取消
+                                                      // （AgentBridgeCancelledError，见 §5）
   isReadonly(): boolean;        // 只读模式标记
   isStripAnsi(): boolean;       // ANSI 剥离开关标记
   onData(data: Buffer): void;   // 剥离模式：剥离 ANSI 后广播；透传模式：原样广播
-  onClosed(): void;             // 关闭全部 socket 与 server（幂等）
+  onClosed(): void;             // 关闭全部 socket 与 server（幂等；无条件 close 触发
+                                // 'close' 事件——listen 的取消路径依赖它）
 }
 ```
 
@@ -67,7 +70,10 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 客户端断开 → socket 从集合移除（server 继续监听）
 
 按钮「停止 Agent Bridge」→ Terminal.stopBridge() → host.removeConsumer(id) → onClosed 清理
-串口断开 / 设备拔除 / 关闭终端面板 → Connection.close → consumers.onClosed → 桥清理
+    → listen 挂起（onClosed 发生在 listening 送达前）：经 server 'close' 事件 reject 取消
+      （AgentBridgeCancelledError），startBridge 的 catch 对取消静默——清理已由本路径完成，
+      无永久挂起的 promise、无实例泄漏
+串口断开 / 设备拔除 / 关闭终端面板 → Connection.close → consumers.onClosed → 桥清理（同上取消路径）
 ```
 
 ## 6. 数据流

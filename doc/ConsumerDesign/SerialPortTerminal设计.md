@@ -63,7 +63,7 @@ SerialPortTerminal 托管 SerialPortAgentBridge 的生命周期，详见 [Serial
 
 - 终端面板标题栏提供「开启 / 停止 Agent Bridge」按钮（`view/title` + `when: view == terminal`，图标 `$(broadcast)` / `$(record)`，context key 驱动显隐）；
 - 命令 `serialPortAgentBridge.start / stop` 经 `activeTerminal` 定位到本 Terminal 实例，调用 `startBridge() / stopBridge()`；
-- `startBridge()` 读取 `agentBridge.ports` 配置（QuickPick 选端口，单值跳过）、创建 AgentBridge 并经 `host.addConsumer` 注册、回显 `host:port`；选端口窗口带重入守卫（`bridgeStarting`，QuickPick 挂起期间二次调用静默返回，防双桥竞态；listen 窗口由 `agentBridge` 置位后的空守卫拦截）；`stopBridge()` 注销并销毁；断开时随 Connection 自动收尾。
+- `startBridge()` 读取 `agentBridge.ports` 配置（QuickPick 选端口，单值跳过）、创建 AgentBridge 并经 `host.addConsumer` 注册、回显 `host:port`；选端口窗口带重入守卫（`bridgeStarting`，QuickPick 挂起期间二次调用静默返回，防双桥竞态；listen 窗口由 `agentBridge` 置位后的空守卫拦截）；listen 挂起被取消（启动期间点了停止 / 断开收尾，`AgentBridgeCancelledError`）时静默返回——清理已由取消方完成；其余失败回滚注册并提示；`stopBridge()` 注销并销毁；断开时随 Connection 自动收尾。
 
 ## 4. 生命周期
 

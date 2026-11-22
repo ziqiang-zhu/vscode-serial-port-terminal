@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.11]
+
+### Improved
+- AgentBridge robustness: clicking stop or the disconnect cleanup during bridge startup no longer leaves the start flow pending forever - the pending listen is cancelled via the server close event and returns silently, with no instance leaks
+
 ## [1.5.10]
 
 ### Improved

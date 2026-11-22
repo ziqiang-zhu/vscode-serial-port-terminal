@@ -10,6 +10,10 @@ export interface AgentBridgeAddress {
   port: number;
 }
 
+// 启动挂起被取消的专属错误类型（listening 送达前 server 已被关闭——启动期间点了
+// 停止 / 断开收尾）：startBridge 的 catch 据此静默返回，与端口占用等真实失败区分。
+export class AgentBridgeCancelledError extends Error {}
+
 export class SerialPortAgentBridge extends SerialPortConsumer {
   readonly id = 'serialPortAgentBridge';
   readonly displayName = 'Serial Port Agent Bridge';
@@ -48,18 +52,34 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
 
   listen(): Promise<AgentBridgeAddress> {
     return new Promise((resolve, reject) => {
-      const onError = (error: Error) => {
+      let settled = false;
+      const cleanup = () => {
+        settled = true;
+        this.server.removeListener('error', onError);
         this.server.removeListener('listening', onListening);
+        this.server.removeListener('close', onClose);
+      };
+      const onError = (error: Error) => {
+        cleanup();
         reject(error);
       };
       const onListening = () => {
-        this.server.removeListener('error', onError);
+        cleanup();
         const address = this.server.address();
         const actualPort = typeof address === 'object' && address ? address.port : this.port;
         resolve({ host: this.bindHost, port: actualPort });
       };
+      // server 在 listening 送达前被关闭（启动期间点了停止 / 断开收尾）：取消挂起
+      // 并 reject 取消错误——否则 promise 永久 pending，实例泄漏。
+      const onClose = () => {
+        if (!settled) {
+          cleanup();
+          reject(new AgentBridgeCancelledError());
+        }
+      };
       this.server.once('error', onError);
       this.server.once('listening', onListening);
+      this.server.once('close', onClose);
       this.server.listen(this.port, this.bindHost);
     });
   }
@@ -88,8 +108,13 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
       socket.destroy();
     }
     this.sockets.clear();
-    if (this.server.listening) {
+    // 无条件 close（listening 窗口的早边缘也不跳过）：'close' 事件是 listen 挂起
+    // 的取消信号；显式端口的句柄在 listen() 调用时已同步建立，close 总是有效，
+    // 极早窗口的抛错防御性吞掉。
+    try {
       this.server.close();
+    } catch {
+      // ignore
     }
   }
 
