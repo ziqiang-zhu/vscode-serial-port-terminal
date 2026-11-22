@@ -303,7 +303,11 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     if (!name) {
       return;
     }
-    this.configStore.rename(device.identity, quickConfig.id, name);
+    try {
+      this.configStore.rename(device.identity, quickConfig.id, name);
+    } catch (error) {
+      vscode.window.showErrorMessage(error instanceof Error ? error.message : `${error}`);
+    }
   }
 
   private async removeQuickConfig(item: SerialPortQuickConfigTreeItem): Promise<void> {

@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.7]
+
+### Improved
+- UI robustness: renaming a quick config now catches validation errors from the config store and shows an error message instead of failing silently
+
 ## [1.5.6]
 
 ### Improved

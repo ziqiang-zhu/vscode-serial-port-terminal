@@ -82,6 +82,8 @@ connecting 态不匹配任何连接 / 断开按钮（用于禁用连接操作）
 | `serialPortQuickConfig.rename` | `configStore.rename(identity, id, name)` |
 | `serialPortQuickConfig.remove` | `configStore.remove(identity, id)` |
 
+变更类命令（add / attach / rename）一律捕获 Store 的权威校验异常并 `showErrorMessage`（错误消息取自 Store 的本地化文案），命令回调不产生未处理 rejection；`remove` 设计上不抛（未知 id 自然 no-op）。
+
 命令 id 中的 "refresh" 是 UI 层词汇（用户语义），Detector 的动作语义是"扫描"，翻译发生在命令回调中。
 
 ## 5. 与服务的配合
