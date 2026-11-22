@@ -48,6 +48,9 @@ const l10n = {
   },
 };
 
+// 配置变更监听捕获（workspace.onDidChangeConfiguration 注册的 listener）。
+const configurationChangeListeners = [];
+
 const workspace = {
   _configuration: new Map(),
   getConfiguration() {
@@ -57,9 +60,16 @@ const workspace = {
       },
     };
   },
-  // Detector 构造器注册配置监听：桩返回一次性 Disposable 即可（单测不触发配置变更）。
-  onDidChangeConfiguration() {
-    return new Disposable(() => {});
+  // 配置监听捕获：A8 粒度用例经 __fireConfigurationChange(sections) 模拟一次变更，
+  // listener 收到的事件以 affectsConfiguration(section) 按传入节名数组判定。
+  onDidChangeConfiguration(listener) {
+    configurationChangeListeners.push(listener);
+    return new Disposable(() => {
+      const index = configurationChangeListeners.indexOf(listener);
+      if (index >= 0) {
+        configurationChangeListeners.splice(index, 1);
+      }
+    });
   },
 };
 
@@ -99,6 +109,13 @@ const vscodeStub = {
   // 测试专用钩子（非 vscode API）：读取已记录的信息提示副本。
   __shownInfoMessages() {
     return [...shownInfoMessages];
+  },
+  // 测试专用钩子（非 vscode API）：模拟一次配置变更——listener 的
+  // affectsConfiguration(section) 按传入节名数组判定。
+  __fireConfigurationChange(sections) {
+    for (const listener of [...configurationChangeListeners]) {
+      listener({ affectsConfiguration: section => sections.includes(section) });
+    }
   },
 };
 

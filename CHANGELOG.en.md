@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.8]
+
+### Improved
+- Scan robustness: the configuration listener now reacts only to polling-related setting changes (polling interval / hot-plug switch); unrelated setting changes no longer restart the scan timer
+
 ## [1.5.7]
 
 ### Improved

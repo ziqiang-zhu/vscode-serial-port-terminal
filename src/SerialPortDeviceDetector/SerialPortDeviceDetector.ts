@@ -23,7 +23,13 @@ export class SerialPortDeviceDetector implements vscode.Disposable {
   ) {
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(event => {
-        if (event.affectsConfiguration('serialPortTerminal') && this.active) {
+        // 仅轮询相关设置变更才重启：粒度收窄到 pollingInterval / hotPlugEnabled，
+        // 其余 serialPortTerminal.* 变更（agentBridge / log* 等）不打断现行节拍。
+        if (
+          this.active &&
+          (event.affectsConfiguration('serialPortTerminal.pollingInterval') ||
+            event.affectsConfiguration('serialPortTerminal.hotPlugEnabled'))
+        ) {
           this.start();
         }
       })
