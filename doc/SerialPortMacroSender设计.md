@@ -96,6 +96,7 @@ interface SerialPortMacro {
 | 位置 | `context.globalState`（Memento） |
 | 键 | `serialPortMacros` |
 | 结构 | `SerialPortMacro[]`，每项 `{ "label": string, "data": string }` |
+| 形状守卫 | 读取经 `sanitizeMacros` 过滤：仅接受 `label` / `data` 均为 string 的条目，其余静默过滤（**非破坏式**——不从存储清除未知形状，未来版本可能识别）；防脏数据下整视图渲染崩溃与发送抛错 |
 | 读写 | 由 `SerialPortMacroManager` 统一读写，不暴露给 settings |
 
 ## 9. 组件结构

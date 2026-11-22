@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SerialPortConnectionService } from '../SerialPortConnection/SerialPortConnectionService';
 import { getActiveSerialPortDevicePath } from '../SerialPortConsumer/SerialPortTerminal/SerialPortTerminal';
-import { SerialPortMacro } from './SerialPortMacro';
+import { SerialPortMacro, sanitizeMacros } from './SerialPortMacro';
 import { SerialPortMacroTreeItem } from './SerialPortMacroTreeItem';
 
 const STORAGE_KEY = 'serialPortMacros';
@@ -109,7 +109,7 @@ export class SerialPortMacroManager implements vscode.TreeDataProvider<SerialPor
   }
 
   private readMacros(): SerialPortMacro[] {
-    return this.storage.get<SerialPortMacro[]>(STORAGE_KEY, []);
+    return sanitizeMacros(this.storage.get<unknown>(STORAGE_KEY, []));
   }
 
   private saveMacros(macros: SerialPortMacro[]): void {

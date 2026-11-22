@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.5.10]
+
+### Improved
+- UI robustness: macros are now shape-validated when read from storage (non-destructive filtering, keeping only entries whose label and data are text), so corrupted data no longer breaks the macros view or macro sending
+
 ## [1.5.9]
 
 ### Improved
