@@ -1,6 +1,9 @@
 # Serial Port Terminal
 
-一个 VS Code 串口终端插件：可以在侧边栏管理串口设备，选择设备，可一键连接，在终端面板与设备交互；还能一键把串口终端桥接为本机 TCP 端口，让 AI Agent 直接在端口上操作设备终端。
+**本拓展是一个面向嵌入式系统调试（Debug）与自动化测试的 VS Code 串口终端插件**。
+
+- 在侧边栏管理串口设备，可一键连接为串口终端，提供与嵌入式系统终端交互的能力；
+- **AgentBridge** 提供一键把串口终端桥接为本机 TCP 端口的能力，可以让 AI Agent 像普通用户一样直接访问终端，用户与 AI 共享同一块终端屏幕：AI 的每一步操作实时可见、可保存日志、随时可人工接管。
 
 <table width="100%"><tr><td>🇬🇧 <a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/README.en.md">English</a></td><td align="right"><a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/doc/总览.md">📚 文档总览</a></td></tr></table>
 
@@ -31,13 +34,58 @@
 - 🏷️ **终端标题带配置名** —— 显示设备路径 + 配置名（或波特率）
 - 💾 **日志保存** —— 终端标题栏提供「保存/暂停/停止」按钮，有数据才建文件，文件名精确到秒，剥离 ANSI 转义序列（颜色码等）、可选每行时间戳，停止时提示保存路径；可选快捷键 `Ctrl+S`（开始/停止，默认关闭）
 - 📂 **打开日志目录** —— 设备列表标题栏一键在系统文件管理器中打开日志目录
-- 🤖 **AgentBridge（AI 交互）** —— 终端标题栏一键把串口桥接为本机 TCP 端口，让 AI Agent 读写嵌入式 Linux 终端（多客户端、去 ANSI 行缓冲转发、状态栏常驻端口、点击复制）
+- 🤖 **AgentBridge（AI 交互）** —— 终端标题栏一键把串口桥接为本机 TCP 端口，让 AI Agent 读写嵌入式 Linux 终端（多客户端、去 ANSI 行缓冲转发、状态栏常驻端口、点击复制），详见下文
 - 🌐 **本地化** —— 支持英文 / 简体中文
 
-## 📦 安装
+## 🤖 AgentBridge——与 AI 协同的调试通道
 
-1. 在 VS Code Marketplace 搜索 **Serial Port Terminal** 安装；或
-2. 下载 `.vsix` 后，通过「扩展 → ... → 从 VSIX 安装」安装。
+一键把当前串口终端桥接为本机 TCP 端口，AI Agent 经此像普通用户操作终端一样访问嵌入式设备。
+
+**🔁 人机共享同一块终端，AI 操作实时可见**
+
+- Agent 键入的命令经设备回显实时出现在串口终端面板上（需要嵌入式 shell 开启回显，一般默认开启），设备的每行应答你与 Agent 同步可见；
+- AI 干了什么、设备回了什么，全程可见，用户可随时直接在终端接管键盘，把调试拉回手动。
+
+**💾 像保存普通日志一样保存 AI 的操作**
+
+- 桥接期间照常点击「保存日志」：AI 下发的命令经设备回显，与全部设备应答一并写入日志文件；
+- 事后即可完整回溯 AI 的每一步操作，适合调试报告、问题复盘与操作审计。
+
+**🧩 配套 Skill**
+
+- 连接 / 嵌入式 Linux / U-Boot 三套开箱即用的技能让 Agent 快速上手（详见下节）；
+- 启动 AgentBridge 后，复制以下提示词发送给 AI Agent，可以自行下载并安装技能、连接设备、执行命令：
+
+```text
+1. 从 https://github.com/ziqiang-zhu/agent-bridge-skills 获取三份 Skill，
+   （agent-bridge-connection / agent-bridge-embedded-linux / agent-bridge-embedded-uboot），
+   按其中"安装"小节把它们安装到你的技能目录；
+2. 通过 TCP 连接 127.0.0.1:2000（这是本机串口终端的 AgentBridge 端口）；
+3. 连接后先读取设备状态，等待我的进一步指令。
+```
+
+**使用方式**：
+
+1. 连接设备后，点击终端面板标题栏右上角的 <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/broadcast.png" width="18" alt="broadcast 图标"> 按钮，即可在当前连接上开启 Agent Bridge；
+2. 状态栏与通知显示监听地址（如 `127.0.0.1:2000`，点击状态栏可复制），把它交给 AI Agent；
+3. Agent 通过 TCP 连接该地址，即可实时收发串口数据（可多客户端并发、已剥离 ANSI 转义序列）；
+4. 停止桥接：点击同一位置的 <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/record.png" width="18" alt="record 图标"> 按钮即可关闭 Agent Bridge，断开串口连接也会自动关闭。
+
+> 🔒 默认仅监听 `127.0.0.1`（本机），不暴露到局域网；端口与监听地址可在设置中配置。
+> 📝 转发给 AI Agent 的字符流已剥离 ANSI 转义序列（颜色码等控制字符），客户端无需自行处理。
+> 👁️ **只读监听**：设置 `serialPortTerminal.agentBridge.readonly` 可禁止客户端向设备发送数据（发送的字节被丢弃），修改后重新开启 Agent Bridge 生效——适合仅需观察设备输出的安全场景。
+
+## 🧩 Agent Skills
+
+配套技能帮助 AI Agent 开箱即用地使用 AgentBridge（连接 / 嵌入式 Linux 操作 / U-Boot 操作）：
+
+- 仓库：<https://github.com/ziqiang-zhu/agent-bridge-skills>
+- 内容：
+  - `agent-bridge-connection` —— 连接 AgentBridge、执行命令与读取输出的基础；
+  - `agent-bridge-embedded-linux` —— 设备进入 Linux shell 后的常用操作；
+  - `agent-bridge-embedded-uboot` —— 设备停在 U-Boot 终端时的常用操作。
+
+安装方式见上一节的提示词：复制给 AI Agent 即可自动完成安装与连接；你也可以手动下载这些技能到 AI 工具的 skills 目录，或参照它们编写适配自己设备的技能。
 
 ## 🚀 使用方法
 
@@ -47,32 +95,7 @@
 4. 自动弹出终端面板 —— 设备数据实时显示，键入内容后回车发送
 5. 断开：点击设备条目上的「断开」，或直接关闭终端面板
 6. 日志：在终端面板标题栏点击「保存」开始记录，可暂停 / 继续 / 停止，可配置使用快捷键开始与停止
-7. Agent 交互：连接后在终端标题栏点击 `$(broadcast)` 开启桥接，把状态栏显示的地址交给 AI Agent 即可接入
-
-## 🤖 Agent 交互（AgentBridge）
-
-一键把当前串口桥接为本机 TCP 端口，让 AI Agent 像操作终端一样读写嵌入式 Linux 设备：
-
-1. 在终端面板标题栏点击 `$(broadcast)` 开启 Agent Bridge；
-2. 状态栏与提示会显示监听地址（如 `127.0.0.1:2000`，点击状态栏可复制）；
-3. AI Agent 用 TCP 连接该地址，实时收发设备串口数据（多客户端、去 ANSI 的字节透传）；
-4. 点击 `$(record)` 停止 Agent Bridge，结束桥接。
-
-> 🔒 默认仅监听 `127.0.0.1`（本机），不暴露到局域网；端口与监听地址可在设置中配置。
-> 📝 转发给 AI Agent 的字符流已剥离 ANSI 转义序列（颜色码等控制字符），客户端无需自行处理。
-> 👁️ **只读监听**：设置 `serialPortTerminal.agentBridge.readonly` 可禁止客户端向设备发送数据（发送的字节被丢弃），修改后重新开启 Agent Bridge 生效——适合仅需观察设备输出的安全场景。
-
-## 🧩 Agent Skills
-
-为了让 AI Agent 开箱即用地使用 AgentBridge，本插件提供了配套 Skill（连接 / 嵌入式 Linux 操作 / U-Boot 操作）：
-
-- 仓库：<https://github.com/ziqiang-zhu/agent-bridge-skills>
-- 内容：
-  - `agent-bridge-connection` —— 连接 AgentBridge、执行命令与读取输出的基础；
-  - `agent-bridge-embedded-linux` —— 设备进入 Linux shell 后的常用操作；
-  - `agent-bridge-embedded-uboot` —— 设备停在 U-Boot 终端时的常用操作。
-
-你可以下载这些 Skill 到 AI 工具的 skills 目录直接使用，也可参照它们自行编写适配自己设备的 Skill。
+7. Agent 协同：一键桥接后把监听地址交给 AI Agent 即可，详见上文「AgentBridge」章节
 
 ## ⌨️ 命令
 
@@ -134,11 +157,10 @@
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Agent Bridge 候选端口列表（启动时下拉选择，单值直接使用） |
 | `serialPortTerminal.agentBridge.readonly` | `false` | 只读模式：禁止客户端通过 Agent Bridge 向设备发送数据（发送的字节被丢弃）；修改后重新开启 Agent Bridge 生效 |
 
-## 🗺️ 待开发计划
+## 📦 安装
 
-- 输入增强：行尾符配置（CR / LF / CRLF，当前固定 CR）
-- Parser 与字符转义（分帧、不可见字符可视化）
-- 日志编码配置（当前固定 UTF-8）
+1. 在 VS Code Marketplace 搜索 **Serial Port Terminal** 安装；或
+2. 下载 `.vsix` 后，通过「扩展 → ... → 从 VSIX 安装」安装。
 
 ## 🛠️ 开发
 
