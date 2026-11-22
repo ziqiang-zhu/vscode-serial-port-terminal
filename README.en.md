@@ -40,7 +40,7 @@
 
 ## 🤖 AgentBridge — a debugging channel with your AI
 
-Bridge the current serial terminal to a local TCP port with one click so an AI agent can access the embedded device like a regular user.
+Bridge the current serial terminal to a local TCP port with one click so an AI agent can access the embedded device like a regular user. Companion skills and an MCP server make agent access easy: skills are handy for sending commands, but reading logs on their own relies on grabbing a time window and can lose output; the MCP server adds a log ring-buffer mechanism, ensuring no logs are lost as long as they fit the buffer.
 
 **🔁 One shared terminal — AI actions visible in real time**
 
@@ -55,7 +55,7 @@ Bridge the current serial terminal to a local TCP port with one click so an AI a
 
 **🧩 Companion skills**
 
-- Three out-of-the-box skills (connection / embedded Linux / U-Boot) get the agent productive fast (see the next section);
+- Three out-of-the-box skills (connection / embedded Linux / U-Boot) get the agent productive fast;
 - After starting AgentBridge, copy the prompt below and send it to your AI agent — it will download and install the skills, connect to the device and run commands on its own:
 
 ```text
@@ -64,6 +64,20 @@ Bridge the current serial terminal to a local TCP port with one click so an AI a
    and install them into your skills directory following their "Installation" sections;
 2. Connect over TCP to 127.0.0.1:2000 (the AgentBridge port of my serial terminal);
 3. After connecting, read the device state first and wait for further instructions.
+```
+
+**🧩 Companion MCP server**
+
+- Companion MCP server [agent-bridge-mcp](https://github.com/ziqiang-zhu/agent-bridge-mcp): exposes AgentBridge to MCP-capable AI hosts (VS Code / Claude Desktop / Cursor, etc.) as MCP tools (`status` / `read_output` / `send_line`) — a persistent subscriber plus a cursor-based buffer lets the agent catch up on device logs **without loss** via the cursor after a disconnect (output emitted while a plain TCP client is offline is simply lost); a `--readonly` flag declares read-only mode;
+- After starting AgentBridge, copy the prompt below and send it to your AI agent — it will install the MCP server and verify the connection on its own:
+
+```text
+1. Fetch the README from https://github.com/ziqiang-zhu/agent-bridge-mcp (an agent-facing
+   operations manual) and install this MCP server into your host following its "Installation"
+   section (before installing, ask me for the device name and the log buffer size);
+2. After the host reloads, call the status tool to verify — connected: true means the
+   installation is complete; if it fails, troubleshoot as described in step 3 of the manual;
+3. Wait for further instructions.
 ```
 
 **How to use**:
@@ -76,18 +90,6 @@ Bridge the current serial terminal to a local TCP port with one click so an AI a
 > 🔒 By default it listens on `127.0.0.1` (localhost only) and is not exposed to the network; the port and address are configurable.
 > 📝 The character stream forwarded to AI agents has ANSI escape sequences (color codes and other control characters) stripped, so clients don't need to handle them.
 > 👁️ **Read-only listening**: the `serialPortTerminal.agentBridge.readonly` setting blocks clients from sending data to the device (sent bytes are discarded); changes take effect the next time Agent Bridge starts — ideal for safe observe-only scenarios.
-
-## 🧩 Agent Skills
-
-Ready-made skills help AI agents use AgentBridge out of the box (connection / embedded Linux operations / U-Boot operations):
-
-- Repo: <https://github.com/ziqiang-zhu/agent-bridge-skills>
-- Contents:
-  - `agent-bridge-connection` — basics for connecting to AgentBridge, running commands and reading output;
-  - `agent-bridge-embedded-linux` — common operations once the device reaches a Linux shell;
-  - `agent-bridge-embedded-uboot` — common operations while the device is at the U-Boot prompt.
-
-For installation, use the copyable prompt in the previous section — hand it to your AI agent and it installs the skills and connects automatically. You can also download the skills into your AI tool's skills directory manually, or use them as a reference to write your own device-specific skills.
 
 ## 🚀 Usage
 
@@ -169,12 +171,12 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 
 ```bash
 npm install
-npm run compile     # compile
-npm run watch       # compile on change
-npm run clean       # clear dist
+npm run compile     # atomic build (compiles into .tmp-build, replaces dist wholesale on success)
+npm run watch       # incremental compile in place, for long development sessions
+npm run clean       # clear dist and .tmp-build
 ```
 
-Press `F5` to launch the Extension Development Host: each F5 runs `clean + compile` automatically.
+Press `F5` to launch the Extension Development Host for debugging: every F5 automatically runs the atomic `compile` build — if compilation fails or is interrupted, the launch aborts, so the host never loads a half-finished or stale build; the first line in the Debug Console prints the build fingerprint (time + commit) so you can verify which version is loaded.
 
 ## 📄 License
 

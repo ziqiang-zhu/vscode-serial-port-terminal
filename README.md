@@ -40,7 +40,7 @@
 
 ## 🤖 AgentBridge——与 AI 协同的调试通道
 
-一键把当前串口终端桥接为本机 TCP 端口，AI Agent 经此像普通用户操作终端一样访问嵌入式设备。
+一键把当前串口终端桥接为本机 TCP 端口，AI Agent 经此像普通用户操作终端一样访问嵌入式设备。提供 Skill 与 MCP 服务器方便 Agent 接入：Skill 方便发送命令，单独去日志时需要按窗口缓冲，可能丢失日志，MCP 服务器提供日志环形缓冲机制，确保在缓存大小内日志不丢失。
 
 **🔁 人机共享同一块终端，AI 操作实时可见**
 
@@ -55,7 +55,7 @@
 
 **🧩 配套 Skill**
 
-- 连接 / 嵌入式 Linux / U-Boot 三套开箱即用的技能让 Agent 快速上手（详见下节）；
+- 连接 / 嵌入式 Linux / U-Boot 三套开箱即用的技能让 Agent 快速上手；
 - 启动 AgentBridge 后，复制以下提示词发送给 AI Agent，可以自行下载并安装技能、连接设备、执行命令：
 
 ```text
@@ -64,6 +64,18 @@
    按其中"安装"小节把它们安装到你的技能目录；
 2. 通过 TCP 连接 127.0.0.1:2000（这是本机串口终端的 AgentBridge 端口）；
 3. 连接后先读取设备状态，等待我的进一步指令。
+```
+
+**🧩 MCP 服务器**
+
+- 配套 MCP 服务器 [agent-bridge-mcp](https://github.com/ziqiang-zhu/agent-bridge-mcp)：把 AgentBridge 以 MCP 工具形态（`status` / `read_output` / `send_line`）提供给支持 MCP 的 AI 宿主（VS Code / Claude Desktop / Cursor 等）——持久订阅者 + 游标缓冲，Agent 断连后的设备日志按游标**无丢失**补收（普通 TCP 客户端断开期间的输出即丢失），支持 `--readonly` 只读声明；
+- 启动 AgentBridge 后，复制以下提示词发送给 AI Agent，可以自行安装 MCP 服务器并完成接入验证：
+
+```text
+1. 从 https://github.com/ziqiang-zhu/agent-bridge-mcp 获取 README（面向 Agent 的操作手册），
+   按其中"安装流程"小节把本 MCP 服务器安装进你的宿主（安装前先向我询问设备名与日志缓冲大小）；
+2. 宿主重载后调用 status 工具验证，connected: true 即安装完成，失败时按手册第 3 步排查；
+3. 等待我的进一步指令。
 ```
 
 **使用方式**：
@@ -76,18 +88,6 @@
 > 🔒 默认仅监听 `127.0.0.1`（本机），不暴露到局域网；端口与监听地址可在设置中配置。
 > 📝 转发给 AI Agent 的字符流已剥离 ANSI 转义序列（颜色码等控制字符），客户端无需自行处理。
 > 👁️ **只读监听**：设置 `serialPortTerminal.agentBridge.readonly` 可禁止客户端向设备发送数据（发送的字节被丢弃），修改后重新开启 Agent Bridge 生效——适合仅需观察设备输出的安全场景。
-
-## 🧩 Agent Skills
-
-配套技能帮助 AI Agent 开箱即用地使用 AgentBridge（连接 / 嵌入式 Linux 操作 / U-Boot 操作）：
-
-- 仓库：<https://github.com/ziqiang-zhu/agent-bridge-skills>
-- 内容：
-  - `agent-bridge-connection` —— 连接 AgentBridge、执行命令与读取输出的基础；
-  - `agent-bridge-embedded-linux` —— 设备进入 Linux shell 后的常用操作；
-  - `agent-bridge-embedded-uboot` —— 设备停在 U-Boot 终端时的常用操作。
-
-安装方式见上一节的提示词：复制给 AI Agent 即可自动完成安装与连接；你也可以手动下载这些技能到 AI 工具的 skills 目录，或参照它们编写适配自己设备的技能。
 
 ## 🚀 使用方法
 
