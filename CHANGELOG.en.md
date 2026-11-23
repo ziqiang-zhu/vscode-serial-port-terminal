@@ -2,6 +2,12 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.3]
+
+### Added
+- Serial Port Assist interval send: the panel gains an interval-send control - the content captured at start is sent repeatedly at the specified interval in milliseconds (minimum 20); it can be stopped manually at any time and stops automatically on disconnect
+- Serial Port Assist send history: every successful send is recorded into the send history (up to 20 entries, consecutive duplicates deduplicated); picking an entry from the dropdown refills the send mode, content and line ending
+
 ## [1.6.2]
 
 ### Added

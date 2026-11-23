@@ -25,6 +25,7 @@ interface StateMessage {
   connection: 'connected' | 'closed';
   truncated: number;
   recording: boolean;
+  interval: boolean;
   bridge: { active: boolean; address: string | undefined; readonly: boolean; clients: number };
 }
 
@@ -38,8 +39,8 @@ interface InitMessage {
   path: string;
 }
 
-// 页 → 宿主上行消息：发送 / 记录开关 / 桥控制（显示模式 / 清屏 / 暂停滚动为
-// 页内行为，不经协议——设计 §5.1）。
+// 页 → 宿主上行消息：发送 / 记录开关 / 桥控制 / 定时发送（发送历史为页内行为，
+// 不经协议——设计 §5.1/§8；显示模式 / 清屏 / 暂停滚动同为页内行为）。
 interface ReadyMessage {
   type: 'ready';
 }
@@ -61,6 +62,25 @@ interface RecordToggleMessage {
 
 interface BridgeMessage {
   type: 'bridgeStart' | 'bridgeStop' | 'copyBridgeAddress';
+}
+
+interface IntervalStartMessage {
+  type: 'startIntervalSend';
+  mode?: unknown;
+  text?: unknown;
+  lineEnding?: unknown;
+  interval?: unknown;
+}
+
+interface IntervalStopMessage {
+  type: 'stopIntervalSend';
+}
+
+export interface IntervalSendOptions {
+  mode: 'text' | 'hex';
+  text: string;
+  lineEnding: AssistLineEnding;
+  interval: number;
 }
 
 const FLUSH_INTERVAL_MS = 100;
@@ -97,6 +117,10 @@ export class SerialPortAssist extends SerialPortConsumer {
   private readonly buffer = new SerialPortAssistBuffer();
   private dataRecorder: SerialPortDataRecorder | undefined;
   private bridgeSession: AgentBridgeSession | undefined;
+  // 定时发送：启动时捕获字节，循环 transmit 直至停止/断开（设计 §5.2——内容以
+  // 开关时刻为准，运行中的输入编辑不影响已捕获内容，重新开关以更新）。
+  private intervalTimer: ReturnType<typeof setInterval> | undefined;
+  private intervalBytes: Buffer | undefined;
   private hostPath = '';
   private disconnected = false;
   // 100ms 批刷：seq 已推送水位 + 变更检测（无增量且状态未变时零 postMessage）。
@@ -105,6 +129,7 @@ export class SerialPortAssist extends SerialPortConsumer {
   private lastTruncated = -1;
   private lastConnection: 'connected' | 'closed' | undefined;
   private lastRecording = false;
+  private lastInterval = false;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -153,6 +178,7 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.dataRecorder = undefined;
     this.bridgeSession?.detach();
     this.bridgeSession = undefined;
+    this.stopIntervalSend();
     this.flush();
     this.postState(true);
     this.stopFlushTimer();
@@ -188,6 +214,51 @@ export class SerialPortAssist extends SerialPortConsumer {
 
   public isRecording(): boolean {
     return this.dataRecorder !== undefined;
+  }
+
+  /**
+   * 定时发送（页内开关 / 集成入口）：按启动时捕获的字节循环 transmit，断开自动
+   * 停。interval 下限 20ms；字节构建失败（HEX 非法/空内容）返回 false 并对 HEX
+   * 错误推送 sendError。
+   */
+  public startIntervalSend(options: IntervalSendOptions): boolean {
+    if (this.disconnected || this.intervalTimer) {
+      return false;
+    }
+    const built = this.buildOutbound(options.mode, options.text, options.lineEnding);
+    if ('error' in built) {
+      if (built.error !== 'empty') {
+        const error: SendErrorMessage = { type: 'sendError', reason: built.error };
+        void this.panel?.webview.postMessage(error);
+      }
+      return false;
+    }
+    this.intervalBytes = built.bytes;
+    this.intervalTimer = setInterval(() => {
+      if (this.disconnected) {
+        this.stopIntervalSend();
+        this.postState(true);
+        return;
+      }
+      if (this.intervalBytes) {
+        this.transmit(this.intervalBytes);
+      }
+    }, Math.max(20, options.interval));
+    this.postState(true);
+    return true;
+  }
+
+  public stopIntervalSend(): void {
+    if (this.intervalTimer) {
+      clearInterval(this.intervalTimer);
+      this.intervalTimer = undefined;
+      this.intervalBytes = undefined;
+      this.postState(true);
+    }
+  }
+
+  public isIntervalActive(): boolean {
+    return this.intervalTimer !== undefined;
   }
 
   /** 开始桥（页内开关 / 集成入口）：透传模式，出站字节经 observeOutbound 记录回显。 */
@@ -316,22 +387,26 @@ export class SerialPortAssist extends SerialPortConsumer {
     const connection = this.disconnected ? 'closed' : 'connected';
     const truncated = this.buffer.truncated;
     const recording = this.dataRecorder !== undefined;
+    const interval = this.intervalTimer !== undefined;
     const changed =
       force ||
       connection !== this.lastConnection ||
       truncated !== this.lastTruncated ||
-      recording !== this.lastRecording;
+      recording !== this.lastRecording ||
+      interval !== this.lastInterval;
     if (!changed) {
       return;
     }
     this.lastConnection = connection;
     this.lastTruncated = truncated;
     this.lastRecording = recording;
+    this.lastInterval = interval;
     const message: StateMessage = {
       type: 'state',
       connection,
       truncated,
       recording,
+      interval,
       bridge: {
         active: this.isBridgeActive(),
         address: this.getBridgeAddress(),
@@ -360,30 +435,22 @@ export class SerialPortAssist extends SerialPortConsumer {
     if (this.disconnected) {
       return;
     }
-    if (msg.type === 'sendText') {
+    if (msg.type === 'sendText' || msg.type === 'sendHex') {
       const { text, lineEnding } = msg as SendTextMessage;
       if (typeof text !== 'string' || text.length === 0) {
         return;
       }
       const ending: AssistLineEnding = isLineEnding(lineEnding) ? lineEnding : DEFAULT_LINE_ENDING;
-      this.transmit(Buffer.from(applyLineEnding(interpretEscapes(text), ending), 'utf-8'));
-      return;
-    }
-    if (msg.type === 'sendHex') {
-      const { text } = msg as SendHexMessage;
-      const result = parseHexInput(typeof text === 'string' ? text : '');
-      if (!result.ok) {
-        const error: SendErrorMessage = { type: 'sendError', reason: result.reason };
-        void this.panel?.webview.postMessage(error);
+      const mode = msg.type === 'sendHex' ? 'hex' : 'text';
+      const built = this.buildOutbound(mode, text, ending);
+      if ('error' in built) {
+        if (built.error !== 'empty') {
+          const error: SendErrorMessage = { type: 'sendError', reason: built.error };
+          void this.panel?.webview.postMessage(error);
+        }
         return;
       }
-      if (result.bytes.length > 0) {
-        this.transmit(result.bytes);
-      }
-      return;
-    }
-    if (msg.type === 'recordStart') {
-      this.startDataRecording();
+      this.transmit(built.bytes);
       return;
     }
     if (msg.type === 'recordStop') {
@@ -400,7 +467,44 @@ export class SerialPortAssist extends SerialPortConsumer {
     }
     if (msg.type === 'copyBridgeAddress') {
       this.copyBridgeAddress();
+      return;
     }
+    if (msg.type === 'startIntervalSend') {
+      const m = msg as IntervalStartMessage;
+      this.startIntervalSend({
+        mode: m.mode === 'hex' ? 'hex' : 'text',
+        text: typeof m.text === 'string' ? m.text : '',
+        lineEnding: isLineEnding(m.lineEnding) ? m.lineEnding : DEFAULT_LINE_ENDING,
+        interval: Number(m.interval) || 0
+      });
+      return;
+    }
+    if (msg.type === 'stopIntervalSend') {
+      this.stopIntervalSend();
+    }
+  }
+
+  /** 发送字节构建：文本模式 = 转义解释 + 行尾符 + UTF-8；HEX 模式 = 解析校验。 */
+  private buildOutbound(
+    mode: 'text' | 'hex',
+    text: string,
+    lineEnding: AssistLineEnding
+  ): { bytes: Buffer } | { error: 'odd-length' | 'invalid-char' | 'empty' } {
+    if (mode === 'hex') {
+      const result = parseHexInput(text);
+      if (!result.ok) {
+        return { error: result.reason };
+      }
+      if (result.bytes.length === 0) {
+        return { error: 'empty' };
+      }
+      return { bytes: result.bytes };
+    }
+    const prepared = applyLineEnding(interpretEscapes(text), lineEnding);
+    if (prepared.length === 0) {
+      return { error: 'empty' };
+    }
+    return { bytes: Buffer.from(prepared, 'utf-8') };
   }
 
   private transmit(bytes: Buffer): void {
@@ -432,6 +536,10 @@ export class SerialPortAssist extends SerialPortConsumer {
       stopBridge: vscode.l10n.t('Stop Agent Bridge'),
       clients: vscode.l10n.t('Clients: {0}'),
       copyHint: vscode.l10n.t('Click to copy the bridge address'),
+      history: vscode.l10n.t('History'),
+      interval: vscode.l10n.t('Interval (ms)'),
+      startInterval: vscode.l10n.t('Start interval send'),
+      stopInterval: vscode.l10n.t('Stop interval send'),
       empty: vscode.l10n.t('No data yet. Device output and sent bytes will appear here.'),
       truncated: vscode.l10n.t('{0} older entries hidden'),
       sendModeText: vscode.l10n.t('Text'),
@@ -476,6 +584,8 @@ select:disabled { opacity: 0.5; }
 #sendError { color: var(--vscode-errorForeground); }
 #bridgebar { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--vscode-panel-border); }
 #bridgeInfo.clickable { cursor: pointer; }
+#intervalbar { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-top: 1px solid var(--vscode-panel-border); }
+#intervalMs { width: 90px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 3px 5px; }
 label { margin-left: 4px; }
 </style>
 </head>
@@ -500,6 +610,7 @@ label { margin-left: 4px; }
 </div>
 <div id="data"><div class="muted">${L.empty}</div></div>
 <div id="sendbar">
+  <select id="sendHistory"></select>
   <select id="sendMode">
     <option value="text">${L.sendModeText}</option>
     <option value="hex">${L.sendModeHex}</option>
@@ -514,6 +625,11 @@ label { margin-left: 4px; }
   </select>
   <button id="btnSend">${L.send}</button>
   <span id="sendError"></span>
+</div>
+<div id="intervalbar">
+  <span class="muted">${L.interval}</span>
+  <input type="number" id="intervalMs" value="1000" min="20" step="100">
+  <button id="btnInterval">${L.startInterval}</button>
 </div>
 <script nonce="${nonce}">
 (function () {
@@ -535,7 +651,9 @@ label { margin-left: 4px; }
   let paused = false;
   let closed = false;
   let recording = false;
+  let intervalActive = false;
   let bridge = { active: false, address: undefined, readonly: false, clients: 0 };
+  const history = [];   // { mode, text, lineEnding }——发送历史（页内会话态，点击回填）
 
   const toHex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, '0')).join(' ');
   const toAscii = (bytes) => bytes.map((b) => (b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : '.')).join('');
@@ -613,19 +731,61 @@ label { margin-left: 4px; }
     document.getElementById('btnSend').disabled = true;
     document.getElementById('btnRecord').disabled = true;
     document.getElementById('btnBridge').disabled = true;
+    document.getElementById('btnInterval').disabled = true;
+    document.getElementById('intervalMs').disabled = true;
     sendModeEl.disabled = true;
     lineEndingEl.disabled = true;
   };
 
+  const sendHistoryEl = document.getElementById('sendHistory');
+  const pushHistory = (entry) => {
+    const last = history[history.length - 1];
+    if (last && last.text === entry.text && last.mode === entry.mode) { return; }
+    history.push(entry);
+    if (history.length > 20) { history.shift(); }
+    refreshHistory();
+  };
+  const refreshHistory = () => {
+    sendHistoryEl.textContent = '';
+    const label = document.createElement('option');
+    label.value = '';
+    label.textContent = L.history + ' (' + history.length + ')';
+    sendHistoryEl.append(label);
+    history.forEach((h, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = (h.mode === 'hex' ? '[HEX] ' : '') + h.text.slice(0, 40);
+      sendHistoryEl.append(opt);
+    });
+  };
+  refreshHistory();
+  sendHistoryEl.addEventListener('change', () => {
+    const index = Number(sendHistoryEl.value);
+    const picked = history[index];
+    if (!picked) { return; }
+    sendModeEl.value = picked.mode === 'hex' ? 'hex' : 'text';
+    sendModeEl.dispatchEvent(new Event('change'));
+    sendInput.value = picked.text;
+    lineEndingEl.value = picked.lineEnding || 'cr';
+    sendHistoryEl.value = '';
+  });
+
   document.getElementById('btnSend').addEventListener('click', () => {
     const text = sendInput.value;
     if (!text || closed) { return; }
-    if (sendModeEl.value === 'hex') {
-      vscode.postMessage({ type: 'sendHex', text });
-    } else {
-      vscode.postMessage({ type: 'sendText', text, lineEnding: lineEndingEl.value });
-      sendInput.value = '';
+    const hex = sendModeEl.value === 'hex';
+    if (hex) {
+      // HEX 客户端预校验（与宿主 parseHexInput 同规则）：合法才发送并计入历史，
+      // 非法交由宿主 sendError 提示且不入历史。
+      const clean = text.replace(/\s+/g, '');
+      if (clean.length === 0 || clean.length % 2 !== 0 || /[^0-9a-fA-F]/.test(clean)) {
+        return;
+      }
     }
+    const entry = { mode: hex ? 'hex' : 'text', text, lineEnding: lineEndingEl.value };
+    vscode.postMessage(hex ? { type: 'sendHex', text } : { type: 'sendText', text, lineEnding: lineEndingEl.value });
+    pushHistory(entry);
+    sendInput.value = '';
   });
   sendInput.addEventListener('keydown', (ev) => {
     if (ev.ctrlKey && ev.key === 'Enter') {
@@ -664,6 +824,30 @@ label { margin-left: 4px; }
     recordBtn.textContent = recording ? L.stopRecording : L.startRecording;
   };
 
+  const intervalBtn = document.getElementById('btnInterval');
+  const intervalInput = document.getElementById('intervalMs');
+  const applyInterval = (value) => {
+    intervalActive = value === true;
+    intervalBtn.textContent = intervalActive ? L.stopInterval : L.startInterval;
+    intervalInput.disabled = intervalActive || closed;
+  };
+  intervalBtn.addEventListener('click', () => {
+    if (closed) { return; }
+    if (intervalActive) {
+      vscode.postMessage({ type: 'stopIntervalSend' });
+      return;
+    }
+    const text = sendInput.value;
+    if (!text) { return; }
+    vscode.postMessage({
+      type: 'startIntervalSend',
+      mode: sendModeEl.value === 'hex' ? 'hex' : 'text',
+      text,
+      lineEnding: lineEndingEl.value,
+      interval: Number(intervalInput.value) || 0
+    });
+  });
+
   const bridgeBtn = document.getElementById('btnBridge');
   const bridgeInfo = document.getElementById('bridgeInfo');
   const renderBridge = () => {
@@ -695,6 +879,7 @@ label { margin-left: 4px; }
       appendEntries(message.entries);
     } else if (message.type === 'state') {
       applyRecording(message.recording === true);
+      applyInterval(message.interval === true);
       if (message.bridge && typeof message.bridge === 'object') {
         bridge = message.bridge;
         renderBridge();
