@@ -82,8 +82,8 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 }
 ```
 
-- **行格式（固定，机器解析友好）**：`[YYYY-MM-DD HH:mm:ss.SSS] RX 55 85 11 94`——方向枚举 `RX` / `TX`，字节小写十六进制、单空格分隔；时间戳固定毫秒全格式、**不接 `logTimestampFormat` 设置**（该设置面向人读；本文件面向未来的波形解析工具，格式稳定性优先）；
-- 每 chunk 一条完整行，**无行缓冲**：chunk 边界即时序信息，不做跨 chunk 聚合；`onClosed` 仅关流（无半行 flush），此前若有数据写入则弹「已保存」；
+- **行格式（固定，机器解析友好）**：`[YYYY-MM-DD HH:mm:ss.SSS] RX 55 85 11 94`——方向枚举 `RX` / `TX`，字节小写十六进制、单空格分隔，行尾 `\r\n`；时间戳固定毫秒全格式、**不接 `logTimestampFormat` 设置**（该设置面向人读；本文件面向未来的波形解析工具，格式稳定性优先）；
+- 每 chunk 一条完整行，**无行缓冲**：chunk 边界即时序信息，不做跨 chunk 聚合；**空 chunk 跳过**（无内容不建文件不写行）；`onClosed` 仅关流（无半行 flush），此前若有数据写入则弹「已保存」；
 - **已知限制（如实）**：`Date` 毫秒精度——高速率下相邻 chunk 间隔可能 <1ms，时序重建以 chunk 为粒度，字节级间隔不可分辨；
 - **文件**：目录复用 `logDirectory`；文件名复用 `logFilenameTemplate`，扩展名替换规则 = 模板最后一个 `.` 之后替换为 `dat`（无扩展名则追加 `.dat`）；LogRecorder 维持 `.log` 不变；按大小分割复用 `logMaxFileSize`（编号段同规则）；
 - **生命周期**（复用 LogRecorder 模式）：页内「记录」开关创建 / 注销；懒建文件（首数据建流，`open` 事件确认创建，「已保存」提示以确认为前提）；断开随 Connection 收尾；写盘失败语义照搬 A3（每次失败都提示、总是允许重试）；记录开关仅 start / stop（无暂停）。

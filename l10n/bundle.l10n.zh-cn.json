@@ -104,6 +104,8 @@
   "Pause scroll": "暂停滚动",
   "Resume scroll": "继续滚动",
   "Clear": "清屏",
+  "Start recording": "开始记录",
+  "Stop recording": "停止记录",
   "No data yet. Device output and sent bytes will appear here.": "暂无数据。设备输出与发送的字节将显示在这里。",
   "{0} older entries hidden": "已隐藏 {0} 条较早数据",
   "Text": "文本",

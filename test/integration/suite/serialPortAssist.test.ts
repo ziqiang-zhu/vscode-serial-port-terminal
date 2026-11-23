@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'mocha';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { SerialPortAssist } from '../../../src/SerialPortConsumer/SerialPortAssist/SerialPortAssist';
 import { SerialPortConsumerMode } from '../../../src/SerialPortConnection/SerialPortConnectionService';
-import { RecordingConsumer, createHarness, findDevice, waitFor, type TestHarness } from './helpers';
+import { RecordingConsumer, createHarness, findDevice, waitFor, withTempDir, type TestHarness } from './helpers';
 
 // 串口助手连接模式契约（doc/ConsumerDesign/SerialPortAssist设计.md §3/§4/§12）：
 // connect 第 4 参 mode 选型主 Consumer（缺省 terminal 向后兼容）；assist 模式下
@@ -98,6 +100,61 @@ describe('串口助手连接模式（自装配）', () => {
       assert.equal(first.snapshotEntries().length, frozenCount);
     } finally {
       await harness.service.disconnect(device);
+    }
+  });
+
+  it('#4 records rx traffic into a .dat file with fixed-format hex lines', async () => {
+    const temp = withTempDir();
+    const config = vscode.workspace.getConfiguration('serialPortTerminal');
+    await config.update('logDirectory', temp.dir, vscode.ConfigurationTarget.Global);
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device, undefined, undefined, 'assist');
+    const assist = instances.at(-1);
+    assert.ok(assist);
+    try {
+      assist.startDataRecording();
+      assert.ok(assist.isRecording());
+      assert.ok(connectionSend(harness, 'VCOM-ECHO', 'ping'));
+      // 'ping' 的小写十六进制 = 70 69 6e 67（固定机器行格式）
+      await waitFor(
+        'dat file with rx hex line',
+        () => {
+          try {
+            const datFile = fs.readdirSync(temp.dir).find(name => name.endsWith('.dat'));
+            return datFile !== undefined && fs.readFileSync(path.join(temp.dir, datFile), 'utf8').includes(' RX 70 69 6e 67');
+          } catch {
+            return false;
+          }
+        },
+        2000
+      );
+      assist.stopDataRecording();
+      assert.equal(assist.isRecording(), false);
+    } finally {
+      await harness.service.disconnect(device);
+      await config.update('logDirectory', undefined, vscode.ConfigurationTarget.Global);
+      temp.dispose();
+    }
+  });
+
+  it('#5 skips empty chunks (no file created, no lines)', async () => {
+    const temp = withTempDir();
+    const config = vscode.workspace.getConfiguration('serialPortTerminal');
+    await config.update('logDirectory', temp.dir, vscode.ConfigurationTarget.Global);
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device, undefined, undefined, 'assist');
+    const assist = instances.at(-1);
+    assert.ok(assist);
+    try {
+      assist.startDataRecording();
+      assert.ok(connectionSend(harness, 'VCOM-ECHO', ''));
+      // 空 chunk：Echo 无可回显内容 → 记录器跳过 → 收尾不建文件不弹「已保存」
+      await harness.service.disconnect(device);
+      await waitFor('finalize settled', () => harness.service.getConnection('VCOM-ECHO') === undefined, 2000);
+      assert.equal(fs.readdirSync(temp.dir).filter(name => name.endsWith('.dat')).length, 0);
+    } finally {
+      await config.update('logDirectory', undefined, vscode.ConfigurationTarget.Global);
+      temp.dispose();
     }
   });
 });

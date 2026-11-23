@@ -104,6 +104,8 @@
   "Pause scroll": "Pause scroll",
   "Resume scroll": "Resume scroll",
   "Clear": "Clear",
+  "Start recording": "Start recording",
+  "Stop recording": "Stop recording",
   "No data yet. Device output and sent bytes will appear here.": "No data yet. Device output and sent bytes will appear here.",
   "{0} older entries hidden": "{0} older entries hidden",
   "Text": "Text",

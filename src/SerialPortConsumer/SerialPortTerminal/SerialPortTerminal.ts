@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
 import { spawn } from 'child_process';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
 import { SerialPortLogRecorder } from '../SerialPortLogRecorder/SerialPortLogRecorder';
 import { SerialPortAgentBridge, AgentBridgeCancelledError } from '../SerialPortAgentBridge/SerialPortAgentBridge';
+import { buildLogFilePath, resolveLogDirectory } from '../SerialPortLogFiles';
 
 const CONTEXT_FOCUS = 'serialPortTerminal.focus';
 const CONTEXT_RECORDING = 'serialPortTerminal.recording';
@@ -314,50 +313,6 @@ export class SerialPortTerminal extends SerialPortConsumer {
       }
     }
   }
-}
-
-const DEFAULT_LOG_FILENAME_TEMPLATE = '{device}_{YYYY}{MM}{DD}_{HH}{mm}{ss}.log';
-const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
-
-function buildLogFilePath(devicePath: string): string {
-  const directory = resolveLogDirectory();
-  fs.mkdirSync(directory, { recursive: true });
-  return path.join(directory, buildLogFileName(devicePath, getLogFilenameTemplate()));
-}
-
-function getLogFilenameTemplate(): string {
-  const configured = vscode.workspace
-    .getConfiguration('serialPortTerminal')
-    .get<string>('logFilenameTemplate', DEFAULT_LOG_FILENAME_TEMPLATE);
-  return configured && configured.trim() ? configured : DEFAULT_LOG_FILENAME_TEMPLATE;
-}
-
-function buildLogFileName(devicePath: string, template: string): string {
-  const device = path.basename(devicePath).replace(ILLEGAL_FILENAME_CHARS, '_');
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const replacements: Record<string, string> = {
-    '{device}': device,
-    '{YYYY}': String(now.getFullYear()),
-    '{MM}': pad(now.getMonth() + 1),
-    '{DD}': pad(now.getDate()),
-    '{HH}': pad(now.getHours()),
-    '{mm}': pad(now.getMinutes()),
-    '{ss}': pad(now.getSeconds())
-  };
-  const name = template.replace(
-    /\{device\}|\{YYYY\}|\{MM\}|\{DD\}|\{HH\}|\{mm\}|\{ss\}/g,
-    token => replacements[token] ?? token
-  );
-  return name.replace(ILLEGAL_FILENAME_CHARS, '_');
-}
-
-function resolveLogDirectory(): string {
-  const configured = vscode.workspace.getConfiguration('serialPortTerminal').get<string>('logDirectory', '');
-  if (configured) {
-    return configured;
-  }
-  return path.join(os.homedir(), 'Documents', 'SerialPortTerminal', 'Log');
 }
 
 async function openLogDirectory(): Promise<void> {

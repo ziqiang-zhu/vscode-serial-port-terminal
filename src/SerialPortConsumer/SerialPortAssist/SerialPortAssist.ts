@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
+import { buildLogFilePath } from '../SerialPortLogFiles';
 import { ASSIST_BUFFER_LIMIT, SerialPortAssistBuffer } from './SerialPortAssistBuffer';
+import { SerialPortDataRecorder } from './SerialPortDataRecorder';
 import {
   AssistLineEnding,
   DEFAULT_LINE_ENDING,
@@ -20,6 +22,7 @@ interface StateMessage {
   type: 'state';
   connection: 'connected' | 'closed';
   truncated: number;
+  recording: boolean;
 }
 
 interface SendErrorMessage {
@@ -32,8 +35,8 @@ interface InitMessage {
   path: string;
 }
 
-// 页 → 宿主上行消息：P0 仅发送（记录与桥控制随 P1 追加）；显示模式 / 清屏 /
-// 暂停滚动为页内行为，不经协议（设计 §5.1）。
+// 页 → 宿主上行消息：P0 发送 + P1 记录开关（桥控制随 P1-b 追加）；显示模式 /
+// 清屏 / 暂停滚动为页内行为，不经协议（设计 §5.1）。
 interface ReadyMessage {
   type: 'ready';
 }
@@ -49,6 +52,10 @@ interface SendHexMessage {
   text?: unknown;
 }
 
+interface RecordToggleMessage {
+  type: 'recordStart' | 'recordStop';
+}
+
 const FLUSH_INTERVAL_MS = 100;
 
 export class SerialPortAssist extends SerialPortConsumer {
@@ -57,6 +64,7 @@ export class SerialPortAssist extends SerialPortConsumer {
 
   private panel: vscode.WebviewPanel | undefined;
   private readonly buffer = new SerialPortAssistBuffer();
+  private dataRecorder: SerialPortDataRecorder | undefined;
   private hostPath = '';
   private disconnected = false;
   // 100ms 批刷：seq 已推送水位 + 变更检测（无增量且状态未变时零 postMessage）。
@@ -64,6 +72,7 @@ export class SerialPortAssist extends SerialPortConsumer {
   private pushedSeq = 0;
   private lastTruncated = -1;
   private lastConnection: 'connected' | 'closed' | undefined;
+  private lastRecording = false;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -105,11 +114,42 @@ export class SerialPortAssist extends SerialPortConsumer {
 
   public onClosed(): void {
     this.disconnected = true;
-    // 收尾：把缓冲内尚未推送的条目与「已断开」状态推完（面板保留可回看——
-    // 对齐 Terminal 断开不销毁视图的关闭行为约定），随后停批刷。
+    // 记录器随 Connection 收尾链拿到 onClosed（关流 + 「已保存」提示），此处
+    // 仅清引用；把缓冲内尚未推送的条目与「已断开」状态推完（面板保留可回看
+    // ——对齐 Terminal 断开不销毁视图的关闭行为约定），随后停批刷。
+    this.dataRecorder = undefined;
     this.flush();
     this.postState(true);
     this.stopFlushTimer();
+  }
+
+  /** 开始数据记录（页内「记录」开关 / 集成断言入口）：懒建文件由记录器自管。 */
+  public startDataRecording(): void {
+    if (this.dataRecorder) {
+      return;
+    }
+    try {
+      this.dataRecorder = new SerialPortDataRecorder(buildLogFilePath(this.hostPath, 'dat'));
+      this.addConsumer(this.dataRecorder);
+      this.postState(true);
+    } catch (error) {
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to start log: {0}', `${error}`));
+    }
+  }
+
+  public stopDataRecording(): void {
+    if (!this.dataRecorder) {
+      return;
+    }
+    const recorder = this.dataRecorder;
+    this.dataRecorder = undefined;
+    // removeConsumer 触发记录器 onClosed（关流 + 「已保存」提示）。
+    this.removeConsumer(recorder.id);
+    this.postState(true);
+  }
+
+  public isRecording(): boolean {
+    return this.dataRecorder !== undefined;
   }
 
   /** 诊断/集成断言用：当前缓冲快照（含 rx/tx 双向条目）。 */
@@ -166,7 +206,17 @@ export class SerialPortAssist extends SerialPortConsumer {
     }
     this.lastConnection = connection;
     this.lastTruncated = truncated;
-    const message: StateMessage = { type: 'state', connection, truncated };
+    const recording = this.dataRecorder !== undefined;
+    const changed =
+      force ||
+      connection !== this.lastConnection ||
+      truncated !== this.lastTruncated ||
+      recording !== this.lastRecording;
+    if (!changed) {
+      return;
+    }
+    this.lastRecording = recording;
+    const message: StateMessage = { type: 'state', connection, truncated, recording };
     void panel.webview.postMessage(message);
   }
 
@@ -208,11 +258,21 @@ export class SerialPortAssist extends SerialPortConsumer {
       if (result.bytes.length > 0) {
         this.transmit(result.bytes);
       }
+      return;
+    }
+    if (msg.type === 'recordStart') {
+      this.startDataRecording();
+      return;
+    }
+    if (msg.type === 'recordStop') {
+      this.stopDataRecording();
     }
   }
 
   private transmit(bytes: Buffer): void {
-    // P1 起 DataRecorder.recordTx 在此插入（先记录后发送——TX 时间戳即发送时刻）。
+    // 先记录后发送（TX 时间戳即发送时刻——设计 §5.2）；P1-b 桥客户端字节经
+    // 桥回调进入同一漏斗。
+    this.dataRecorder?.recordTx(bytes);
     this.buffer.push(bytes, 'tx');
     this.send(bytes);
   }
@@ -232,6 +292,8 @@ export class SerialPortAssist extends SerialPortConsumer {
       pauseScroll: vscode.l10n.t('Pause scroll'),
       resumeScroll: vscode.l10n.t('Resume scroll'),
       clear: vscode.l10n.t('Clear'),
+      startRecording: vscode.l10n.t('Start recording'),
+      stopRecording: vscode.l10n.t('Stop recording'),
       empty: vscode.l10n.t('No data yet. Device output and sent bytes will appear here.'),
       truncated: vscode.l10n.t('{0} older entries hidden'),
       sendModeText: vscode.l10n.t('Text'),
@@ -289,6 +351,7 @@ label { margin-left: 4px; }
   </select>
   <button id="btnPause">${L.pauseScroll}</button>
   <button id="btnClear">${L.clear}</button>
+  <button id="btnRecord">${L.startRecording}</button>
   <span id="truncatedNotice" class="muted"></span>
 </div>
 <div id="data"><div class="muted">${L.empty}</div></div>
@@ -327,6 +390,7 @@ label { margin-left: 4px; }
   let mode = 'mixed';
   let paused = false;
   let closed = false;
+  let recording = false;
 
   const toHex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, '0')).join(' ');
   const toAscii = (bytes) => bytes.map((b) => (b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : '.')).join('');
@@ -402,6 +466,7 @@ label { margin-left: 4px; }
     setStatus();
     sendInput.disabled = true;
     document.getElementById('btnSend').disabled = true;
+    document.getElementById('btnRecord').disabled = true;
     sendModeEl.disabled = true;
     lineEndingEl.disabled = true;
   };
@@ -443,6 +508,15 @@ label { margin-left: 4px; }
     dataEl.textContent = '';
     updateNotice();
   });
+  const recordBtn = document.getElementById('btnRecord');
+  recordBtn.addEventListener('click', () => {
+    if (closed) { return; }
+    vscode.postMessage({ type: recording ? 'recordStop' : 'recordStart' });
+  });
+  const applyRecording = (value) => {
+    recording = value;
+    recordBtn.textContent = recording ? L.stopRecording : L.startRecording;
+  };
 
   window.addEventListener('message', (event) => {
     const message = event.data;
@@ -450,6 +524,7 @@ label { margin-left: 4px; }
     if (message.type === 'append') {
       appendEntries(message.entries);
     } else if (message.type === 'state') {
+      applyRecording(message.recording === true);
       if (message.connection === 'closed' && !closed) {
         applyClosed();
       } else if (!closed) {

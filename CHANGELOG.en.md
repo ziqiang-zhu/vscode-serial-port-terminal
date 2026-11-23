@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.1]
+
+### Added
+- Serial Port Assist data recording: the panel toolbar gains a "Start recording / Stop recording" toggle, and raw bytes sent and received are written per chunk into a `.dat` file (reusing the log directory and filename template with the extension replaced by dat; size-based splitting supported) - lines are formatted as `[YYYY-MM-DD HH:mm:ss.SSS] RX/TX lowercase-hex` (fixed millisecond timestamps, for future waveform analysis); both directions are recorded, and sent bytes are echoed as TX rows in the panel
+
 ## [1.6.0]
 
 ### Added
