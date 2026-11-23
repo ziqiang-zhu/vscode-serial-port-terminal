@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
+import { AgentBridgeSession } from '../SerialPortAgentBridge/AgentBridgeSession';
 import { buildLogFilePath } from '../SerialPortLogFiles';
+import { refreshAgentBridgeStatus } from '../SerialPortTerminal/SerialPortTerminal';
 import { ASSIST_BUFFER_LIMIT, SerialPortAssistBuffer } from './SerialPortAssistBuffer';
 import { SerialPortDataRecorder } from './SerialPortDataRecorder';
 import {
@@ -23,6 +25,7 @@ interface StateMessage {
   connection: 'connected' | 'closed';
   truncated: number;
   recording: boolean;
+  bridge: { active: boolean; address: string | undefined; readonly: boolean; clients: number };
 }
 
 interface SendErrorMessage {
@@ -35,8 +38,8 @@ interface InitMessage {
   path: string;
 }
 
-// 页 → 宿主上行消息：P0 发送 + P1 记录开关（桥控制随 P1-b 追加）；显示模式 /
-// 清屏 / 暂停滚动为页内行为，不经协议（设计 §5.1）。
+// 页 → 宿主上行消息：发送 / 记录开关 / 桥控制（显示模式 / 清屏 / 暂停滚动为
+// 页内行为，不经协议——设计 §5.1）。
 interface ReadyMessage {
   type: 'ready';
 }
@@ -56,7 +59,35 @@ interface RecordToggleMessage {
   type: 'recordStart' | 'recordStop';
 }
 
+interface BridgeMessage {
+  type: 'bridgeStart' | 'bridgeStop' | 'copyBridgeAddress';
+}
+
 const FLUSH_INTERVAL_MS = 100;
+
+// Assist 实例注册表（attach 登记 / onClosed 注销）：供全局桥状态栏回退扫描
+// ——活动终端无桥时，状态栏显示任一 Assist 会话的运行中桥（注册经装配层
+// 注入 Terminal 模块，避免循环依赖）。断开冻结的实例不持桥，天然被过滤。
+const assistInstances = new Set<SerialPortAssist>();
+
+export interface AssistBridgeStatus {
+  address: string;
+  readonly: boolean;
+  clients: number;
+}
+
+/** 全局桥状态回退扫描：任一 Assist 会话的运行中桥（多桥时取首个命中）。 */
+export function collectActiveAssistBridge(): AssistBridgeStatus | undefined {
+  for (const instance of assistInstances) {
+    if (instance.isBridgeActive()) {
+      const address = instance.getBridgeAddress();
+      if (address) {
+        return { address, readonly: instance.getBridgeReadonly(), clients: instance.getBridgeClients() };
+      }
+    }
+  }
+  return undefined;
+}
 
 export class SerialPortAssist extends SerialPortConsumer {
   readonly id = 'serialPortAssist';
@@ -65,6 +96,7 @@ export class SerialPortAssist extends SerialPortConsumer {
   private panel: vscode.WebviewPanel | undefined;
   private readonly buffer = new SerialPortAssistBuffer();
   private dataRecorder: SerialPortDataRecorder | undefined;
+  private bridgeSession: AgentBridgeSession | undefined;
   private hostPath = '';
   private disconnected = false;
   // 100ms 批刷：seq 已推送水位 + 变更检测（无增量且状态未变时零 postMessage）。
@@ -89,6 +121,7 @@ export class SerialPortAssist extends SerialPortConsumer {
       retainContextWhenHidden: true
     });
     this.panel = panel;
+    assistInstances.add(this);
     // 用户关页 = 断开（对齐 Terminal「关闭面板即断开」）；断开后的关页走下方
     // disconnected 守卫自然短路，不产生二次销毁请求。
     panel.onDidDispose(() => {
@@ -114,13 +147,18 @@ export class SerialPortAssist extends SerialPortConsumer {
 
   public onClosed(): void {
     this.disconnected = true;
-    // 记录器随 Connection 收尾链拿到 onClosed（关流 + 「已保存」提示），此处
-    // 仅清引用；把缓冲内尚未推送的条目与「已断开」状态推完（面板保留可回看
-    // ——对齐 Terminal 断开不销毁视图的关闭行为约定），随后停批刷。
+    // 依附 Consumer（记录器/桥）随 Connection 收尾链拿到 onClosed，此处仅清
+    // 引用；把缓冲内尚未推送的条目与「已断开」状态推完（面板保留可回看——
+    // 对齐 Terminal 断开不销毁视图的关闭行为约定），随后停批刷。
     this.dataRecorder = undefined;
+    this.bridgeSession?.detach();
+    this.bridgeSession = undefined;
     this.flush();
     this.postState(true);
     this.stopFlushTimer();
+    // 注册表注销 + 全局桥状态栏刷新（若状态栏正显示本会话的桥，随断开清除）。
+    assistInstances.delete(this);
+    refreshAgentBridgeStatus();
   }
 
   /** 开始数据记录（页内「记录」开关 / 集成断言入口）：懒建文件由记录器自管。 */
@@ -150,6 +188,82 @@ export class SerialPortAssist extends SerialPortConsumer {
 
   public isRecording(): boolean {
     return this.dataRecorder !== undefined;
+  }
+
+  /** 开始桥（页内开关 / 集成入口）：透传模式，出站字节经 observeOutbound 记录回显。 */
+  public async startBridge(): Promise<void> {
+    if (this.disconnected) {
+      return;
+    }
+    await this.ensureBridgeSession().start();
+    this.postState(true);
+  }
+
+  public stopBridge(): void {
+    this.bridgeSession?.stop();
+    this.postState(true);
+  }
+
+  public isBridgeActive(): boolean {
+    return this.bridgeSession?.active ?? false;
+  }
+
+  public getBridgeAddress(): string | undefined {
+    return this.bridgeSession?.bridgeAddress;
+  }
+
+  public getBridgeReadonly(): boolean {
+    return this.bridgeSession?.isReadonly ?? false;
+  }
+
+  public getBridgeClients(): number {
+    return this.bridgeSession?.clients ?? 0;
+  }
+
+  /** 桥客户端字节（即将写入串口）：记录 + 面板回显——桥已自行 send，不再重复。 */
+  public observeOutbound(bytes: Buffer): void {
+    this.dataRecorder?.recordTx(bytes);
+    this.buffer.push(bytes, 'tx');
+  }
+
+  public copyBridgeAddress(): void {
+    const address = this.getBridgeAddress();
+    if (address) {
+      void vscode.env.clipboard.writeText(address);
+      void vscode.window.showInformationMessage(vscode.l10n.t('Agent Bridge address copied: {0}', address));
+    }
+  }
+
+  // 桥会话懒建（公共工厂，AgentBridge设计 §4 / Assist设计 §7）：stripAnsi 恒
+  // 透传 false；出站回调接线 observeOutbound（桥客户端字节 → 记录 + 面板回显）；
+  // 页内推模型呈现——任意桥状态迁移即强制推送 state。
+  private ensureBridgeSession(): AgentBridgeSession {
+    if (!this.bridgeSession) {
+      this.bridgeSession = new AgentBridgeSession(
+        {
+          addConsumer: consumer => this.addConsumer(consumer),
+          removeConsumer: id => this.removeConsumer(id)
+        },
+        {
+          // 页内推模型（postState）+ 全局状态栏刷新（Assist 桥对状态栏可见）。
+          onChange: () => {
+            this.postState(true);
+            refreshAgentBridgeStatus();
+          },
+          onStarted: () => {
+            this.postState(true);
+            refreshAgentBridgeStatus();
+          },
+          onFailed: error => {
+            refreshAgentBridgeStatus();
+            void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
+          }
+        },
+        false,
+        bytes => this.observeOutbound(bytes)
+      );
+    }
+    return this.bridgeSession;
   }
 
   /** 诊断/集成断言用：当前缓冲快照（含 rx/tx 双向条目）。 */
@@ -201,11 +315,6 @@ export class SerialPortAssist extends SerialPortConsumer {
     }
     const connection = this.disconnected ? 'closed' : 'connected';
     const truncated = this.buffer.truncated;
-    if (!force && connection === this.lastConnection && truncated === this.lastTruncated) {
-      return;
-    }
-    this.lastConnection = connection;
-    this.lastTruncated = truncated;
     const recording = this.dataRecorder !== undefined;
     const changed =
       force ||
@@ -215,8 +324,21 @@ export class SerialPortAssist extends SerialPortConsumer {
     if (!changed) {
       return;
     }
+    this.lastConnection = connection;
+    this.lastTruncated = truncated;
     this.lastRecording = recording;
-    const message: StateMessage = { type: 'state', connection, truncated, recording };
+    const message: StateMessage = {
+      type: 'state',
+      connection,
+      truncated,
+      recording,
+      bridge: {
+        active: this.isBridgeActive(),
+        address: this.getBridgeAddress(),
+        readonly: this.getBridgeReadonly(),
+        clients: this.getBridgeClients()
+      }
+    };
     void panel.webview.postMessage(message);
   }
 
@@ -266,6 +388,18 @@ export class SerialPortAssist extends SerialPortConsumer {
     }
     if (msg.type === 'recordStop') {
       this.stopDataRecording();
+      return;
+    }
+    if (msg.type === 'bridgeStart') {
+      void this.startBridge();
+      return;
+    }
+    if (msg.type === 'bridgeStop') {
+      this.stopBridge();
+      return;
+    }
+    if (msg.type === 'copyBridgeAddress') {
+      this.copyBridgeAddress();
     }
   }
 
@@ -294,6 +428,10 @@ export class SerialPortAssist extends SerialPortConsumer {
       clear: vscode.l10n.t('Clear'),
       startRecording: vscode.l10n.t('Start recording'),
       stopRecording: vscode.l10n.t('Stop recording'),
+      startBridge: vscode.l10n.t('Start Agent Bridge'),
+      stopBridge: vscode.l10n.t('Stop Agent Bridge'),
+      clients: vscode.l10n.t('Clients: {0}'),
+      copyHint: vscode.l10n.t('Click to copy the bridge address'),
       empty: vscode.l10n.t('No data yet. Device output and sent bytes will appear here.'),
       truncated: vscode.l10n.t('{0} older entries hidden'),
       sendModeText: vscode.l10n.t('Text'),
@@ -336,6 +474,8 @@ select { background: var(--vscode-dropdown-background); color: var(--vscode-drop
 select:disabled { opacity: 0.5; }
 .muted { color: var(--vscode-descriptionForeground); }
 #sendError { color: var(--vscode-errorForeground); }
+#bridgebar { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+#bridgeInfo.clickable { cursor: pointer; }
 label { margin-left: 4px; }
 </style>
 </head>
@@ -353,6 +493,10 @@ label { margin-left: 4px; }
   <button id="btnClear">${L.clear}</button>
   <button id="btnRecord">${L.startRecording}</button>
   <span id="truncatedNotice" class="muted"></span>
+</div>
+<div id="bridgebar">
+  <button id="btnBridge">${L.startBridge}</button>
+  <span id="bridgeInfo" class="muted"></span>
 </div>
 <div id="data"><div class="muted">${L.empty}</div></div>
 <div id="sendbar">
@@ -391,6 +535,7 @@ label { margin-left: 4px; }
   let paused = false;
   let closed = false;
   let recording = false;
+  let bridge = { active: false, address: undefined, readonly: false, clients: 0 };
 
   const toHex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, '0')).join(' ');
   const toAscii = (bytes) => bytes.map((b) => (b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : '.')).join('');
@@ -467,6 +612,7 @@ label { margin-left: 4px; }
     sendInput.disabled = true;
     document.getElementById('btnSend').disabled = true;
     document.getElementById('btnRecord').disabled = true;
+    document.getElementById('btnBridge').disabled = true;
     sendModeEl.disabled = true;
     lineEndingEl.disabled = true;
   };
@@ -518,6 +664,30 @@ label { margin-left: 4px; }
     recordBtn.textContent = recording ? L.stopRecording : L.startRecording;
   };
 
+  const bridgeBtn = document.getElementById('btnBridge');
+  const bridgeInfo = document.getElementById('bridgeInfo');
+  const renderBridge = () => {
+    bridgeBtn.textContent = bridge.active ? L.stopBridge : L.startBridge;
+    if (!bridge.active) {
+      bridgeInfo.textContent = '';
+      bridgeInfo.title = '';
+      bridgeInfo.classList.remove('clickable');
+      return;
+    }
+    const ro = bridge.readonly ? ' (read-only)' : '';
+    const clients = bridge.clients > 0 ? ' · ' + L.clients.replace('{0}', String(bridge.clients)) : '';
+    bridgeInfo.textContent = 'AgentBridge ' + bridge.address + ro + clients;
+    bridgeInfo.title = L.copyHint;
+    bridgeInfo.classList.add('clickable');
+  };
+  bridgeBtn.addEventListener('click', () => {
+    if (closed) { return; }
+    vscode.postMessage({ type: bridge.active ? 'bridgeStop' : 'bridgeStart' });
+  });
+  bridgeInfo.addEventListener('click', () => {
+    if (bridge.active) { vscode.postMessage({ type: 'copyBridgeAddress' }); }
+  });
+
   window.addEventListener('message', (event) => {
     const message = event.data;
     if (!message || !message.type) { return; }
@@ -525,6 +695,10 @@ label { margin-left: 4px; }
       appendEntries(message.entries);
     } else if (message.type === 'state') {
       applyRecording(message.recording === true);
+      if (message.bridge && typeof message.bridge === 'object') {
+        bridge = message.bridge;
+        renderBridge();
+      }
       if (message.connection === 'closed' && !closed) {
         applyClosed();
       } else if (!closed) {

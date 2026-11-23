@@ -76,8 +76,9 @@ class SerialPortDataRecorder extends SerialPortConsumer {
   readonly id = 'serialPortDataRecorder';
   readonly displayName = 'Serial Port Data Recorder';
   onData(data: Buffer): void;     // RX：Connection 广播直达
-  recordTx(data: Buffer): void;   // TX：由 Assist 发送路径显式调用——Connection 只广播 RX，
-                                  // TX 必须经由此入口进入记录，这是与 LogRecorder 的本质差异
+  recordTx(data: Buffer): void;   // TX：由 Assist 显式调用——Connection 只广播 RX，TX 必须经由此
+                                  // 入口进入记录；两条来源汇聚：面板发送漏斗（transmit）与桥
+                                  // 出站回调（onOutboundBytes 接线），这是与 LogRecorder 的本质差异
   onClosed(): void;               // 关流 + 「已保存」提示（复用 LogRecorder 模式）
 }
 ```
@@ -90,10 +91,11 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 
 ## 7. AgentBridge 托管（透传模式）
 
-- Assist 托管桥与 Terminal 同构：页内开关 → 构造 `new SerialPortAgentBridge(host, port, readonlyMode, /* stripAnsi */ false)` → `addConsumer` → `listen()` → 页内回显地址（只读标记）→ `stopBridge()` 注销销毁；断开随 Connection 收尾（listen 取消路径 `AgentBridgeCancelledError` 静默——既有契约）；
+- Assist 托管桥与 Terminal 同构：页内开关 → 构造 `new SerialPortAgentBridge(host, port, readonlyMode, /* stripAnsi */ false, 计数回调, /* onOutboundBytes */ 出站回调)` → `addConsumer` → `listen()` → 页内回显地址（只读标记）→ `stopBridge()` 注销销毁；断开随 Connection 收尾（listen 取消路径 `AgentBridgeCancelledError` 静默——既有契约）；
 - **透传模式语义**（1.4.8 既有）：不经剥离行缓冲、不挂 200ms 空闲刷出，数据即时到达，二进制协议不被 UTF-8 往返损坏——Assist 场景固定 `stripAnsi = false`，无页内开关；
-- **公共工厂抽取**：startBridge 流程（读 `agentBridge.ports` → QuickPick 选端口（单值跳过）→ 构造 → 注册 → listen → 呈现）Terminal 与 Assist 双消费方共用，抽为共享模块——呈现差异经回调注入（Terminal = 状态栏 + toast；Assist = 页内地址 / 客户端数）；`bridgeStarting` 重入守卫模式随工厂走，防双开竞态；
-- 状态栏 `AgentBridge <host:port>` 常驻与 `· N` 计数为 **Terminal 专属呈现**（`activeTerminal` 接线）；Assist 的桥状态全部页内呈现（地址点击复制、客户端数实时）。
+- **公共工厂（已实现为 `AgentBridgeSession` 类）**：startBridge 流程（读 `agentBridge.*` 配置 → 选端口 → 构造 → 注册 → listen → 呈现）Terminal 与 Assist 双消费方共用——owner 回调（addConsumer/removeConsumer）+ presenter 三回调注入呈现差异：`onChange`（任意状态迁移，Terminal = 状态栏拉模型 refreshLogContext / Assist = 强制推送 state）、`onStarted`（Terminal toast / Assist 页内地址行）、`onFailed`（双侧 host toast，复用既有文案键）；`bridgeStarting` 重入守卫随会话走（选端口窗口持锁、listen 窗口由 active 守卫自然拦截），防双开竞态；
+- **桥客户端字节可见（P1-b）**：桥第 6 参 `onOutboundBytes` 由 Assist 接线为 `observeOutbound(bytes)` = `dataRecorder?.recordTx(bytes)` + `buffer.push(bytes,'tx')`——桥客户端操作以 TX 行实时入面板并入 `.dat`，与面板发送同权可见（桥已自行 send，回调不重复发送）；readonly 桥该回调天然不触发；
+- 状态栏 `AgentBridge <host:port>` 常驻与 `· N` 计数为**全局桥指示**：活动终端的桥优先（`activeTerminal` 接线），活动终端无桥时回退显示任一 Assist 会话的运行中桥（注册表 + 装配层注入 provider——避免 Terminal ↔ Assist 循环依赖；点击复制同样回退）；Assist 桥状态迁移（开/停/计数）经 `refreshAgentBridgeStatus` 同步状态栏，页内呈现（开关按钮、地址行、客户端数）并行不悖。
 
 ## 8. WebviewPanel 与消息协议
 

@@ -40,7 +40,8 @@ class SerialPortAgentBridge extends SerialPortConsumer {
   readonly displayName = 'Serial Port Agent Bridge';
 
   constructor(host: string, port: number, readonlyMode = false, stripAnsi = true,
-              onClientCountChanged?: (count: number) => void);
+              onClientCountChanged?: (count: number) => void,
+              onOutboundBytes?: (data: Buffer) => void);
   listen(): Promise<{ host: string; port: number }>;  // 启动监听；端口占用 reject（透传底层错误），
                                                       // listening 送达前被关闭则 reject 取消
                                                       // （AgentBridgeCancelledError，见 §5）
@@ -55,6 +56,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 - `readonlyMode`（1.4.3 起，安全增强）：只读观察者模式——socket **不挂 `data` handler**，客户端发送的字节被丢弃、永不到达设备；设备 → 客户端的广播方向不受影响。承载方式为设置项 `serialPortTerminal.agentBridge.readonly`（默认 `false`，见 §8），由 Terminal 创建桥时读取；
 - `stripAnsi`（预留接口，供未来纯字节流 Consumer 使用）：默认 `true`（终端语义：剥离 ANSI 转义序列 + 200ms 空闲刷出）；`false` 时字节**原样透传**——不经剥离行缓冲、不挂空闲刷出（数据即时到达，二进制协议不被 UTF-8 往返损坏）；
 - `onClientCountChanged`（可选回调，客户端计数）：客户端接入或断开后触发，`count` 为当前在线数；桥停止/断开收尾销毁 socket **不触发**（收尾无用户可感知状态变化），socket `'close'` 迟到于收尾清空时不回调（`delete` 返回 false 守卫）。普通函数回调对齐 Connection 构造器 `onRequestClose` 先例；不传时行为与无此参版本完全一致。由 Terminal 接线为状态栏计数（见 §7）；**不写终端提示行**——提示行干扰终端内容本身（用户实测定夺）；
+- `onOutboundBytes`（P1-b，可选回调，出站字节）：桥客户端发来的字节（即将写入串口）在转发 send 之前触发——托管方（Assist）据此记录（DataRecorder TX 行）与回显（面板 TX 行），桥客户端操作与面板发送同权可见；readonly 模式 socket 不挂 data handler，回调**天然永不触发**（自洽）；多客户端并发按到达顺序触发（= 写序）；不传 = 行为与现状完全一致（Terminal 传 5 参零改动）；回调内**禁止**再经 host.send 写串口（防回环）；
 - 注册时序：Terminal 先 `addConsumer(this)`、后 `await listen()`；listen 失败（如 EADDRINUSE）时 `removeConsumer` 回滚注销并报错；
 - `onData` 广播给 `Set<net.Socket>` 中所有 socket；非只读模式下任一 socket `'data'` 经 `send()` 转发到串口；
 - 无客户端时 `onData` 数据直接丢弃（不缓冲、不补发）。
@@ -87,7 +89,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
                                                              静默 200ms：自动 flush 刷出尾行（消除提示符延迟）
                                                              断开收尾：flush 剩余半行后关闭
 
-任一客户端 → socket 'data' → AgentBridge.send() → handle.write → 串口
+任一客户端 → socket 'data' → onOutboundBytes?.()（可选，托管方记录/回显）→ AgentBridge.send() → handle.write → 串口
 ```
 
 ## 7. 交互与状态
@@ -98,7 +100,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 - **context key**：`serialPortTerminal.agentBridgeActive`（是否运行）；
 - **回显**：启动成功后 `showInformationMessage` 显示 `host:port`（如 `127.0.0.1:2000`）；只读模式追加 ` (read-only)` 后缀；
 - **命令面板**：`serialPortAgentBridge.toggleReadonly` 切换只读设置并提示生效时机（修改在重新开启 Agent Bridge 后生效）；
-- **状态栏持久显示**：桥运行时状态栏常驻 `$(record) AgentBridge <host:port>`（只读模式追加 ` (read-only)` 后缀），点击复制地址到剪贴板；桥停止 / 断开时隐藏。状态跟随**活动终端**——每个终端独立记录自己的地址，切换终端时状态栏随之切换（活动终端无桥则隐藏）。文本在客户端数 ≥1 时追加 ` · N` 计数（客户端接入/断开经回调刷新；与地址一样跟随活动终端；"0" 是常态噪音，不显示）。客户端接入呈现**有意只做状态栏计数**：不写终端提示行（干扰终端内容本身，用户实测定夺）、不用 toast（Agent 重连频繁，轰炸不可接受）。
+- **状态栏持久显示**：桥运行时状态栏常驻 `$(record) AgentBridge <host:port>`（只读模式追加 ` (read-only)` 后缀），点击复制地址到剪贴板；桥停止 / 断开时隐藏。状态跟随**活动终端**——每个终端独立记录自己的地址，切换终端时状态栏随之切换；活动终端无桥（或无活动串口终端）时回退显示任一 Assist 会话的运行中桥（全局桥指示，Assist 状态迁移经 `refreshAgentBridgeStatus` 同步；点击复制同源回退）。文本在客户端数 ≥1 时追加 ` · N` 计数（客户端接入/断开经回调刷新；与地址一样跟随活动终端；"0" 是常态噪音，不显示）。客户端接入呈现**有意只做状态栏计数**：不写终端提示行（干扰终端内容本身，用户实测定夺）、不用 toast（Agent 重连频繁，轰炸不可接受）。
 
 ## 8. 配置
 

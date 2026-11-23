@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 
 import { SerialPortAssist } from '../../../src/SerialPortConsumer/SerialPortAssist/SerialPortAssist';
 import { SerialPortConsumerMode } from '../../../src/SerialPortConnection/SerialPortConnectionService';
-import { RecordingConsumer, createHarness, findDevice, waitFor, withTempDir, type TestHarness } from './helpers';
+import { RecordingConsumer, TcpTestClient, createHarness, findDevice, waitFor, withTempDir, type TestHarness } from './helpers';
 
 // 串口助手连接模式契约（doc/ConsumerDesign/SerialPortAssist设计.md §3/§4/§12）：
 // connect 第 4 参 mode 选型主 Consumer（缺省 terminal 向后兼容）；assist 模式下
@@ -154,6 +154,70 @@ describe('串口助手连接模式（自装配）', () => {
       assert.equal(fs.readdirSync(temp.dir).filter(name => name.endsWith('.dat')).length, 0);
     } finally {
       await config.update('logDirectory', undefined, vscode.ConfigurationTarget.Global);
+      temp.dispose();
+    }
+  });
+
+  it('#6 forwards bridge client bytes into the panel (tx) and the recorder', async () => {
+    const temp = withTempDir();
+    const config = vscode.workspace.getConfiguration('serialPortTerminal');
+    await config.update('logDirectory', temp.dir, vscode.ConfigurationTarget.Global);
+    // 端口 [0] = 临时端口（OS 分配），规避测试环境端口冲突；单值跳过选择器。
+    await config.update('agentBridge.ports', [0], vscode.ConfigurationTarget.Global);
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device, undefined, undefined, 'assist');
+    const assist = instances.at(-1);
+    assert.ok(assist);
+    let client: TcpTestClient | undefined;
+    try {
+      assist.startDataRecording();
+      await assist.startBridge();
+      assert.ok(assist.isBridgeActive());
+      const address = assist.getBridgeAddress();
+      assert.ok(address && address.startsWith('127.0.0.1:'));
+      const port = Number(address.split(':')[1]);
+      assert.ok(port > 0);
+
+      client = new TcpTestClient(port);
+      await client.handshaken();
+      client.write('bridge-ping');
+      // 出站回调 → 面板 TX 行；Echo 回显 → RX 行（双向如实，不抑制回显）
+      await waitFor(
+        'tx entry from bridge bytes',
+        () => assist.snapshotEntries().some(entry => entry.dir === 'tx' && entry.bytes.toString().includes('bridge-ping')),
+        2000
+      );
+      await waitFor(
+        'rx echo entry in buffer',
+        () => assist.snapshotEntries().some(entry => entry.dir === 'rx' && entry.bytes.toString().includes('bridge-ping')),
+        2000
+      );
+      // 'bridge-ping' 的小写十六进制
+      const hex = '62 72 69 64 67 65 2d 70 69 6e 67';
+      assist.stopDataRecording();
+      await waitFor(
+        'dat file has tx and rx lines for the bridge bytes',
+        () => {
+          try {
+            const datFile = fs.readdirSync(temp.dir).find(name => name.endsWith('.dat'));
+            if (!datFile) {
+              return false;
+            }
+            const text = fs.readFileSync(path.join(temp.dir, datFile), 'utf8');
+            return text.includes(` TX ${hex}`) && text.includes(` RX ${hex}`);
+          } catch {
+            return false;
+          }
+        },
+        2000
+      );
+    } finally {
+      client?.dispose();
+      assist.stopBridge();
+      assist.stopDataRecording();
+      await harness.service.disconnect(device);
+      await config.update('logDirectory', undefined, vscode.ConfigurationTarget.Global);
+      await config.update('agentBridge.ports', undefined, vscode.ConfigurationTarget.Global);
       temp.dispose();
     }
   });

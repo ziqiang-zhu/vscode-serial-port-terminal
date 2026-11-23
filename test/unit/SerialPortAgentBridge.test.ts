@@ -133,3 +133,135 @@ describe('SerialPortAgentBridge（客户端数回调）', () => {
     socket.destroy();
   });
 });
+
+// 出站字节回调契约（AgentBridge设计 §4 / 串口助手设计 §7，P1-b）：桥客户端
+// 发来的字节（即将写入串口）在转发 send 之前按到达顺序触发；设备→客户端方向
+//（onData）不触发；readonly 模式 socket 不挂 data handler 天然不触发；不传 =
+// 行为与现状完全一致（Terminal 传 5 参零改动）。桥未 attach 到 Connection 时
+// send 为 no-op（host 缺省返回 false），但回调先于 send 触发，断言不受影响。
+
+const openClient = (port: number): Promise<net.Socket> =>
+  new Promise((resolve, reject) => {
+    const socket = net.connect(port, '127.0.0.1');
+    socket.once('connect', () => resolve(socket));
+    socket.once('error', reject);
+  });
+
+const pollUntil = (predicate: () => boolean, label: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const start = Date.now();
+    const tick = () => {
+      if (predicate()) {
+        resolve();
+        return;
+      }
+      if (Date.now() - start > 2000) {
+        reject(new Error(`timeout: ${label}`));
+        return;
+      }
+      setTimeout(tick, 10);
+    };
+    tick();
+  });
+
+describe('SerialPortAgentBridge（出站字节回调）', () => {
+  const makeBridge = (
+    readonlyMode: boolean,
+    onOutboundBytes?: (data: Buffer) => void
+  ) => {
+    const counts: number[] = [];
+    const bridge = new SerialPortAgentBridge(
+      '127.0.0.1',
+      0,
+      readonlyMode,
+      true,
+      count => counts.push(count),
+      onOutboundBytes
+    );
+    const waitFor = (predicate: () => boolean, label: string): Promise<void> =>
+      new Promise((resolve, reject) => {
+        const start = Date.now();
+        const tick = () => {
+          if (predicate()) {
+            resolve();
+            return;
+          }
+          if (Date.now() - start > 2000) {
+            reject(new Error(`timeout: ${label}`));
+            return;
+          }
+          setTimeout(tick, 10);
+        };
+        tick();
+      });
+    return { bridge, counts, waitFor };
+  };
+
+  it('#8 fires with client bytes in arrival order', async () => {
+    const outbound: Buffer[] = [];
+    const { bridge, waitFor } = makeBridge(false, chunk => outbound.push(chunk));
+    const address = await bridge.listen();
+    const socket = await openClient(address.port);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      socket.write('abc');
+      await pollUntil(() => outbound.length >= 1, 'first outbound chunk');
+      socket.write('def');
+      await pollUntil(() => outbound.length >= 2, 'second outbound chunk');
+      assert.equal(
+        outbound.map(chunk => chunk.toString()).join(','),
+        'abc,def'
+      );
+    } finally {
+      socket.destroy();
+      bridge.onClosed();
+    }
+  });
+
+  it('#9 device output does not fire the hook', async () => {
+    const outbound: Buffer[] = [];
+    const { bridge, waitFor } = makeBridge(false, chunk => outbound.push(chunk));
+    const address = await bridge.listen();
+    const socket = await openClient(address.port);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      bridge.onData(Buffer.from('from device')); // 设备→客户端广播：不触发出站回调
+      await pollUntil(() => socket.read() !== null, 'device output broadcast to the client');
+      await new Promise(resolve => setTimeout(resolve, 30));
+      assert.equal(outbound.length, 0);
+    } finally {
+      socket.destroy();
+      bridge.onClosed();
+    }
+  });
+
+  it('#10 readonly bridge never fires the hook', async () => {
+    const outbound: Buffer[] = [];
+    const { bridge, waitFor } = makeBridge(true, chunk => outbound.push(chunk));
+    const address = await bridge.listen();
+    const socket = await openClient(address.port);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      socket.write('should be dropped');
+      await new Promise(resolve => setTimeout(resolve, 50));
+      assert.equal(outbound.length, 0, 'readonly mode has no client data handler');
+    } finally {
+      socket.destroy();
+      bridge.onClosed();
+    }
+  });
+
+  it('#11 hook-less construction stays a no-op', async () => {
+    const bridge = new SerialPortAgentBridge('127.0.0.1', 0, false, true);
+    const address = await bridge.listen();
+    const socket = await openClient(address.port);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      socket.write('anything');
+      await new Promise(resolve => setTimeout(resolve, 30));
+    } finally {
+      socket.destroy();
+      bridge.onClosed();
+    }
+  });
+});

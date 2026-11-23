@@ -2,6 +2,12 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.2]
+
+### Added
+- Serial Port Assist bridge hosting: the panel toolbar gains a "Start / Stop Agent Bridge" toggle, and the bridge is hosted in the assist session in passthrough mode; the bridge address (click to copy) and the live client count are shown in the panel; bytes sent by bridge clients are echoed as TX rows in real time and recorded into the data log (alongside the RX rows of device echo, as-is)
+- The status bar shows the currently running bridge: the active terminal's bridge takes precedence, otherwise the assist session's bridge is shown (address, read-only marker and client count)
+
 ## [1.6.1]
 
 ### Added

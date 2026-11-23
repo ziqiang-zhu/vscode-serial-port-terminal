@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
 import { SerialPortLogRecorder } from '../SerialPortLogRecorder/SerialPortLogRecorder';
-import { SerialPortAgentBridge, AgentBridgeCancelledError } from '../SerialPortAgentBridge/SerialPortAgentBridge';
+import { AgentBridgeSession } from '../SerialPortAgentBridge/AgentBridgeSession';
 import { buildLogFilePath, resolveLogDirectory } from '../SerialPortLogFiles';
 
 const CONTEXT_FOCUS = 'serialPortTerminal.focus';
@@ -12,6 +12,28 @@ const CONTEXT_PAUSED = 'serialPortTerminal.paused';
 const CONTEXT_AGENT_BRIDGE = 'serialPortTerminal.agentBridgeActive';
 
 const terminalInstances = new Map<vscode.Terminal, SerialPortTerminal>();
+
+// 全局桥状态栏的 Assist 回退数据源（注册经装配层注入——extension.ts 调
+// registerAssistBridgeStatusProvider，避免 Terminal ↔ Assist 循环依赖）：
+// 活动终端的桥优先，活动终端无桥时状态栏回退显示任一 Assist 会话的运行中桥。
+export interface AssistBridgeStatusBarInfo {
+  address: string;
+  readonly: boolean;
+  clients: number;
+}
+
+let assistBridgeStatusProvider: (() => AssistBridgeStatusBarInfo | undefined) | undefined;
+
+export function registerAssistBridgeStatusProvider(
+  provider: () => AssistBridgeStatusBarInfo | undefined
+): void {
+  assistBridgeStatusProvider = provider;
+}
+
+/** 全局桥状态栏刷新（Assist 桥状态迁移时由 Assist 模块调用；Terminal 内部走 refreshLogContext）。 */
+export function refreshAgentBridgeStatus(): void {
+  updateLogContext(getActiveInstance());
+}
 
 class SerialPortPseudoTerminal implements vscode.Pseudoterminal {
   private writeEmitter = new vscode.EventEmitter<string>();
@@ -95,14 +117,9 @@ export class SerialPortTerminal extends SerialPortConsumer {
   private pty: SerialPortPseudoTerminal | undefined;
   private hostPath = '';
   private logRecorder: SerialPortLogRecorder | undefined;
-  private agentBridge: SerialPortAgentBridge | undefined;
-  private agentBridgeAddress: string | undefined;
-  private agentBridgeReadonly: boolean | undefined;
-  private agentBridgeClientCount = 0;
-  // 选端口窗口内的重入守卫：多端口配置时 QuickPick 可挂起任意久，期间二次调用
-  // 会穿透 agentBridge 空守卫并产生双桥（同 id 注册顶掉旧桥，状态错乱）。listen
-  // 窗口无需持锁——agentBridge 已置位，原守卫自然拦截二次调用。
-  private bridgeStarting = false;
+  // 桥启动会话（公共工厂，AgentBridge设计 §4——呈现差异经 presenter 注入）：
+  // 状态栏拉模型呈现，onChange 即 refreshLogContext。
+  private bridgeSession: AgentBridgeSession | undefined;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -131,9 +148,9 @@ export class SerialPortTerminal extends SerialPortConsumer {
   onClosed(): void {
     this.pty?.notifyDisconnected(this.hostPath);
     this.logRecorder = undefined;
-    this.agentBridge = undefined;
-    this.agentBridgeAddress = undefined;
-    this.agentBridgeClientCount = 0;
+    // 桥随 Connection 关闭链自行清理（A11 取消路径含其中），此处仅丢弃会话引用。
+    this.bridgeSession?.detach();
+    this.bridgeSession = undefined;
     this.detachTerminal();
   }
 
@@ -188,121 +205,55 @@ export class SerialPortTerminal extends SerialPortConsumer {
   }
 
   async startBridge(): Promise<void> {
-    if (this.agentBridge || this.bridgeStarting) {
-      return;
-    }
-    this.bridgeStarting = true;
-    try {
-      const port = await this.pickAgentBridgePort();
-      if (port === undefined) {
-        return;
-      }
-      const readonlyMode = this.getAgentBridgeReadonly();
-      // stripAnsi 恒取默认 true；第 5 参接线客户端数回调（状态栏计数）。
-      const bridge = new SerialPortAgentBridge(
-        this.getAgentBridgeHost(),
-        port,
-        readonlyMode,
-        true,
-        count => this.onBridgeClientCountChanged(count)
-      );
-      this.agentBridge = bridge;
-      this.agentBridgeReadonly = readonlyMode;
-      this.agentBridgeClientCount = 0;
-      this.addConsumer(bridge);
-      refreshLogContext();
-      try {
-        const address = await bridge.listen();
-        this.agentBridgeAddress = `${address.host}:${address.port}`;
-        refreshLogContext();
-        const suffix = readonlyMode ? ' (read-only)' : '';
-        void vscode.window.showInformationMessage(
-          vscode.l10n.t('Agent Bridge: {0}', `${address.host}:${address.port}${suffix}`)
-        );
-      } catch (error) {
-        if (error instanceof AgentBridgeCancelledError) {
-          // 启动挂起被取消（启动期间点了停止 / 断开收尾）：清理已由取消方
-          // （stopBridge / onClosed）完成，静默返回。
-          return;
-        }
-        this.agentBridge = undefined;
-        this.agentBridgeReadonly = undefined;
-        this.agentBridgeAddress = undefined;
-        this.agentBridgeClientCount = 0;
-        this.removeConsumer(bridge.id);
-        refreshLogContext();
-        void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
-      }
-    } finally {
-      this.bridgeStarting = false;
-    }
+    await this.ensureBridgeSession().start();
   }
 
   stopBridge(): void {
-    if (!this.agentBridge) {
-      return;
-    }
-    const bridge = this.agentBridge;
-    this.agentBridge = undefined;
-    this.agentBridgeAddress = undefined;
-    this.agentBridgeReadonly = undefined;
-    this.agentBridgeClientCount = 0;
-    this.removeConsumer(bridge.id);
-    refreshLogContext();
-  }
-
-  // 客户端计数（状态栏 · N）：仅刷新计数字段与状态栏；有意不写终端提示行——
-  // 提示行干扰终端内容本身（用户实测定夺）。refreshLogContext 按活动实例读取，
-  // 非活动终端的桥触发亦安全幂等。
-  private onBridgeClientCountChanged(count: number): void {
-    this.agentBridgeClientCount = count;
-    refreshLogContext();
+    this.bridgeSession?.stop();
   }
 
   isBridgeActive(): boolean {
-    return this.agentBridge !== undefined;
+    return this.bridgeSession?.active ?? false;
   }
 
   isAgentBridgeReadonly(): boolean {
-    return this.agentBridgeReadonly ?? false;
+    return this.bridgeSession?.isReadonly ?? false;
   }
 
   getAgentBridgeAddress(): string | undefined {
-    return this.agentBridgeAddress;
+    return this.bridgeSession?.bridgeAddress;
   }
 
   getAgentBridgeClientCount(): number {
-    return this.agentBridgeClientCount;
+    return this.bridgeSession?.clients ?? 0;
   }
 
-  private getAgentBridgeReadonly(): boolean {
-    return vscode.workspace
-      .getConfiguration('serialPortTerminal')
-      .get<boolean>('agentBridge.readonly', false);
-  }
-
-  private getAgentBridgeHost(): string {
-    const host = vscode.workspace.getConfiguration('serialPortTerminal').get<string>('agentBridge.host', '127.0.0.1');
-    return host && host.trim() ? host : '127.0.0.1';
-  }
-
-  private async pickAgentBridgePort(): Promise<number | undefined> {
-    const configured = vscode.workspace.getConfiguration('serialPortTerminal').get<number[]>('agentBridge.ports', [2000]);
-    const ports = (configured ?? [])
-      .map(p => Number(p))
-      .filter(p => Number.isInteger(p) && p >= 1 && p <= 65535);
-    if (ports.length === 0) {
-      void vscode.window.showErrorMessage(vscode.l10n.t('No Agent Bridge port configured'));
-      return undefined;
+  // 桥会话懒建（公共工厂，AgentBridge设计 §4）：状态栏拉模型呈现——onChange
+  // 即 refreshLogContext（按活动实例读取，非活动终端的桥触发亦安全幂等）；
+  // stripAnsi 恒取终端语义 true；出站回调不传（桥客户端字节无面板回显诉求）。
+  private ensureBridgeSession(): AgentBridgeSession {
+    if (!this.bridgeSession) {
+      this.bridgeSession = new AgentBridgeSession(
+        {
+          addConsumer: consumer => this.addConsumer(consumer),
+          removeConsumer: id => this.removeConsumer(id)
+        },
+        {
+          onChange: () => refreshLogContext(),
+          onStarted: (address, readonlyMode) => {
+            const suffix = readonlyMode ? ' (read-only)' : '';
+            void vscode.window.showInformationMessage(
+              vscode.l10n.t('Agent Bridge: {0}', `${address}${suffix}`)
+            );
+          },
+          onFailed: error => {
+            void vscode.window.showErrorMessage(vscode.l10n.t('Failed to start Agent Bridge: {0}', `${error}`));
+          }
+        },
+        true
+      );
     }
-    if (ports.length === 1) {
-      return ports[0];
-    }
-    const picked = await vscode.window.showQuickPick(
-      ports.map(p => ({ label: String(p) })),
-      { placeHolder: vscode.l10n.t('Select Agent Bridge port') }
-    );
-    return picked ? Number(picked.label) : undefined;
+    return this.bridgeSession;
   }
 
   private detachTerminal(): void {
@@ -368,7 +319,15 @@ function updateLogContext(instance: SerialPortTerminal | undefined): void {
   void vscode.commands.executeCommand('setContext', CONTEXT_RECORDING, instance?.isRecording() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_PAUSED, instance?.isPaused() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_AGENT_BRIDGE, instance?.isBridgeActive() ?? false);
-  updateAgentBridgeStatus(instance?.getAgentBridgeAddress(), instance?.isAgentBridgeReadonly() ?? false, instance?.getAgentBridgeClientCount() ?? 0);
+  // 状态栏 = 全局桥指示：活动终端的桥优先；活动终端无桥（或无活动串口终端）时
+  // 回退显示任一 Assist 会话的运行中桥。注意 readonly/clients 的回退不能走 `??`
+  // （false/0 非 nullish 不穿透）——先选数据源、再取字段。
+  const instanceAddress = instance?.getAgentBridgeAddress();
+  const assistBridge = instanceAddress === undefined ? assistBridgeStatusProvider?.() : undefined;
+  const address = instanceAddress ?? assistBridge?.address;
+  const readonlyMode = assistBridge ? assistBridge.readonly : instance?.isAgentBridgeReadonly() ?? false;
+  const clientCount = assistBridge ? assistBridge.clients : instance?.getAgentBridgeClientCount() ?? 0;
+  updateAgentBridgeStatus(address, readonlyMode, clientCount);
 }
 
 function refreshLogContext(): void {
@@ -399,7 +358,8 @@ export function registerSerialPortLogCommands(context: vscode.ExtensionContext):
       void vscode.window.showInformationMessage(message);
     }),
     vscode.commands.registerCommand('serialPortAgentBridge.copyAddress', () => {
-      const address = getActiveInstance()?.getAgentBridgeAddress();
+      // 状态栏显示的地址即当前全局桥：活动终端的桥优先，否则为 Assist 会话的桥。
+      const address = getActiveInstance()?.getAgentBridgeAddress() ?? assistBridgeStatusProvider?.()?.address;
       if (address) {
         void vscode.env.clipboard.writeText(address);
         void vscode.window.showInformationMessage(vscode.l10n.t('Agent Bridge address copied: {0}', address));

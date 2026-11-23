@@ -38,7 +38,12 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
     // 客户端数变化回调（可选）：客户端接入或断开后触发，count 为当前在线数；
     // 桥停止/断开收尾销毁 socket 不触发（收尾无用户可感知状态变化）。普通函数
     // 回调对齐 Connection 构造器 onRequestClose 先例。
-    private readonly onClientCountChanged?: (count: number) => void
+    private readonly onClientCountChanged?: (count: number) => void,
+    // 出站字节回调（可选，P1-b）：桥客户端发来的字节（即将写入串口）——在转发
+    // send 之前触发（进入漏斗时刻 ≈ 写序）。readonly 模式 socket 不挂 data
+    // handler，本回调天然永不触发（自洽）；多客户端并发按到达顺序触发；不传 =
+    // 行为与现状完全一致（Terminal 传 5 参零改动）。
+    private readonly onOutboundBytes?: (data: Buffer) => void
   ) {
     super();
     this.bindHost = host;
@@ -131,6 +136,7 @@ export class SerialPortAgentBridge extends SerialPortConsumer {
     this.onClientCountChanged?.(this.sockets.size);
     if (!this.readonlyMode) {
       socket.on('data', chunk => {
+        this.onOutboundBytes?.(chunk);
         this.send(chunk);
       });
     }
