@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { SerialPortDeviceDetector, SerialPortDevicesChangeEvent } from '../SerialPortDeviceDetector/SerialPortDeviceDetector';
-import { SerialPortConnectionService } from '../SerialPortConnection/SerialPortConnectionService';
+import { SerialPortConnectionService, SerialPortConsumerMode } from '../SerialPortConnection/SerialPortConnectionService';
 import { SerialPortConfigStore } from '../SerialPortConfig/SerialPortConfigStore';
 import { SerialConfig, formatSerialConfigDescription, formatSerialConfigSummary, serialConfigEquals } from '../SerialPortConfig/SerialPortQuickConfig';
 import { pickSerialConfig } from '../SerialPortConfig/SerialPortConfigWizard';
@@ -76,6 +76,15 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
         }
       })
     );
+    // 助手连接（串口助手设计 §9）：与终端连接同一套参数选择器流程，仅连接
+    // 模式实参不同；inline 按钮、不入右键菜单（对齐终端连接）。
+    context.subscriptions.push(
+      vscode.commands.registerCommand('serialPortDevice.connectAssist', (item: SerialPortDeviceTreeItem) => {
+        if (item) {
+          void this.connectDevice(item, 'assist');
+        }
+      })
+    );
     context.subscriptions.push(
       vscode.commands.registerCommand('serialPortDevice.disconnect', (item: SerialPortDeviceTreeItem) => {
         if (item) {
@@ -137,10 +146,10 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
     return this.configStore.getGlobalConfigs(identity).length > 0;
   }
 
-  private async connectDevice(item: SerialPortDeviceTreeItem): Promise<void> {
+  private async connectDevice(item: SerialPortDeviceTreeItem, mode: SerialPortConsumerMode = 'terminal'): Promise<void> {
     const selected = this.selectedItem;
     if (selected instanceof SerialPortQuickConfigTreeItem && selected.device.path === item.device.path) {
-      await this.connectWithConfig(item, selected.quickConfig.config, selected.quickConfig.name);
+      await this.connectWithConfig(item, selected.quickConfig.config, selected.quickConfig.name, mode);
       return;
     }
     const identity = item.device.identity;
@@ -176,16 +185,16 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
       return;
     }
     if (picked.manual) {
-      await this.connectWithManualConfig(item, identity);
+      await this.connectWithManualConfig(item, identity, mode);
       return;
     }
     if (!picked.config) {
       return;
     }
-    await this.connectWithConfig(item, picked.config, picked.configName);
+    await this.connectWithConfig(item, picked.config, picked.configName, mode);
   }
 
-  private async connectWithManualConfig(item: SerialPortDeviceTreeItem, identity: string): Promise<void> {
+  private async connectWithManualConfig(item: SerialPortDeviceTreeItem, identity: string, mode: SerialPortConsumerMode = 'terminal'): Promise<void> {
     const config = await pickSerialConfig(this.configStore.getLastUsedConfig(identity));
     if (!config) {
       return;
@@ -216,11 +225,16 @@ export class SerialPortDeviceManagerTreeView implements vscode.TreeDataProvider<
         return;
       }
     }
-    await this.connectWithConfig(item, config);
+    await this.connectWithConfig(item, config, undefined, mode);
   }
 
-  private async connectWithConfig(item: SerialPortDeviceTreeItem, config: SerialConfig, label?: string): Promise<void> {
-    await this.connectionService.connect(item.device, config, label);
+  private async connectWithConfig(
+    item: SerialPortDeviceTreeItem,
+    config: SerialConfig,
+    label?: string,
+    mode: SerialPortConsumerMode = 'terminal'
+  ): Promise<void> {
+    await this.connectionService.connect(item.device, config, label, mode);
     if (item.device.status === 'connected') {
       this.configStore.setLastUsedConfig(item.device.identity, config);
     }

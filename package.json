@@ -2,7 +2,7 @@
   "name": "serial-port-terminal",
   "displayName": "Serial Port Terminal",
   "description": "An interactive serial port terminal with an AI-agent TCP bridge",
-  "version": "1.5.16",
+  "version": "1.6.0",
   "publisher": "ziqiang",
   "icon": "images/logo.png",
   "repository": {
@@ -76,6 +76,12 @@
         "title": "%serialPortDevice.connect.title%",
         "category": "Serial Port Terminal",
         "icon": "$(remote)"
+      },
+      {
+        "command": "serialPortDevice.connectAssist",
+        "title": "%serialPortDevice.connectAssist.title%",
+        "category": "Serial Port Terminal",
+        "icon": "$(pulse)"
       },
       {
         "command": "serialPortDevice.disconnect",
@@ -215,6 +221,11 @@
       "view/item/context": [
         {
           "command": "serialPortDevice.connect",
+          "when": "view == serialPortDeviceList && viewItem == serialPortDevice.disconnected",
+          "group": "inline"
+        },
+        {
+          "command": "serialPortDevice.connectAssist",
           "when": "view == serialPortDeviceList && viewItem == serialPortDevice.disconnected",
           "group": "inline"
         },

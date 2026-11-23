@@ -3,6 +3,7 @@
   "serialPortDeviceList.View.title": "设备列表",
   "serialPortDeviceList.refresh.title": "刷新",
   "serialPortDevice.connect.title": "连接",
+  "serialPortDevice.connectAssist.title": "助手连接",
   "serialPortDevice.disconnect.title": "断开链接",
   "serialPortQuickConfig.add.title": "添加快捷配置",
   "serialPortQuickConfig.rename.title": "重命名",

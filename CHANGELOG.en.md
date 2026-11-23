@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.0]
+
+### Added
+- Serial Port Assist: a new "Connect with Assist" entry in the device tree (alongside "Connect", sharing the same connection parameter picker) opens a pure byte-stream serial session in a dedicated panel - real-time two-way display (HEX / ASCII / Mixed, with millisecond timestamps and TX/RX markers), text and HEX send modes (selectable line ending, CR by default; text supports \r \n \t escapes), a 5000-entry receive ring buffer (oldest entries are hidden automatically with a notice), pause scrolling and clear; the panel stays open after disconnect for review, reconnecting opens a new panel
+
 ## [1.5.16]
 
 ### Changed

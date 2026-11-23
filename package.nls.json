@@ -3,6 +3,7 @@
   "serialPortDeviceList.View.title": "Device List",
   "serialPortDeviceList.refresh.title": "Refresh",
   "serialPortDevice.connect.title": "Connect",
+  "serialPortDevice.connectAssist.title": "Connect with Assist",
   "serialPortDevice.disconnect.title": "Disconnect",
   "serialPortQuickConfig.add.title": "Add Quick Config",
   "serialPortQuickConfig.rename.title": "Rename",

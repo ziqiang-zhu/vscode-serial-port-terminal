@@ -9,7 +9,7 @@ import { SerialPortHalImpl } from '../../../src/hal/SerialPortHalImpl';
 import { SerialPortHalVirtual } from '../../../src/hal/SerialPortHalVirtual/SerialPortHalVirtual';
 import { SerialPortDeviceDetector } from '../../../src/SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortDeviceInterface } from '../../../src/SerialPortDeviceDetector/SerialPortDeviceInterface';
-import { SerialPortConnectionService } from '../../../src/SerialPortConnection/SerialPortConnectionService';
+import { SerialPortConnectionService, SerialPortConsumerMode } from '../../../src/SerialPortConnection/SerialPortConnectionService';
 import { SerialPortConsumer } from '../../../src/SerialPortConnection/SerialPortConsumer';
 
 // 自装配基础设施（契约见 doc/Test/开发测试体系.md §3 P1）：
@@ -23,7 +23,9 @@ export interface TestHarness {
   subscriptions: { dispose(): unknown }[];
 }
 
-export function createHarness(defaultConsumerFactory?: () => SerialPortConsumer): TestHarness {
+export function createHarness(
+  defaultConsumerFactory?: (mode: SerialPortConsumerMode) => SerialPortConsumer
+): TestHarness {
   const subscriptions: { dispose(): unknown }[] = [];
   const stubContext = { subscriptions } as unknown as vscode.ExtensionContext;
   const virtual = new SerialPortHalVirtual();

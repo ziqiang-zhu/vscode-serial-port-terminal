@@ -5,6 +5,7 @@ import { USE_VIRTUAL_HAL, createSerialPortHal, createVirtualHal } from './hal/ha
 import { SerialPortConnectionService } from './SerialPortConnection/SerialPortConnectionService';
 import { SerialPortDeviceDetector } from './SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortTerminal, registerSerialPortLogCommands } from './SerialPortConsumer/SerialPortTerminal/SerialPortTerminal';
+import { SerialPortAssist } from './SerialPortConsumer/SerialPortAssist/SerialPortAssist';
 import { SerialPortConfigStore } from './SerialPortConfig/SerialPortConfigStore';
 import { SerialPortDeviceManagerTreeView } from './view/SerialPortDeviceManagerTreeView';
 import { registerVirtualDeviceConsole } from './view/SerialPortConsoleView';
@@ -27,7 +28,11 @@ export function activate(context: vscode.ExtensionContext) {
   const hal = createSerialPortHal(virtualHal);
   const detector = new SerialPortDeviceDetector(hal, context);
   context.subscriptions.push(detector);
-  const connectionService = new SerialPortConnectionService(hal, detector, context, () => new SerialPortTerminal());
+  // 主 Consumer 工厂（串口助手设计 §4）：按连接模式选型——terminal 为缺省主
+  // Consumer（终端交互），assist 为纯字节流串口助手（WebviewPanel）。
+  const connectionService = new SerialPortConnectionService(hal, detector, context, mode =>
+    mode === 'assist' ? new SerialPortAssist() : new SerialPortTerminal()
+  );
   connectionServices.push(connectionService);
   const configStore = new SerialPortConfigStore(context.globalState);
   context.subscriptions.push(configStore);

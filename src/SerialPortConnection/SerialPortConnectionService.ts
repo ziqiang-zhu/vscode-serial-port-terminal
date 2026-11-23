@@ -19,6 +19,11 @@ const CONNECT_TIMEOUT_MS = 5_000;
 // 打开挂起超时的专属错误类型：catch 路径据此区分提示文案（连接超时 vs 连接失败）。
 export class PortOpenTimeoutError extends Error {}
 
+// 连接模式：主 Consumer 的选型依据（串口助手设计 §3——主 Consumer 由连接模式
+// 决定；同设备互斥由"每设备单连接 + status 守卫"天然保证）。缺省 terminal，
+// 全部既有调用方零改动。
+export type SerialPortConsumerMode = 'terminal' | 'assist';
+
 export class SerialPortConnectionService implements vscode.Disposable {
   private _onDidChangeDeviceStatus = new vscode.EventEmitter<SerialPortDeviceInterface>();
   readonly onDidChangeDeviceStatus = this._onDidChangeDeviceStatus.event;
@@ -30,7 +35,7 @@ export class SerialPortConnectionService implements vscode.Disposable {
     private readonly hal: SerialPortHal,
     private readonly detector: SerialPortDeviceDetector,
     context: vscode.ExtensionContext,
-    private readonly defaultConsumerFactory?: () => SerialPortConsumer,
+    private readonly defaultConsumerFactory?: (mode: SerialPortConsumerMode) => SerialPortConsumer,
     // 打开挂起超时（毫秒）：驱动假死时 openPort 永不返回，设备将永久停在
     // connecting（UI 无重试入口）。缺省 5 秒；测试注入更短值做确定性验证。
     private readonly connectTimeoutMs: number = CONNECT_TIMEOUT_MS,
@@ -64,7 +69,12 @@ export class SerialPortConnectionService implements vscode.Disposable {
     this._onDidChangeDeviceStatus.dispose();
   }
 
-  public async connect(device: SerialPortDeviceInterface, config: SerialConfig = DEFAULT_CONFIG, label?: string): Promise<void> {
+  public async connect(
+    device: SerialPortDeviceInterface,
+    config: SerialConfig = DEFAULT_CONFIG,
+    label?: string,
+    mode: SerialPortConsumerMode = 'terminal'
+  ): Promise<void> {
     if (!device || device.status !== 'disconnected' || this.disposed) {
       return;
     }
@@ -93,7 +103,7 @@ export class SerialPortConnectionService implements vscode.Disposable {
           () => {
             void this.disconnectByPath(device.path);
           },
-          this.defaultConsumerFactory?.()
+          this.defaultConsumerFactory?.(mode)
         );
         this.connections.set(device.path, connection);
       } catch (error) {

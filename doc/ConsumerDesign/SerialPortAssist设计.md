@@ -106,7 +106,7 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 | `append` | `{entries: [{seq, ts, dir, bytes}]}` | 100ms 批刷 |
 | `state` | 连接态、桥（address / count / readonly / active）、记录（active）、截断计数 | 任意状态变化 |
 
-- 页 → 宿主：`sendText` / `sendHex` / `setDisplay` / `clear` / `pauseScroll` / `recordStart` / `recordStop` / `bridgeStart` / `bridgeStop`（P1 追加发送历史与定时发送消息）；
+- 页 → 宿主：`ready`（页就绪/重载握手，宿主回 `init` + 全量重放）、`sendText` / `sendHex`（P0）、`recordStart` / `recordStop` / `bridgeStart` / `bridgeStop`（P1，随批次追加发送历史与定时发送消息）；显示模式切换 / 清屏 / 暂停滚动为**页内行为不经协议**（§5.1）；
 - 「已断开」横幅与输入失效为前端态（`state.connection` 转入断开后页内禁用发送区）。
 
 ## 9. 树视图双连接入口
