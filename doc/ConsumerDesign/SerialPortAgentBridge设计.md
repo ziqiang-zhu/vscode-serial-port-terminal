@@ -100,7 +100,7 @@ class SerialPortAgentBridge extends SerialPortConsumer {
 - **context key**：`serialPortTerminal.agentBridgeActive`（是否运行）；
 - **回显**：启动成功后 `showInformationMessage` 显示 `host:port`（如 `127.0.0.1:2000`）；只读模式追加 ` (read-only)` 后缀；
 - **命令面板**：`serialPortAgentBridge.toggleReadonly` 切换只读设置并提示生效时机（修改在重新开启 Agent Bridge 后生效）；
-- **状态栏持久显示**：桥运行时状态栏常驻 `$(record) AgentBridge <host:port>`（只读模式追加 ` (read-only)` 后缀），点击复制地址到剪贴板；桥停止 / 断开时隐藏。状态跟随**活动终端**——每个终端独立记录自己的地址，切换终端时状态栏随之切换；活动终端无桥（或无活动串口终端）时回退显示任一 Assist 会话的运行中桥（全局桥指示，Assist 状态迁移经 `refreshAgentBridgeStatus` 同步；点击复制同源回退）。文本在客户端数 ≥1 时追加 ` · N` 计数（客户端接入/断开经回调刷新；与地址一样跟随活动终端；"0" 是常态噪音，不显示）。客户端接入呈现**有意只做状态栏计数**：不写终端提示行（干扰终端内容本身，用户实测定夺）、不用 toast（Agent 重连频繁，轰炸不可接受）。
+- **状态栏持久显示**：桥运行时状态栏常驻 `$(record) AgentBridge <host:port>`（只读模式追加 ` (read-only)` 后缀），点击复制地址到剪贴板；桥停止 / 断开时隐藏。状态**跟随最近交互面**——切换串口终端时显示活动终端的桥；助手面板变为可见时显示其运行中桥；焦点迁往无桥表面（含无桥的助手面板）即移除（对等性：各表面同规则解析）。文本在客户端数 ≥1 时追加 ` · N` 计数（客户端接入/断开经回调刷新；"0" 是常态噪音，不显示）。客户端接入呈现**有意只做状态栏计数**：不写终端提示行（干扰终端内容本身，用户实测定夺）、不用 toast（Agent 重连频繁，轰炸不可接受）。
 
 ## 8. 配置
 

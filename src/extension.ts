@@ -5,7 +5,7 @@ import { USE_VIRTUAL_HAL, createSerialPortHal, createVirtualHal } from './hal/ha
 import { SerialPortConnectionService } from './SerialPortConnection/SerialPortConnectionService';
 import { SerialPortDeviceDetector } from './SerialPortDeviceDetector/SerialPortDeviceDetector';
 import { SerialPortTerminal, registerSerialPortLogCommands } from './SerialPortConsumer/SerialPortTerminal/SerialPortTerminal';
-import { SerialPortAssist, collectActiveAssistBridge } from './SerialPortConsumer/SerialPortAssist/SerialPortAssist';
+import { SerialPortAssist, collectVisibleAssistBridge } from './SerialPortConsumer/SerialPortAssist/SerialPortAssist';
 import { registerAssistBridgeStatusProvider } from './SerialPortConsumer/SerialPortTerminal/SerialPortTerminal';
 import { SerialPortConfigStore } from './SerialPortConfig/SerialPortConfigStore';
 import { SerialPortDeviceManagerTreeView } from './view/SerialPortDeviceManagerTreeView';
@@ -40,8 +40,9 @@ export function activate(context: vscode.ExtensionContext) {
   new SerialPortDeviceManagerTreeView(detector, connectionService, configStore, context);
   new SerialPortMacroManager(connectionService, context.globalState, context);
   registerSerialPortLogCommands(context);
-  // 全局桥状态栏的 Assist 回退数据源（装配缝注入——避免 Terminal ↔ Assist 循环依赖）。
-  registerAssistBridgeStatusProvider(() => collectActiveAssistBridge());
+  // 全局桥状态栏的 Assist 数据源（装配缝注入——避免 Terminal ↔ Assist 循环依赖）：
+  // 最近可见面板的运行中桥（确定性解析第 2 步）。
+  registerAssistBridgeStatusProvider(() => collectVisibleAssistBridge());
   context.subscriptions.push(
     ...registerVirtualDeviceConsole(context, virtualHal)
   );

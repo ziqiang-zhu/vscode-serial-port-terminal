@@ -95,7 +95,7 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 - **透传模式语义**（1.4.8 既有）：不经剥离行缓冲、不挂 200ms 空闲刷出，数据即时到达，二进制协议不被 UTF-8 往返损坏——Assist 场景固定 `stripAnsi = false`，无页内开关；
 - **公共工厂（已实现为 `AgentBridgeSession` 类）**：startBridge 流程（读 `agentBridge.*` 配置 → 选端口 → 构造 → 注册 → listen → 呈现）Terminal 与 Assist 双消费方共用——owner 回调（addConsumer/removeConsumer）+ presenter 三回调注入呈现差异：`onChange`（任意状态迁移，Terminal = 状态栏拉模型 refreshLogContext / Assist = 强制推送 state）、`onStarted`（Terminal toast / Assist 页内地址行）、`onFailed`（双侧 host toast，复用既有文案键）；`bridgeStarting` 重入守卫随会话走（选端口窗口持锁、listen 窗口由 active 守卫自然拦截），防双开竞态；
 - **桥客户端字节可见（P1-b）**：桥第 6 参 `onOutboundBytes` 由 Assist 接线为 `observeOutbound(bytes)` = `dataRecorder?.recordTx(bytes)` + `buffer.push(bytes,'tx')`——桥客户端操作以 TX 行实时入面板并入 `.dat`，与面板发送同权可见（桥已自行 send，回调不重复发送）；readonly 桥该回调天然不触发；
-- 状态栏 `AgentBridge <host:port>` 常驻与 `· N` 计数为**全局桥指示**：活动终端的桥优先（`activeTerminal` 接线），活动终端无桥时回退显示任一 Assist 会话的运行中桥（注册表 + 装配层注入 provider——避免 Terminal ↔ Assist 循环依赖；点击复制同样回退）；Assist 桥状态迁移（开/停/计数）经 `refreshAgentBridgeStatus` 同步状态栏，页内呈现（开关按钮、地址行、客户端数）并行不悖。
+- 状态栏 `AgentBridge <host:port>` 常驻与 `· N` 计数为**全局桥指示，跟随最近交互面**——确定性两步解析，每次刷新从当前状态重算、与事件先后顺序无关（面板隐藏/终端切换双事件竞态天然收敛）：①活动串口终端有桥优先显示（`activeTerminal` 接线）；②否则最近可见的 Assist 面板有桥则显示（实例可见性标记 + `lastVisibleAssist`，`onDidChangeViewState` 维护；装配层注入 `collectVisibleAssistBridge` provider——避免 Terminal ↔ Assist 循环依赖；点击复制同源回退）；③都没有则隐藏。**对等性语义**：运行中的桥在焦点迁往无桥表面时同样从指示器消失（与终端切换行为一致）；Assist 桥状态迁移（开/停/计数）经 `refreshAgentBridgeStatus` 触发重算，页内呈现（开关按钮、地址行、客户端数）并行不悖。
 
 ## 8. WebviewPanel 与消息协议
 

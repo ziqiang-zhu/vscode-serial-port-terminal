@@ -2,8 +2,13 @@ import * as vscode from 'vscode';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
 import { AgentBridgeSession } from '../SerialPortAgentBridge/AgentBridgeSession';
 import { buildLogFilePath } from '../SerialPortLogFiles';
-import { refreshAgentBridgeStatus } from '../SerialPortTerminal/SerialPortTerminal';
+import { AssistBridgeStatusBarInfo, refreshAgentBridgeStatus } from '../SerialPortTerminal/SerialPortTerminal';
 import { ASSIST_BUFFER_LIMIT, SerialPortAssistBuffer } from './SerialPortAssistBuffer';
+
+// 最近可见的 Assist 面板（状态栏确定性解析的数据源——设计 §7）：面板可见性翻转
+// 时更新（visible → 记录、hidden → 若指向自己则清除）。状态栏解析与事件顺序无关：
+// 每次刷新都从「活动终端桥 → 最近可见面板桥 → 隐藏」重算，双事件竞态天然收敛。
+let lastVisibleAssist: SerialPortAssist | undefined;
 import { SerialPortDataRecorder } from './SerialPortDataRecorder';
 import {
   AssistLineEnding,
@@ -85,28 +90,23 @@ export interface IntervalSendOptions {
 
 const FLUSH_INTERVAL_MS = 100;
 
-// Assist 实例注册表（attach 登记 / onClosed 注销）：供全局桥状态栏回退扫描
-// ——活动终端无桥时，状态栏显示任一 Assist 会话的运行中桥（注册经装配层
-// 注入 Terminal 模块，避免循环依赖）。断开冻结的实例不持桥，天然被过滤。
-const assistInstances = new Set<SerialPortAssist>();
-
 export interface AssistBridgeStatus {
   address: string;
   readonly: boolean;
   clients: number;
 }
 
-/** 全局桥状态回退扫描：任一 Assist 会话的运行中桥（多桥时取首个命中）。 */
-export function collectActiveAssistBridge(): AssistBridgeStatus | undefined {
-  for (const instance of assistInstances) {
-    if (instance.isBridgeActive()) {
-      const address = instance.getBridgeAddress();
-      if (address) {
-        return { address, readonly: instance.getBridgeReadonly(), clients: instance.getBridgeClients() };
-      }
-    }
+/** 最近可见面板的运行中桥（状态栏解析第 2 步的数据源；无则 undefined → 隐藏）。 */
+export function collectVisibleAssistBridge(): AssistBridgeStatus | undefined {
+  const assist = lastVisibleAssist;
+  if (!assist || !assist.isVisible || !assist.isBridgeActive()) {
+    return undefined;
   }
-  return undefined;
+  const address = assist.getBridgeAddress();
+  if (!address) {
+    return undefined;
+  }
+  return { address, readonly: assist.getBridgeReadonly(), clients: assist.getBridgeClients() };
 }
 
 export class SerialPortAssist extends SerialPortConsumer {
@@ -122,6 +122,12 @@ export class SerialPortAssist extends SerialPortConsumer {
   private intervalTimer: ReturnType<typeof setInterval> | undefined;
   private intervalBytes: Buffer | undefined;
   private hostPath = '';
+  // 面板可见性（onDidChangeViewState 维护）——状态栏确定性解析的第 2 步依据。
+  private panelVisible = false;
+
+  public get isVisible(): boolean {
+    return this.panelVisible;
+  }
   private disconnected = false;
   // 100ms 批刷：seq 已推送水位 + 变更检测（无增量且状态未变时零 postMessage）。
   private flushTimer: ReturnType<typeof setTimeout> | undefined;
@@ -146,7 +152,8 @@ export class SerialPortAssist extends SerialPortConsumer {
       retainContextWhenHidden: true
     });
     this.panel = panel;
-    assistInstances.add(this);
+    this.panelVisible = true;
+    lastVisibleAssist = this;
     // 用户关页 = 断开（对齐 Terminal「关闭面板即断开」）；断开后的关页走下方
     // disconnected 守卫自然短路，不产生二次销毁请求。
     panel.onDidDispose(() => {
@@ -157,6 +164,17 @@ export class SerialPortAssist extends SerialPortConsumer {
       }
     });
     panel.webview.onDidReceiveMessage(message => this.onPageMessage(message));
+    // 面板可见性翻转 = 焦点面信号：可见 → 记录为最近可见面板；隐藏 → 清除指向。
+    // 两种翻转都触发状态栏重算（确定性解析，与事件先后顺序无关——设计 §7）。
+    panel.onDidChangeViewState(({ webviewPanel }) => {
+      this.panelVisible = webviewPanel.visible;
+      if (webviewPanel.visible) {
+        lastVisibleAssist = this;
+      } else if (lastVisibleAssist === this) {
+        lastVisibleAssist = undefined;
+      }
+      refreshAgentBridgeStatus();
+    });
     panel.webview.html = this.buildHtml();
     // init 不在此刻下发——页脚本就绪前 postMessage 会丢；页加载完成后经 ready
     // 握手拉取（onPageMessage 'ready'，页重载后同样适用）。
@@ -182,8 +200,10 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.flush();
     this.postState(true);
     this.stopFlushTimer();
-    // 注册表注销 + 全局桥状态栏刷新（若状态栏正显示本会话的桥，随断开清除）。
-    assistInstances.delete(this);
+    // 最近可见面板清除 + 全局桥状态栏刷新（若状态栏正显示本会话的桥，随断开清除）。
+    if (lastVisibleAssist === this) {
+      lastVisibleAssist = undefined;
+    }
     refreshAgentBridgeStatus();
   }
 
@@ -316,7 +336,8 @@ export class SerialPortAssist extends SerialPortConsumer {
           removeConsumer: id => this.removeConsumer(id)
         },
         {
-          // 页内推模型（postState）+ 全局状态栏刷新（Assist 桥对状态栏可见）。
+          // 页内推模型（postState）+ 全局状态栏刷新（状态栏解析为确定性重算，
+          // 无需事件携带面板身份）。
           onChange: () => {
             this.postState(true);
             refreshAgentBridgeStatus();

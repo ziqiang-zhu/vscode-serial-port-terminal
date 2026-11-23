@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.4]
+
+### Changed
+- The Agent Bridge status-bar indicator now follows the most recently interacted surface: the displayed bridge is determined on every refresh - the active serial terminal's bridge takes precedence, otherwise the running bridge of the most recently visible assist panel session, otherwise the indicator is hidden; switching between panels, terminals or editors keeps the indicator on the currently focused bridge
+
 ## [1.6.3]
 
 ### Added

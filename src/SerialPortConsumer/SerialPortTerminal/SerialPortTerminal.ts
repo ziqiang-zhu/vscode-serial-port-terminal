@@ -30,7 +30,7 @@ export function registerAssistBridgeStatusProvider(
   assistBridgeStatusProvider = provider;
 }
 
-/** 全局桥状态栏刷新（Assist 桥状态迁移时由 Assist 模块调用；Terminal 内部走 refreshLogContext）。 */
+/** 全局桥状态栏刷新（Assist 桥状态迁移时由 Assist 模块调用；Terminal 内部走 refreshLogContext）。解析为确定性重算（活动终端桥 → 最近可见面板桥 → 隐藏），无需事件携带面板身份。 */
 export function refreshAgentBridgeStatus(): void {
   updateLogContext(getActiveInstance());
 }
@@ -319,9 +319,10 @@ function updateLogContext(instance: SerialPortTerminal | undefined): void {
   void vscode.commands.executeCommand('setContext', CONTEXT_RECORDING, instance?.isRecording() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_PAUSED, instance?.isPaused() ?? false);
   void vscode.commands.executeCommand('setContext', CONTEXT_AGENT_BRIDGE, instance?.isBridgeActive() ?? false);
-  // 状态栏 = 全局桥指示：活动终端的桥优先；活动终端无桥（或无活动串口终端）时
-  // 回退显示任一 Assist 会话的运行中桥。注意 readonly/clients 的回退不能走 `??`
-  // （false/0 非 nullish 不穿透）——先选数据源、再取字段。
+  // 状态栏 = 全局桥指示，跟随最近交互面（设计 §7）——确定性两步解析，与事件
+  // 先后顺序无关：①活动串口终端有桥优先；②否则最近可见的 Assist 面板有桥；
+  // ③都没有则隐藏。readonly/clients 同源取值（不走 `??`：false/0 非 nullish
+  // 不穿透）。
   const instanceAddress = instance?.getAgentBridgeAddress();
   const assistBridge = instanceAddress === undefined ? assistBridgeStatusProvider?.() : undefined;
   const address = instanceAddress ?? assistBridge?.address;
