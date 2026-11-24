@@ -2,6 +2,18 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.8]
+
+### Changed
+- The Mixed display mode of the serial port assist panel now uses a two-column layout: HEX on the left and text on the right, with equal column widths aligned across entries; the text column keeps line feeds and tabs, multi-line content is shown on separate lines and carriage returns are hidden; when the echo area is too narrow the text column moves below the HEX column
+
+### Improved
+- Content in the serial port assist echo area wraps at spaces when it exceeds the column width, so HEX byte pairs are no longer split in the middle; the single-column HEX and ASCII modes wrap as well instead of scrolling horizontally
+- Each entry in the serial port assist echo area shows a direction bar on its left edge (green for received, orange for sent), which makes the boundaries of multi-line entries easy to see
+
+### Fixed
+- The page script of the serial port assist panel threw an error on disconnect: the send buttons of the send slots were not disabled and the loop button labels were not reset
+
 ## [1.6.7]
 
 ### Changed

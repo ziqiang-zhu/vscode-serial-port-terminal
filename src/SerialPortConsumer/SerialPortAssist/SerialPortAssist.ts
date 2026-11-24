@@ -911,12 +911,24 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
 #layout { flex: 1; display: flex; gap: 6px; min-height: 0; }
 #leftCol { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .block { border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: var(--vscode-editor-background); }
-#data { flex: 1; overflow-y: auto; margin: 0; padding: 6px 10px; font-family: var(--vscode-editor-font-family); white-space: pre; line-height: 1.5; min-height: 60px; }
+#data { flex: 1; overflow-y: auto; margin: 0; padding: 6px 10px; font-family: var(--vscode-editor-font-family); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; min-height: 60px; container-type: inline-size; }
 #data .row:hover { background: var(--vscode-list-hoverBackground); }
 .row .ts { color: var(--vscode-descriptionForeground); margin-right: 8px; }
 .row .dir { font-weight: 600; margin-right: 8px; }
 .row.rx .dir { color: var(--vscode-charts-green); }
 .row.tx .dir { color: var(--vscode-charts-orange); }
+.row.dual { display: grid; grid-template-columns: auto auto minmax(0, 1fr) minmax(0, 1fr); column-gap: 12px; align-items: start; white-space: pre-wrap; overflow-wrap: anywhere; }
+.row.dual .cellHex { border-right: 1px solid var(--vscode-panel-border); padding-right: 12px; min-height: 1.5em; }
+.row.dual .cellText { padding-left: 12px; }
+#data .row { padding: 1px 4px 1px 6px; border-left: 2px solid transparent; }
+#data .row + .row { margin-top: 3px; }
+#data .row.rx { border-left-color: var(--vscode-charts-green); }
+#data .row.tx { border-left-color: var(--vscode-charts-orange); }
+@container (width < 520px) {
+  .row.dual { grid-template-columns: auto auto minmax(0, 1fr); }
+  .row.dual .cellHex { border-right: none; padding-right: 0; }
+  .row.dual .cellText { grid-column: 3; grid-row: 2; padding-left: 0; }
+}
 #splitter { flex: none; height: 5px; margin: 2px 0; cursor: row-resize; border-radius: 2px; }
 #splitter:hover, #splitter.dragging { background: var(--vscode-focusBorder); }
 #sendbar { flex: none; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 6px 8px; }
@@ -1025,31 +1037,52 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   const history = [];   // { mode, text, lineEnding }——发送历史（页内会话态，点击回填）
 
   const toHex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, '0')).join(' ');
-  const toAscii = (bytes) => bytes.map((b) => (b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : '.')).join('');
-  const formatBytes = (bytes) => {
-    if (mode === 'hex') { return toHex(bytes); }
-    if (mode === 'ascii') { return toAscii(bytes); }
-    return toHex(bytes) + '  ' + toAscii(bytes);
-  };
+  // 文本表示：可打印字符原样；换行/制表保留（行结构可见）；回车符丢弃（避免 CRLF 双跳行）；其余非可打印 → '.'。
+  const toAscii = (bytes) =>
+    bytes
+      .map((b) => {
+        if (b === 0x0a) { return '\\n'; }
+        if (b === 0x09) { return '\\t'; }
+        if (b === 0x0d) { return ''; }
+        return b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : '.';
+      })
+      .join('');
   const formatTs = (ts) => {
     const d = new Date(ts);
     const pad = (n, w) => String(n).padStart(w || 2, '0');
     return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + pad(d.getMilliseconds(), 3);
   };
 
+  // 行结束符不产生空行：内容以换行结尾时，显示去掉一个尾随换行。
+  const shownText = (bytes) => {
+    const text = toAscii(bytes);
+    return text.endsWith('\\n') ? text.slice(0, -1) : text;
+  };
+
+  // 行渲染：HEX / 文本模式单栏（ts + dir + 内容）；混合模式双栏 grid（左 = HEX、
+  // 右 = 文本，中缝竖线分隔）——内容两栏等宽，跨条目对齐；回显区过窄时由样式
+  // 切换为上下堆叠。每条数据左缘的方向色条贯穿其全部显示行。
   const makeRow = (entry) => {
     const row = document.createElement('div');
-    row.className = 'row ' + entry.dir;
+    const dual = mode === 'mixed';
+    row.className = 'row ' + entry.dir + (dual ? ' dual' : '');
     const ts = document.createElement('span');
     ts.className = 'ts';
     ts.textContent = formatTs(entry.ts);
     const dir = document.createElement('span');
     dir.className = 'dir';
     dir.textContent = entry.dir.toUpperCase();
-    const data = document.createElement('span');
-    data.className = 'data';
-    data.textContent = entry.bytes.length > 0 ? formatBytes(entry.bytes) : '(no bytes)';
-    row.append(ts, dir, data);
+    row.append(ts, dir);
+    const hexCell = document.createElement('span');
+    hexCell.className = 'cellHex';
+    hexCell.textContent = dual || mode === 'hex' ? toHex(entry.bytes) : shownText(entry.bytes);
+    row.append(hexCell);
+    if (dual) {
+      const textCell = document.createElement('span');
+      textCell.className = 'cellText';
+      textCell.textContent = shownText(entry.bytes);
+      row.append(textCell);
+    }
     return row;
   };
 
@@ -1364,7 +1397,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
     loopBtn.title = L.interval;
     row.append(hexWrap, input, sendBtn, loopBtn);
     slotsEl.append(row);
-    slotEls.push({ input, hex, loopBtn });
+    slotEls.push({ input, hex, sendBtn, loopBtn });
     const doSend = () => { if (!closed) { sendSlot(i); } };
     sendBtn.addEventListener('click', doSend);
     input.addEventListener('keydown', (ev) => {
