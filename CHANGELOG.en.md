@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.7]
+
+### Changed
+- The "Start / Stop Agent Bridge" toggle moves into the assist panel toolbar (same row as the view actions), and the dedicated bridge bar is removed; the panel no longer shows the bridge address or client count - the status bar already shows the address, read-only marker and client count of the running bridge live
+
 ## [1.6.6]
 
 ### Added

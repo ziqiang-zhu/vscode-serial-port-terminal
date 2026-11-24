@@ -108,8 +108,6 @@
   "Stop recording": "停止记录",
   "Start Agent Bridge": "开启 Agent Bridge",
   "Stop Agent Bridge": "停止 Agent Bridge",
-  "Clients: {0}": "客户端：{0}",
-  "Click to copy the bridge address": "点击复制桥地址",
   "Send Control": "发送控制",
   "Loop": "循环",
   "Stop": "停止",

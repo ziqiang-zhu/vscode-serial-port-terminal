@@ -34,7 +34,7 @@ interface StateMessage {
   recording: boolean;
   interval: boolean;
   file: { name: string; total: number; index: number; active: boolean; paused: boolean } | undefined;
-  bridge: { active: boolean; address: string | undefined; readonly: boolean; clients: number };
+  bridge: { active: boolean };
 }
 
 interface SendErrorMessage {
@@ -69,7 +69,7 @@ interface RecordToggleMessage {
 }
 
 interface BridgeMessage {
-  type: 'bridgeStart' | 'bridgeStop' | 'copyBridgeAddress';
+  type: 'bridgeStart' | 'bridgeStop';
 }
 
 interface IntervalStartMessage {
@@ -582,14 +582,6 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.buffer.push(bytes, 'tx');
   }
 
-  public copyBridgeAddress(): void {
-    const address = this.getBridgeAddress();
-    if (address) {
-      void vscode.env.clipboard.writeText(address);
-      void vscode.window.showInformationMessage(vscode.l10n.t('Agent Bridge address copied: {0}', address));
-    }
-  }
-
   // 桥会话懒建（公共工厂，AgentBridge设计 §4 / Assist设计 §7）：stripAnsi 恒
   // 透传 false；出站回调接线 observeOutbound（桥客户端字节 → 记录 + 面板回显）；
   // 页内推模型呈现——任意桥状态迁移即强制推送 state。
@@ -699,10 +691,7 @@ export class SerialPortAssist extends SerialPortConsumer {
       interval,
       file,
       bridge: {
-        active: this.isBridgeActive(),
-        address: this.getBridgeAddress(),
-        readonly: this.getBridgeReadonly(),
-        clients: this.getBridgeClients()
+        active: this.isBridgeActive()
       }
     };
     void panel.webview.postMessage(message);
@@ -754,10 +743,6 @@ export class SerialPortAssist extends SerialPortConsumer {
     }
     if (msg.type === 'bridgeStop') {
       this.stopBridge();
-      return;
-    }
-    if (msg.type === 'copyBridgeAddress') {
-      this.copyBridgeAddress();
       return;
     }
     if (msg.type === 'slotSend' || msg.type === 'slotIntervalStart' || msg.type === 'slotIntervalStop') {
@@ -872,8 +857,6 @@ export class SerialPortAssist extends SerialPortConsumer {
       stopRecording: vscode.l10n.t('Stop recording'),
       startBridge: vscode.l10n.t('Start Agent Bridge'),
       stopBridge: vscode.l10n.t('Stop Agent Bridge'),
-      clients: vscode.l10n.t('Clients: {0}'),
-      copyHint: vscode.l10n.t('Click to copy the bridge address'),
       sendControl: vscode.l10n.t('Send Control'),
       fileSend: vscode.l10n.t('File send'),
       pickFile: vscode.l10n.t('Pick file'),
@@ -923,6 +906,8 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
 #status.rx { color: var(--vscode-charts-green); }
 #status.offline { color: var(--vscode-errorForeground); }
 #truncatedNotice { color: var(--vscode-descriptionForeground); margin-left: auto; }
+#btnBridge { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+#btnBridge:hover { background: var(--vscode-button-secondaryHoverBackground); }
 #layout { flex: 1; display: flex; gap: 6px; min-height: 0; }
 #leftCol { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .block { border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: var(--vscode-editor-background); }
@@ -948,7 +933,6 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
 .slotHex { display: flex; align-items: center; gap: 2px; flex: none; }
 .slotRow input.invalid, #sendInput.invalid { border-color: var(--vscode-errorForeground); }
 .muted { color: var(--vscode-descriptionForeground); }
-#bridgeInfo.clickable { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -964,11 +948,8 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   <button id="btnPause">${L.pauseScroll}</button>
   <button id="btnClear">${L.clear}</button>
   <button id="btnRecord">${L.startRecording}</button>
-  <span id="truncatedNotice" class="muted"></span>
-</div>
-<div id="bridgebar">
   <button id="btnBridge">${L.startBridge}</button>
-  <span id="bridgeInfo" class="muted"></span>
+  <span id="truncatedNotice" class="muted"></span>
 </div>
 <div id="layout">
   <div id="leftCol">
@@ -1040,7 +1021,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   let closed = false;
   let recording = false;
   let intervalActive = false;
-  let bridge = { active: false, address: undefined, readonly: false, clients: 0 };
+  let bridgeActive = false;
   const history = [];   // { mode, text, lineEnding }——发送历史（页内会话态，点击回填）
 
   const toHex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, '0')).join(' ');
@@ -1394,27 +1375,14 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   }
 
   const bridgeBtn = document.getElementById('btnBridge');
-  const bridgeInfo = document.getElementById('bridgeInfo');
-  const renderBridge = () => {
-    bridgeBtn.textContent = bridge.active ? L.stopBridge : L.startBridge;
-    if (!bridge.active) {
-      bridgeInfo.textContent = '';
-      bridgeInfo.title = '';
-      bridgeInfo.classList.remove('clickable');
-      return;
-    }
-    const ro = bridge.readonly ? ' (read-only)' : '';
-    const clients = bridge.clients > 0 ? ' · ' + L.clients.replace('{0}', String(bridge.clients)) : '';
-    bridgeInfo.textContent = 'AgentBridge ' + bridge.address + ro + clients;
-    bridgeInfo.title = L.copyHint;
-    bridgeInfo.classList.add('clickable');
+  const applyBridge = (value) => {
+    bridgeActive = value === true;
+    bridgeBtn.textContent = bridgeActive ? L.stopBridge : L.startBridge;
+    bridgeBtn.disabled = closed;
   };
   bridgeBtn.addEventListener('click', () => {
     if (closed) { return; }
-    vscode.postMessage({ type: bridge.active ? 'bridgeStop' : 'bridgeStart' });
-  });
-  bridgeInfo.addEventListener('click', () => {
-    if (bridge.active) { vscode.postMessage({ type: 'copyBridgeAddress' }); }
+    vscode.postMessage({ type: bridgeActive ? 'bridgeStop' : 'bridgeStart' });
   });
 
   window.addEventListener('message', (event) => {
@@ -1426,10 +1394,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
       applyRecording(message.recording === true);
       applyInterval(message.interval === true);
       applyFile(message.file);
-      if (message.bridge && typeof message.bridge === 'object') {
-        bridge = message.bridge;
-        renderBridge();
-      }
+      applyBridge(message.bridge?.active === true);
       if (message.connection === 'closed' && !closed) {
         applyClosed();
       } else if (!closed) {
