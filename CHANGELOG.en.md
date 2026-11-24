@@ -2,6 +2,16 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.5]
+
+### Added
+- The serial port assist panel is restructured into three rounded blocks: the display area on the left, the send control panel (fixed width) on the right, and the input bar below; a drag handle between the display area and the input bar allocates their heights; buttons are unified with rounded corners and press feedback
+- The send control panel gains eight send slots: each slot has an independent HEX toggle, a send button (one-shot send, slot content is kept) and a loop toggle (loop interval shared with the panel-top interval setting); multiple slots can loop at the same time
+- The send control panel gains file sending: after picking a file, send the whole file at once (raw bytes) or play it back line by line (line interval shared with the interval setting, with stop-anytime and send progress display)
+
+### Changed
+- The assist input bar supports choosing the send shortcut key (Enter or Shift+Enter), and the input box accepts multi-line content; the input box is cleared after sending
+
 ## [1.6.4]
 
 ### Changed

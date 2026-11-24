@@ -249,6 +249,101 @@ describe('串口助手连接模式（自装配）', () => {
       await harness.service.disconnect(device);
     }
   });
+
+  it('#8 slot send and slot interval loop with per-slot control', async () => {
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device, undefined, undefined, 'assist');
+    const assist = instances.at(-1);
+    assert.ok(assist);
+    try {
+      // 槽单发（不清槽——宿主无槽内容状态，仅按参数发送）
+      assert.equal(assist.sendSlot(1, { mode: 'text', text: 'slot1', lineEnding: 'cr' }), true);
+      await waitFor(
+        'slot1 rx echo',
+        () => assist.snapshotEntries().some(entry => entry.bytes.toString() === 'slot1\r'),
+        2000
+      );
+      // 槽循环（50ms）——至少 3 轮；与槽 1 单发内容不混淆
+      assert.equal(
+        assist.startSlotInterval(2, { mode: 'text', text: 'loop2', lineEnding: 'cr', interval: 50 }),
+        true
+      );
+      assert.ok(assist.isSlotIntervalActive(2));
+      await waitFor(
+        'loop2 tx entries >= 3',
+        () => assist.snapshotEntries().filter(entry => entry.dir === 'tx' && entry.bytes.toString() === 'loop2\r').length >= 3,
+        2000
+      );
+      // 同槽重复启动幂等拒绝
+      assert.equal(assist.startSlotInterval(2, { mode: 'text', text: 'loop2', lineEnding: 'cr', interval: 50 }), false);
+      const loop2Count = assist.snapshotEntries().filter(entry => entry.bytes.toString() === 'loop2\r').length;
+      assist.stopSlotInterval(2);
+      assert.equal(assist.isSlotIntervalActive(2), false);
+      // 停止后冻结
+      await new Promise(resolve => setTimeout(resolve, 150));
+      assert.equal(
+        assist.snapshotEntries().filter(entry => entry.bytes.toString() === 'loop2\r').length,
+        loop2Count
+      );
+      // 非法 HEX 拒绝
+      assert.equal(assist.sendSlot(3, { mode: 'hex', text: 'zz', lineEnding: 'none' }), false);
+    } finally {
+      await harness.service.disconnect(device);
+    }
+  });
+
+  it('#9 file send: one-shot raw bytes and line playback with loop', async () => {
+    const temp = withTempDir();
+    const file = path.join(temp.dir, 'cmds.txt');
+    fs.writeFileSync(file, 'cmd1\ncmd2\ncmd3\n', 'utf8');
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device, undefined, undefined, 'assist');
+    const assist = instances.at(-1);
+    assert.ok(assist);
+    try {
+      // 装载：3 行（过滤尾随空行）；一次性发送 = 原始字节（含文件原始 \n 行尾）
+      assert.equal(assist.loadSendFile(file, 'cr'), 3);
+      assert.equal(await assist.sendFileOnce(), true);
+      await waitFor(
+        'raw file bytes as one tx entry',
+        () => assist.snapshotEntries().some(entry => entry.bytes.toString() === 'cmd1\ncmd2\ncmd3\n'),
+        2000
+      );
+      // 逐行（无循环）：每行补行尾符 \r，EOF 自动停
+      assert.ok(assist.startFileSend(50, false));
+      await waitFor(
+        'all three lines sent as tx entries',
+        () => {
+          const lines = assist
+            .snapshotEntries()
+            .filter(entry => entry.dir === 'tx')
+            .map(entry => entry.bytes.toString());
+          return lines.includes('cmd1\r') && lines.includes('cmd2\r') && lines.includes('cmd3\r');
+        },
+        2000
+      );
+      assert.equal(assist.isFileSendActive(), false, 'EOF without loop stops the player');
+      const cmd1Count = assist.snapshotEntries().filter(entry => entry.bytes.toString() === 'cmd1\r').length;
+      await new Promise(resolve => setTimeout(resolve, 150));
+      assert.equal(
+        assist.snapshotEntries().filter(entry => entry.bytes.toString() === 'cmd1\r').length,
+        cmd1Count,
+        'stopped player stays frozen'
+      );
+      // 循环（文件周期发送）：EOF 后回到首行——cmd1 出现次数继续增长
+      assert.ok(assist.startFileSend(50, true));
+      await waitFor(
+        'looped back to cmd1',
+        () => assist.snapshotEntries().filter(entry => entry.bytes.toString() === 'cmd1\r').length >= cmd1Count + 1,
+        2000
+      );
+      assist.stopFileSend();
+      assert.equal(assist.isFileSendActive(), false);
+    } finally {
+      await harness.service.disconnect(device);
+      temp.dispose();
+    }
+  });
 });
 
 function connectionSend(harness: TestHarness, path: string, text: string): boolean {

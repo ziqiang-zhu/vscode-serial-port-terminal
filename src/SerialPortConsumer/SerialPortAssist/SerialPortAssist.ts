@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { SerialPortConsumer, SerialPortConsumerHost } from '../../SerialPortConnection/SerialPortConsumer';
 import { AgentBridgeSession } from '../SerialPortAgentBridge/AgentBridgeSession';
@@ -31,6 +33,7 @@ interface StateMessage {
   truncated: number;
   recording: boolean;
   interval: boolean;
+  file: { name: string; total: number; index: number; active: boolean } | undefined;
   bridge: { active: boolean; address: string | undefined; readonly: boolean; clients: number };
 }
 
@@ -81,11 +84,37 @@ interface IntervalStopMessage {
   type: 'stopIntervalSend';
 }
 
+// 文件发送（P2-c）：选文件（宿主对话框）→ 装载（按行拆分 + 原始字节缓存）→
+// 一次性原发 / 逐行循环播放；行尾符沿用页面行尾符设置（决策 3）。
+interface FileMessage {
+  type: 'pickSendFile' | 'sendFileOnce' | 'startFileSend' | 'stopFileSend';
+  lineEnding?: unknown;
+  interval?: unknown;
+  loop?: unknown;
+}
+
+// 槽发送面板（P2-b）：8 个输入槽各自独立——单发 / 循环开关；槽内容驻留页面，
+// 宿主只收构建参数并按槽号管理循环定时器（多槽并发 = 字节交织，如实呈现）。
+interface SlotMessage {
+  type: 'slotSend' | 'slotIntervalStart' | 'slotIntervalStop';
+  index?: unknown;
+  mode?: unknown;
+  text?: unknown;
+  lineEnding?: unknown;
+  interval?: unknown;
+}
+
 export interface IntervalSendOptions {
   mode: 'text' | 'hex';
   text: string;
   lineEnding: AssistLineEnding;
   interval: number;
+}
+
+export interface SlotSendOptions {
+  mode: 'text' | 'hex';
+  text: string;
+  lineEnding: AssistLineEnding;
 }
 
 const FLUSH_INTERVAL_MS = 100;
@@ -121,6 +150,17 @@ export class SerialPortAssist extends SerialPortConsumer {
   // 开关时刻为准，运行中的输入编辑不影响已捕获内容，重新开关以更新）。
   private intervalTimer: ReturnType<typeof setInterval> | undefined;
   private intervalBytes: Buffer | undefined;
+  // 槽循环定时器表（P2-b）：槽号 → 循环定时器；多槽并发 = 字节交织如实呈现。
+  private readonly slotTimers = new Map<number, ReturnType<typeof setInterval>>();
+  private readonly slotBytes = new Map<number, Buffer>();
+  // 文件发送（P2-c）：loadSendFile 时按行拆分（utf-8、过滤空行）并缓存原始字节
+  // ——一次性发送用原始字节（二进制安全），逐行发送用拆分行（按行尾符设置补行尾）。
+  private sendFileRaw: Buffer | undefined;
+  private sendFileName = '';
+  private sendFileLines: Buffer[] = [];
+  private sendFileIndex = 0;
+  private sendFileTimer: ReturnType<typeof setInterval> | undefined;
+  private sendFileLoop = false;
   private hostPath = '';
   // 面板可见性（onDidChangeViewState 维护）——状态栏确定性解析的第 2 步依据。
   private panelVisible = false;
@@ -136,6 +176,7 @@ export class SerialPortAssist extends SerialPortConsumer {
   private lastConnection: 'connected' | 'closed' | undefined;
   private lastRecording = false;
   private lastInterval = false;
+  private lastFileIndex = -1;
 
   public get devicePath(): string {
     return this.hostPath;
@@ -197,6 +238,8 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.bridgeSession?.detach();
     this.bridgeSession = undefined;
     this.stopIntervalSend();
+    this.stopAllSlotIntervals();
+    this.stopFileSend();
     this.flush();
     this.postState(true);
     this.stopFlushTimer();
@@ -279,6 +322,169 @@ export class SerialPortAssist extends SerialPortConsumer {
 
   public isIntervalActive(): boolean {
     return this.intervalTimer !== undefined;
+  }
+
+  /** 槽单发（P2-b）：按槽构建字节立即发送（不清槽内容）；HEX 非法推送 sendError。 */
+  public sendSlot(index: number, options: SlotSendOptions): boolean {
+    if (this.disconnected) {
+      return false;
+    }
+    const built = this.buildOutbound(options.mode, options.text, options.lineEnding);
+    if ('error' in built) {
+      if (built.error !== 'empty') {
+        const error: SendErrorMessage = { type: 'sendError', reason: built.error };
+        void this.panel?.webview.postMessage(error);
+      }
+      return false;
+    }
+    this.transmit(built.bytes);
+    return true;
+  }
+
+  /** 槽循环启动：捕获槽字节按共享间隔循环 transmit；同槽重复启动幂等拒绝。 */
+  public startSlotInterval(index: number, options: SlotSendOptions & { interval: number }): boolean {
+    if (this.disconnected || this.slotTimers.has(index)) {
+      return false;
+    }
+    const built = this.buildOutbound(options.mode, options.text, options.lineEnding);
+    if ('error' in built) {
+      if (built.error !== 'empty') {
+        const error: SendErrorMessage = { type: 'sendError', reason: built.error };
+        void this.panel?.webview.postMessage(error);
+      }
+      return false;
+    }
+    this.slotBytes.set(index, built.bytes);
+    this.slotTimers.set(
+      index,
+      setInterval(() => {
+        if (this.disconnected) {
+          this.stopSlotInterval(index);
+          return;
+        }
+        const bytes = this.slotBytes.get(index);
+        if (bytes) {
+          this.transmit(bytes);
+        }
+      }, Math.max(20, options.interval))
+    );
+    return true;
+  }
+
+  public stopSlotInterval(index: number): void {
+    const timer = this.slotTimers.get(index);
+    if (timer) {
+      clearInterval(timer);
+      this.slotTimers.delete(index);
+      this.slotBytes.delete(index);
+    }
+  }
+
+  private stopAllSlotIntervals(): void {
+    for (const timer of this.slotTimers.values()) {
+      clearInterval(timer);
+    }
+    this.slotTimers.clear();
+    this.slotBytes.clear();
+  }
+
+  public isSlotIntervalActive(index: number): boolean {
+    return this.slotTimers.has(index);
+  }
+
+  /** 选择发送文件（宿主对话框，不 经 页面传内容）；返回路径或取消。 */
+  public async pickSendFile(): Promise<string | undefined> {
+    const picked = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      openLabel: vscode.l10n.t('Select file')
+    });
+    return picked?.[0]?.fsPath;
+  }
+
+  /** 装载发送文件：按行拆分（\r?\n、过滤空行）并缓存原始字节；返回总行数。 */
+  public loadSendFile(filePath: string, lineEnding: AssistLineEnding): number {
+    const raw = fs.readFileSync(filePath);
+    this.sendFileRaw = raw;
+    this.sendFileName = path.basename(filePath);
+    const ending = lineEnding === 'none' ? '' : lineEnding === 'cr' ? '\r' : lineEnding === 'lf' ? '\n' : '\r\n';
+    this.sendFileLines = raw
+      .toString('utf-8')
+      .split(/\r?\n/)
+      .filter(line => line.length > 0)
+      .map(line => Buffer.from(line + ending, 'utf-8'));
+    this.sendFileIndex = 0;
+    return this.sendFileLines.length;
+  }
+
+  /** 文件一次性发送：装载后的原始字节原样发送（二进制安全，不补行尾）。 */
+  public async sendFileOnce(): Promise<boolean> {
+    if (this.disconnected || !this.sendFileRaw || this.sendFileRaw.length === 0) {
+      return false;
+    }
+    this.transmit(this.sendFileRaw);
+    return true;
+  }
+
+  /** 文件逐行发送（loop = EOF 后循环，即文件周期发送）；断开自动停。 */
+  public startFileSend(interval: number, loop: boolean): boolean {
+    if (this.disconnected || this.sendFileTimer || this.sendFileLines.length === 0) {
+      return false;
+    }
+    this.sendFileIndex = 0;
+    this.sendFileLoop = loop;
+    this.sendFileTimer = setInterval(() => {
+      if (this.disconnected) {
+        this.stopFileSend();
+        this.postState(true);
+        return;
+      }
+      const line = this.sendFileLines[this.sendFileIndex];
+      if (!line) {
+        // EOF（循环关闭时理论上已被下面的末行急停覆盖，防御性保留）：停止
+        if (this.sendFileLoop) {
+          this.sendFileIndex = 0;
+          return;
+        }
+        this.stopFileSend();
+        this.postState(true);
+        return;
+      }
+      this.transmit(line);
+      this.sendFileIndex += 1;
+      // 末行急停（无循环）：发出最后一行即停止，指示与状态立即翻转
+      if (this.sendFileIndex >= this.sendFileLines.length && !this.sendFileLoop) {
+        this.stopFileSend();
+        this.postState(true);
+      }
+    }, Math.max(20, interval));
+    this.postState(true);
+    return true;
+  }
+
+  public stopFileSend(): void {
+    if (this.sendFileTimer) {
+      clearInterval(this.sendFileTimer);
+      this.sendFileTimer = undefined;
+      // 停止即推送状态（file.active=false）——页面按钮文案与进度随之翻转；
+      // 漏推会让页面停在「停止逐行」态（P1-c 同类推送先例：stopIntervalSend 有）。
+      this.postState(true);
+    }
+  }
+
+  public isFileSendActive(): boolean {
+    return this.sendFileTimer !== undefined;
+  }
+
+  public getSendFileProgress(): { name: string; total: number; index: number; active: boolean } | undefined {
+    if (!this.sendFileLines.length) {
+      return undefined;
+    }
+    return {
+      name: this.sendFileName,
+      total: this.sendFileLines.length,
+      index: Math.min(this.sendFileIndex, this.sendFileLines.length),
+      active: this.sendFileTimer !== undefined
+    };
   }
 
   /** 开始桥（页内开关 / 集成入口）：透传模式，出站字节经 observeOutbound 记录回显。 */
@@ -409,12 +615,15 @@ export class SerialPortAssist extends SerialPortConsumer {
     const truncated = this.buffer.truncated;
     const recording = this.dataRecorder !== undefined;
     const interval = this.intervalTimer !== undefined;
+    const file = this.getSendFileProgress();
+    const fileIndex = file?.index ?? -1;
     const changed =
       force ||
       connection !== this.lastConnection ||
       truncated !== this.lastTruncated ||
       recording !== this.lastRecording ||
-      interval !== this.lastInterval;
+      interval !== this.lastInterval ||
+      fileIndex !== this.lastFileIndex;
     if (!changed) {
       return;
     }
@@ -422,12 +631,14 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.lastTruncated = truncated;
     this.lastRecording = recording;
     this.lastInterval = interval;
+    this.lastFileIndex = fileIndex;
     const message: StateMessage = {
       type: 'state',
       connection,
       truncated,
       recording,
       interval,
+      file,
       bridge: {
         active: this.isBridgeActive(),
         address: this.getBridgeAddress(),
@@ -490,6 +701,24 @@ export class SerialPortAssist extends SerialPortConsumer {
       this.copyBridgeAddress();
       return;
     }
+    if (msg.type === 'slotSend' || msg.type === 'slotIntervalStart' || msg.type === 'slotIntervalStop') {
+      const m = msg as SlotMessage;
+      const index = Number(m.index);
+      if (!Number.isInteger(index) || index < 1 || index > 8) {
+        return;
+      }
+      const mode = m.mode === 'hex' ? 'hex' : 'text';
+      const text = typeof m.text === 'string' ? m.text : '';
+      const lineEnding = isLineEnding(m.lineEnding) ? m.lineEnding : DEFAULT_LINE_ENDING;
+      if (msg.type === 'slotSend') {
+        this.sendSlot(index, { mode, text, lineEnding });
+      } else if (msg.type === 'slotIntervalStart') {
+        this.startSlotInterval(index, { mode, text, lineEnding, interval: Number(m.interval) || 0 });
+      } else {
+        this.stopSlotInterval(index);
+      }
+      return;
+    }
     if (msg.type === 'startIntervalSend') {
       const m = msg as IntervalStartMessage;
       this.startIntervalSend({
@@ -502,6 +731,27 @@ export class SerialPortAssist extends SerialPortConsumer {
     }
     if (msg.type === 'stopIntervalSend') {
       this.stopIntervalSend();
+      return;
+    }
+    if (msg.type === 'pickSendFile' || msg.type === 'sendFileOnce' || msg.type === 'startFileSend' || msg.type === 'stopFileSend') {
+      const m = msg as FileMessage;
+      const ending = isLineEnding(m.lineEnding) ? m.lineEnding : DEFAULT_LINE_ENDING;
+      if (msg.type === 'pickSendFile') {
+        void (async () => {
+          const picked = await this.pickSendFile();
+          if (!picked) {
+            return;
+          }
+          this.loadSendFile(picked, ending);
+          this.postState(true);
+        })();
+      } else if (msg.type === 'sendFileOnce') {
+        void this.sendFileOnce();
+      } else if (msg.type === 'startFileSend') {
+        this.startFileSend(Number(m.interval) || 0, m.loop === true);
+      } else {
+        this.stopFileSend();
+      }
     }
   }
 
@@ -557,6 +807,15 @@ export class SerialPortAssist extends SerialPortConsumer {
       stopBridge: vscode.l10n.t('Stop Agent Bridge'),
       clients: vscode.l10n.t('Clients: {0}'),
       copyHint: vscode.l10n.t('Click to copy the bridge address'),
+      sendControl: vscode.l10n.t('Send Control'),
+      fileSend: vscode.l10n.t('File send'),
+      pickFile: vscode.l10n.t('Pick file'),
+      sendFile: vscode.l10n.t('Send file'),
+      sendLines: vscode.l10n.t('Send lines'),
+      stopLines: vscode.l10n.t('Stop lines'),
+      sendKey: vscode.l10n.t('Send key'),
+      loop: vscode.l10n.t('Loop'),
+      stop: vscode.l10n.t('Stop'),
       history: vscode.l10n.t('History'),
       interval: vscode.l10n.t('Interval (ms)'),
       startInterval: vscode.l10n.t('Start interval send'),
@@ -582,32 +841,45 @@ export class SerialPortAssist extends SerialPortConsumer {
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
 <style>
-body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); margin: 0; display: flex; flex-direction: column; height: 100vh; font-size: var(--vscode-font-size); }
-#banner { display: none; padding: 6px 10px; background: var(--vscode-inputValidation-errorBackground); color: var(--vscode-inputValidation-errorForeground); }
+body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); margin: 0; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: 8px; gap: 6px; font-size: var(--vscode-font-size); }
+#banner { display: none; padding: 6px 10px; border-radius: 6px; background: var(--vscode-inputValidation-errorBackground); color: var(--vscode-inputValidation-errorForeground); }
 #banner.show { display: block; }
-#toolbar { display: flex; gap: 6px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+#toolbar, #bridgebar { display: flex; gap: 6px; align-items: center; }
+button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; transition: background 0.1s ease, transform 0.05s ease, filter 0.08s ease; }
+button:hover { background: var(--vscode-button-hoverBackground); }
+button:active { transform: translateY(1px); filter: brightness(0.85); }
+button:disabled { opacity: 0.45; cursor: default; transform: none; filter: none; }
+select, input, textarea { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 4px; padding: 3px 6px; box-sizing: border-box; font-family: inherit; }
+select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
 #status.rx { color: var(--vscode-charts-green); }
 #status.offline { color: var(--vscode-errorForeground); }
-#truncatedNotice { color: var(--vscode-descriptionForeground); }
-#data { flex: 1; overflow-y: auto; margin: 0; padding: 6px 10px; font-family: var(--vscode-editor-font-family); white-space: pre; line-height: 1.5; }
+#truncatedNotice { color: var(--vscode-descriptionForeground); margin-left: auto; }
+#layout { flex: 1; display: flex; gap: 6px; min-height: 0; }
+#leftCol { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.block { border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: var(--vscode-editor-background); }
+#data { flex: 1; overflow-y: auto; margin: 0; padding: 6px 10px; font-family: var(--vscode-editor-font-family); white-space: pre; line-height: 1.5; min-height: 60px; }
+#data .row:hover { background: var(--vscode-list-hoverBackground); }
 .row .ts { color: var(--vscode-descriptionForeground); margin-right: 8px; }
 .row .dir { font-weight: 600; margin-right: 8px; }
 .row.rx .dir { color: var(--vscode-charts-green); }
 .row.tx .dir { color: var(--vscode-charts-orange); }
-#sendbar { display: flex; gap: 6px; align-items: center; padding: 6px 8px; border-top: 1px solid var(--vscode-panel-border); }
-#sendInput { flex: 1; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 4px 6px; }
-#sendbar button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 14px; cursor: pointer; }
-#sendbar button:hover { background: var(--vscode-button-hoverBackground); }
-#sendbar button:disabled { opacity: 0.5; cursor: default; }
-select { background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-input-border); padding: 3px 5px; }
-select:disabled { opacity: 0.5; }
-.muted { color: var(--vscode-descriptionForeground); }
+#splitter { flex: none; height: 5px; margin: 2px 0; cursor: row-resize; border-radius: 2px; }
+#splitter:hover, #splitter.dragging { background: var(--vscode-focusBorder); }
+#sendbar { flex: none; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 6px 8px; }
+#sendInput { flex: 1; padding: 4px 6px; resize: none; min-height: 40px; }
 #sendError { color: var(--vscode-errorForeground); }
-#bridgebar { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--vscode-panel-border); }
+#ctrlPanel { flex: none; width: 300px; display: flex; flex-direction: column; gap: 8px; padding: 8px; overflow-y: auto; }
+#ctrlPanel .panelTitle { font-weight: 600; }
+#ctrlPanel .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#ctrlPanel input[type="number"] { width: 90px; }
+#slots { display: flex; flex-direction: column; gap: 6px; }
+.slotRow { display: flex; gap: 4px; align-items: center; }
+.slotRow input[type="text"] { flex: 1; min-width: 0; padding: 3px 6px; }
+.slotRow button { padding: 3px 8px; }
+.slotHex { display: flex; align-items: center; gap: 2px; flex: none; }
+.slotRow input.invalid, #sendInput.invalid { border-color: var(--vscode-errorForeground); }
+.muted { color: var(--vscode-descriptionForeground); }
 #bridgeInfo.clickable { cursor: pointer; }
-#intervalbar { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-top: 1px solid var(--vscode-panel-border); }
-#intervalMs { width: 90px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 3px 5px; }
-label { margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -629,28 +901,53 @@ label { margin-left: 4px; }
   <button id="btnBridge">${L.startBridge}</button>
   <span id="bridgeInfo" class="muted"></span>
 </div>
-<div id="data"><div class="muted">${L.empty}</div></div>
-<div id="sendbar">
-  <select id="sendHistory"></select>
-  <select id="sendMode">
-    <option value="text">${L.sendModeText}</option>
-    <option value="hex">${L.sendModeHex}</option>
-  </select>
-  <input id="sendInput">
-  <span class="muted">${L.lineEnding}</span>
-  <select id="lineEnding">
-    <option value="cr" selected>${L.endingCR}</option>
-    <option value="lf">${L.endingLF}</option>
-    <option value="crlf">${L.endingCRLF}</option>
-    <option value="none">${L.endingNone}</option>
-  </select>
-  <button id="btnSend">${L.send}</button>
-  <span id="sendError"></span>
-</div>
-<div id="intervalbar">
-  <span class="muted">${L.interval}</span>
-  <input type="number" id="intervalMs" value="1000" min="20" step="100">
-  <button id="btnInterval">${L.startInterval}</button>
+<div id="layout">
+  <div id="leftCol">
+    <div id="data" class="block"><div class="muted">${L.empty}</div></div>
+    <div id="splitter"></div>
+    <div id="sendbar" class="block">
+      <select id="sendHistory"></select>
+      <select id="sendMode">
+        <option value="text">${L.sendModeText}</option>
+        <option value="hex">${L.sendModeHex}</option>
+      </select>
+      <textarea id="sendInput" rows="1"></textarea>
+      <span class="muted">${L.lineEnding}</span>
+      <select id="lineEnding">
+        <option value="cr" selected>${L.endingCR}</option>
+        <option value="lf">${L.endingLF}</option>
+        <option value="crlf">${L.endingCRLF}</option>
+        <option value="none">${L.endingNone}</option>
+      </select>
+      <span class="muted">${L.sendKey}</span>
+      <select id="sendKey">
+        <option value="enter" selected>Enter</option>
+        <option value="shiftEnter">Shift+Enter</option>
+      </select>
+      <button id="btnSend">${L.send}</button>
+      <span id="sendError"></span>
+    </div>
+  </div>
+  <div id="ctrlPanel" class="block">
+    <div class="panelTitle">${L.sendControl}</div>
+    <div class="panelTitle">${L.fileSend}</div>
+    <div class="row">
+      <button id="btnPickFile">${L.pickFile}</button>
+      <span id="fileName" class="muted"></span>
+    </div>
+    <div class="row">
+      <button id="btnFileOnce">${L.sendFile}</button>
+      <button id="btnFileLines">${L.sendLines}</button>
+      <label class="slotHex muted"><input type="checkbox" id="fileLoop">${L.loop}</label>
+    </div>
+    <div id="fileProgress" class="muted"></div>
+    <div class="row">
+      <span class="muted">${L.interval}</span>
+      <input type="number" id="intervalMs" value="1000" min="20" step="100">
+      <button id="btnInterval">${L.startInterval}</button>
+    </div>
+    <div id="slots"></div>
+  </div>
 </div>
 <script nonce="${nonce}">
 (function () {
@@ -754,11 +1051,31 @@ label { margin-left: 4px; }
     document.getElementById('btnBridge').disabled = true;
     document.getElementById('btnInterval').disabled = true;
     document.getElementById('intervalMs').disabled = true;
+    document.getElementById('btnPickFile').disabled = true;
+    document.getElementById('btnFileOnce').disabled = true;
+    document.getElementById('btnFileLines').disabled = true;
     sendModeEl.disabled = true;
     lineEndingEl.disabled = true;
+    // 槽面板：全部禁用；循环中的槽按钮文案复位（宿主断开已自动停全部循环）。
+    for (let i = 1; i <= SLOT_COUNT; i++) {
+      const el = slotEls[i - 1];
+      el.input.disabled = true;
+      el.hex.disabled = true;
+      el.sendBtn.disabled = true;
+      el.loopBtn.disabled = true;
+      el.loopBtn.textContent = L.loop;
+    }
+    slotLooping.clear();
   };
 
   const sendHistoryEl = document.getElementById('sendHistory');
+  const sendKeyEl = document.getElementById('sendKey');
+  const fileNameEl = document.getElementById('fileName');
+  const fileProgressEl = document.getElementById('fileProgress');
+  const fileLoopEl = document.getElementById('fileLoop');
+  const btnPickFile = document.getElementById('btnPickFile');
+  const btnFileOnce = document.getElementById('btnFileOnce');
+  const btnFileLines = document.getElementById('btnFileLines');
   const pushHistory = (entry) => {
     const last = history[history.length - 1];
     if (last && last.text === entry.text && last.mode === entry.mode) { return; }
@@ -791,15 +1108,16 @@ label { margin-left: 4px; }
     sendHistoryEl.value = '';
   });
 
-  document.getElementById('btnSend').addEventListener('click', () => {
+  const doSend = () => {
     const text = sendInput.value;
     if (!text || closed) { return; }
     const hex = sendModeEl.value === 'hex';
     if (hex) {
       // HEX 客户端预校验（与宿主 parseHexInput 同规则）：合法才发送并计入历史，
-      // 非法交由宿主 sendError 提示且不入历史。
+      // 非法标红输入框且不入历史。
       const clean = text.replace(/\s+/g, '');
       if (clean.length === 0 || clean.length % 2 !== 0 || /[^0-9a-fA-F]/.test(clean)) {
+        sendInput.classList.add('invalid');
         return;
       }
     }
@@ -807,10 +1125,22 @@ label { margin-left: 4px; }
     vscode.postMessage(hex ? { type: 'sendHex', text } : { type: 'sendText', text, lineEnding: lineEndingEl.value });
     pushHistory(entry);
     sendInput.value = '';
-  });
+    sendInput.classList.remove('invalid');
+  };
+  document.getElementById('btnSend').addEventListener('click', doSend);
+  // 发送快捷键可选（Enter 或 Shift+Enter——另一组合插入换行）；Ctrl+Enter 恒发送。
   sendInput.addEventListener('keydown', (ev) => {
     if (ev.ctrlKey && ev.key === 'Enter') {
-      document.getElementById('btnSend').click();
+      doSend();
+      return;
+    }
+    if (ev.key === 'Enter') {
+      const shiftSends = sendKeyEl.value === 'shiftEnter';
+      if (ev.shiftKey === shiftSends) {
+        ev.preventDefault();
+        doSend();
+      }
+      // 另一组合保持默认行为（textarea 插入换行）
     }
   });
   sendModeEl.addEventListener('change', () => {
@@ -852,22 +1182,128 @@ label { margin-left: 4px; }
     intervalBtn.textContent = intervalActive ? L.stopInterval : L.startInterval;
     intervalInput.disabled = intervalActive || closed;
   };
-  intervalBtn.addEventListener('click', () => {
+
+  // 文件发送（P2-c）：文件内容驻留宿主（装载后的行表），页面只显示文件名与
+  // 进度；循环勾选 = 逐行 EOF 后循环（文件周期发送）。
+  const applyFile = (info) => {
+    fileLoaded = !!info;
+    fileActive = fileLoaded && info.active === true;
+    fileNameEl.textContent = info ? info.name : '';
+    btnFileOnce.disabled = closed || !fileLoaded;
+    btnFileLines.disabled = closed || !fileLoaded;
+    btnFileLines.textContent = fileActive ? L.stopLines : L.sendLines;
+    fileProgressEl.textContent = info && info.total > 0 ? info.index + '/' + info.total : '';
+  };
+  btnPickFile.addEventListener('click', () => {
     if (closed) { return; }
-    if (intervalActive) {
-      vscode.postMessage({ type: 'stopIntervalSend' });
-      return;
-    }
-    const text = sendInput.value;
-    if (!text) { return; }
+    vscode.postMessage({ type: 'pickSendFile', lineEnding: lineEndingEl.value });
+  });
+  btnFileOnce.addEventListener('click', () => {
+    if (!closed && fileLoaded) { vscode.postMessage({ type: 'sendFileOnce' }); }
+  });
+  btnFileLines.addEventListener('click', () => {
+    if (closed || !fileLoaded) { return; }
     vscode.postMessage({
-      type: 'startIntervalSend',
-      mode: sendModeEl.value === 'hex' ? 'hex' : 'text',
-      text,
-      lineEnding: lineEndingEl.value,
-      interval: Number(intervalInput.value) || 0
+      type: fileActive ? 'stopFileSend' : 'startFileSend',
+      interval: Number(intervalInput.value) || 0,
+      loop: fileLoopEl.checked
     });
   });
+
+  // 推拉分隔条：拖拽分配回显区与发送栏的高度（控制面板宽度不受影响）；
+  // Pointer Capture 保证拖出边界不丢 move/up 事件。
+  const splitter = document.getElementById('splitter');
+  const sendbarEl = document.getElementById('sendbar');
+  splitter.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    const startY = ev.clientY;
+    const startHeight = sendbarEl.getBoundingClientRect().height;
+    splitter.classList.add('dragging');
+    splitter.setPointerCapture(ev.pointerId);
+    const onMove = (e) => {
+      const height = Math.max(44, Math.min(window.innerHeight - 220, startHeight + (startY - e.clientY)));
+      sendbarEl.style.height = height + 'px';
+      sendbarEl.style.flex = 'none';
+    };
+    const onUp = () => {
+      splitter.classList.remove('dragging');
+      splitter.removeEventListener('pointermove', onMove);
+      splitter.removeEventListener('pointerup', onUp);
+    };
+    splitter.addEventListener('pointermove', onMove);
+    splitter.addEventListener('pointerup', onUp);
+  });
+
+  // 槽发送面板（P2-b）：8 槽——HEX 勾选 + 输入 + 单发（不清框）+ 循环开关
+  //（共享间隔 = 顶部 Interval 输入）；槽内容驻留页面（会话态，刷新即失）。
+  const SLOT_COUNT = 8;
+  const slotsEl = document.getElementById('slots');
+  const slotEls = [];
+  const slotLooping = new Set();
+  const markSlotInvalid = (i) => {
+    slotEls[i - 1].input.classList.add('invalid');
+  };
+  const buildSlotPost = (i) => {
+    const el = slotEls[i - 1];
+    const text = el.input.value;
+    if (!text) { return undefined; }
+    const hex = el.hex.checked;
+    if (hex) {
+      const clean = text.replace(/\s+/g, '');
+      if (clean.length === 0 || clean.length % 2 !== 0 || /[^0-9a-fA-F]/.test(clean)) {
+        return undefined;
+      }
+    }
+    return { mode: hex ? 'hex' : 'text', text, lineEnding: lineEndingEl.value };
+  };
+  const sendSlot = (i) => {
+    const post = buildSlotPost(i);
+    if (!post) { markSlotInvalid(i); return; }
+    vscode.postMessage({ type: 'slotSend', index: i, ...post });
+  };
+  const toggleSlotLoop = (i) => {
+    if (closed) { return; }
+    if (slotLooping.has(i)) {
+      slotLooping.delete(i);
+      slotEls[i - 1].loopBtn.textContent = L.loop;
+      vscode.postMessage({ type: 'slotIntervalStop', index: i });
+      return;
+    }
+    const post = buildSlotPost(i);
+    if (!post) { markSlotInvalid(i); return; }
+    slotLooping.add(i);
+    slotEls[i - 1].loopBtn.textContent = L.stop;
+    vscode.postMessage({ type: 'slotIntervalStart', index: i, interval: Number(intervalInput.value) || 0, ...post });
+  };
+  for (let i = 1; i <= SLOT_COUNT; i++) {
+    const row = document.createElement('div');
+    row.className = 'slotRow';
+    const hexWrap = document.createElement('label');
+    hexWrap.className = 'slotHex muted';
+    hexWrap.title = L.modeHex;
+    const hex = document.createElement('input');
+    hex.type = 'checkbox';
+    hexWrap.append(hex, document.createTextNode('HEX'));
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '#' + i;
+    const sendBtn = document.createElement('button');
+    sendBtn.textContent = L.send;
+    const loopBtn = document.createElement('button');
+    loopBtn.className = 'secondary';
+    loopBtn.textContent = L.loop;
+    loopBtn.title = L.interval;
+    row.append(hexWrap, input, sendBtn, loopBtn);
+    slotsEl.append(row);
+    slotEls.push({ input, hex, loopBtn });
+    const doSend = () => { if (!closed) { sendSlot(i); } };
+    sendBtn.addEventListener('click', doSend);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { doSend(); }
+    });
+    input.addEventListener('input', () => input.classList.remove('invalid'));
+    loopBtn.addEventListener('click', () => toggleSlotLoop(i));
+  }
 
   const bridgeBtn = document.getElementById('btnBridge');
   const bridgeInfo = document.getElementById('bridgeInfo');
@@ -901,6 +1337,7 @@ label { margin-left: 4px; }
     } else if (message.type === 'state') {
       applyRecording(message.recording === true);
       applyInterval(message.interval === true);
+      applyFile(message.file);
       if (message.bridge && typeof message.bridge === 'object') {
         bridge = message.bridge;
         renderBridge();

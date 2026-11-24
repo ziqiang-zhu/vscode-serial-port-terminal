@@ -1,6 +1,6 @@
 {
   "name": "serial-port-terminal-tests",
-  "version": "1.15.2",
+  "version": "1.15.3",
   "private": true,
   "description": "Unit test suite for the Serial Port Terminal extension, versioned independently of the product"
 }
