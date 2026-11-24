@@ -33,7 +33,7 @@ interface StateMessage {
   truncated: number;
   recording: boolean;
   interval: boolean;
-  file: { name: string; total: number; index: number; active: boolean } | undefined;
+  file: { name: string; total: number; index: number; active: boolean; paused: boolean } | undefined;
   bridge: { active: boolean; address: string | undefined; readonly: boolean; clients: number };
 }
 
@@ -85,9 +85,10 @@ interface IntervalStopMessage {
 }
 
 // 文件发送（P2-c）：选文件（宿主对话框）→ 装载（按行拆分 + 原始字节缓存）→
-// 一次性原发 / 逐行循环播放；行尾符沿用页面行尾符设置（决策 3）。
+// 一次性原发 / 逐行播放（暂停/继续/停止状态机；循环 = 文件周期发送）；
+// 行尾符沿用页面行尾符设置（决策 3）。
 interface FileMessage {
-  type: 'pickSendFile' | 'sendFileOnce' | 'startFileSend' | 'stopFileSend';
+  type: 'pickSendFile' | 'sendFileOnce' | 'startFileSend' | 'stopFileSend' | 'pauseFileSend' | 'resumeFileSend';
   lineEnding?: unknown;
   interval?: unknown;
   loop?: unknown;
@@ -155,12 +156,17 @@ export class SerialPortAssist extends SerialPortConsumer {
   private readonly slotBytes = new Map<number, Buffer>();
   // 文件发送（P2-c）：loadSendFile 时按行拆分（utf-8、过滤空行）并缓存原始字节
   // ——一次性发送用原始字节（二进制安全），逐行发送用拆分行（按行尾符设置补行尾）。
+  // 播放状态机：playing（定时器在跑）/ paused（暂停——停表保留进度）/ 停止（复位
+  // 重头）；断开自动停（复位）。
   private sendFileRaw: Buffer | undefined;
   private sendFileName = '';
   private sendFileLines: Buffer[] = [];
   private sendFileIndex = 0;
   private sendFileTimer: ReturnType<typeof setInterval> | undefined;
   private sendFileLoop = false;
+  private sendFilePaused = false;
+  // 暂停/继续沿用启动时的间隔（记忆于启动时刻）。
+  private sendFileIntervalMs = 100;
   private hostPath = '';
   // 面板可见性（onDidChangeViewState 维护）——状态栏确定性解析的第 2 步依据。
   private panelVisible = false;
@@ -432,6 +438,8 @@ export class SerialPortAssist extends SerialPortConsumer {
     }
     this.sendFileIndex = 0;
     this.sendFileLoop = loop;
+    this.sendFilePaused = false;
+    this.sendFileIntervalMs = Math.max(20, interval);
     this.sendFileTimer = setInterval(() => {
       if (this.disconnected) {
         this.stopFileSend();
@@ -456,26 +464,76 @@ export class SerialPortAssist extends SerialPortConsumer {
         this.stopFileSend();
         this.postState(true);
       }
-    }, Math.max(20, interval));
+    }, this.sendFileIntervalMs);
     this.postState(true);
     return true;
   }
 
-  public stopFileSend(): void {
+  /** 暂停逐行播放：停表保留进度（sendFileIndex 不变），继续时从当前行恢复。 */
+  public pauseFileSend(): void {
     if (this.sendFileTimer) {
       clearInterval(this.sendFileTimer);
       this.sendFileTimer = undefined;
-      // 停止即推送状态（file.active=false）——页面按钮文案与进度随之翻转；
-      // 漏推会让页面停在「停止逐行」态（P1-c 同类推送先例：stopIntervalSend 有）。
+      this.sendFilePaused = true;
       this.postState(true);
     }
+  }
+
+  /** 继续逐行播放：从暂停位置恢复（进度保留，间隔沿用启动值）；无暂停/已发完则拒绝。 */
+  public resumeFileSend(): boolean {
+    if (this.disconnected || this.sendFileTimer || !this.sendFilePaused || this.sendFileLines.length === 0) {
+      return false;
+    }
+    this.sendFilePaused = false;
+    this.sendFileTimer = setInterval(() => {
+      if (this.disconnected) {
+        this.stopFileSend();
+        this.postState(true);
+        return;
+      }
+      const line = this.sendFileLines[this.sendFileIndex];
+      if (!line) {
+        if (this.sendFileLoop) {
+          this.sendFileIndex = 0;
+          return;
+        }
+        this.stopFileSend();
+        this.postState(true);
+        return;
+      }
+      this.transmit(line);
+      this.sendFileIndex += 1;
+      if (this.sendFileIndex >= this.sendFileLines.length && !this.sendFileLoop) {
+        this.stopFileSend();
+        this.postState(true);
+      }
+    }, this.sendFileIntervalMs);
+    this.postState(true);
+    return true;
+  }
+
+  /** 停止逐行播放：清定时器（真正停止发送）并复位进度（重新开始从首行播放）。 */
+  public stopFileSend(): void {
+    if (this.sendFileTimer) {
+      clearInterval(this.sendFileTimer);
+    }
+    this.sendFileTimer = undefined;
+    this.sendFilePaused = false;
+    this.sendFileIndex = 0;
+    // 停止即推送状态（file.active=false）——页面按钮文案与进度随之翻转；
+    // 漏推会让页面停在「停止逐行」态（P1-c 同类推送先例：stopIntervalSend 有）。
+    this.postState(true);
   }
 
   public isFileSendActive(): boolean {
     return this.sendFileTimer !== undefined;
   }
 
-  public getSendFileProgress(): { name: string; total: number; index: number; active: boolean } | undefined {
+  public isFileSendPaused(): boolean {
+    return this.sendFilePaused && !this.sendFileTimer;
+  }
+
+  public getSendFileProgress(): { name: string; total: number; index: number; active: boolean; paused: boolean } | undefined {
     if (!this.sendFileLines.length) {
       return undefined;
     }
@@ -483,7 +541,8 @@ export class SerialPortAssist extends SerialPortConsumer {
       name: this.sendFileName,
       total: this.sendFileLines.length,
       index: Math.min(this.sendFileIndex, this.sendFileLines.length),
-      active: this.sendFileTimer !== undefined
+      active: this.sendFileTimer !== undefined,
+      paused: this.sendFilePaused
     };
   }
 
@@ -752,6 +811,14 @@ export class SerialPortAssist extends SerialPortConsumer {
       } else {
         this.stopFileSend();
       }
+      return;
+    }
+    if (msg.type === 'pauseFileSend') {
+      this.pauseFileSend();
+      return;
+    }
+    if (msg.type === 'resumeFileSend') {
+      this.resumeFileSend();
     }
   }
 
@@ -813,6 +880,8 @@ export class SerialPortAssist extends SerialPortConsumer {
       sendFile: vscode.l10n.t('Send file'),
       sendLines: vscode.l10n.t('Send lines'),
       stopLines: vscode.l10n.t('Stop lines'),
+      pauseLines: vscode.l10n.t('Pause lines'),
+      resumeLines: vscode.l10n.t('Resume lines'),
       sendKey: vscode.l10n.t('Send key'),
       loop: vscode.l10n.t('Loop'),
       stop: vscode.l10n.t('Stop'),
@@ -938,6 +1007,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
     <div class="row">
       <button id="btnFileOnce">${L.sendFile}</button>
       <button id="btnFileLines">${L.sendLines}</button>
+      <button id="btnFileStop">${L.stopLines}</button>
       <label class="slotHex muted"><input type="checkbox" id="fileLoop">${L.loop}</label>
     </div>
     <div id="fileProgress" class="muted"></div>
@@ -1076,6 +1146,10 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   const btnPickFile = document.getElementById('btnPickFile');
   const btnFileOnce = document.getElementById('btnFileOnce');
   const btnFileLines = document.getElementById('btnFileLines');
+  const btnFileStop = document.getElementById('btnFileStop');
+  let fileLoaded = false;
+  let fileActive = false;
+  let filePaused = false;
   const pushHistory = (entry) => {
     const last = history[history.length - 1];
     if (last && last.text === entry.text && last.mode === entry.mode) { return; }
@@ -1184,14 +1258,18 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   };
 
   // 文件发送（P2-c）：文件内容驻留宿主（装载后的行表），页面只显示文件名与
-  // 进度；循环勾选 = 逐行 EOF 后循环（文件周期发送）。
+  // 进度；循环勾选 = 逐行 EOF 后循环（文件周期发送）。逐行三态按钮：
+  // 空闲 → 开始；播放中 → 暂停；暂停中 → 继续；停止按钮 = 复位重头。
   const applyFile = (info) => {
     fileLoaded = !!info;
     fileActive = fileLoaded && info.active === true;
+    filePaused = fileLoaded && info.paused === true;
     fileNameEl.textContent = info ? info.name : '';
     btnFileOnce.disabled = closed || !fileLoaded;
+    const playing = fileActive || filePaused;
     btnFileLines.disabled = closed || !fileLoaded;
-    btnFileLines.textContent = fileActive ? L.stopLines : L.sendLines;
+    btnFileStop.disabled = closed || !playing;
+    btnFileLines.textContent = fileActive ? L.pauseLines : filePaused ? L.resumeLines : L.sendLines;
     fileProgressEl.textContent = info && info.total > 0 ? info.index + '/' + info.total : '';
   };
   btnPickFile.addEventListener('click', () => {
@@ -1203,11 +1281,21 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   });
   btnFileLines.addEventListener('click', () => {
     if (closed || !fileLoaded) { return; }
-    vscode.postMessage({
-      type: fileActive ? 'stopFileSend' : 'startFileSend',
-      interval: Number(intervalInput.value) || 0,
-      loop: fileLoopEl.checked
-    });
+    if (fileActive) {
+      vscode.postMessage({ type: 'pauseFileSend' });
+    } else if (filePaused) {
+      vscode.postMessage({ type: 'resumeFileSend' });
+    } else {
+      vscode.postMessage({
+        type: 'startFileSend',
+        interval: Number(intervalInput.value) || 0,
+        loop: fileLoopEl.checked
+      });
+    }
+  });
+  btnFileStop.addEventListener('click', () => {
+    if (closed || !fileLoaded) { return; }
+    vscode.postMessage({ type: 'stopFileSend' });
   });
 
   // 推拉分隔条：拖拽分配回显区与发送栏的高度（控制面板宽度不受影响）；

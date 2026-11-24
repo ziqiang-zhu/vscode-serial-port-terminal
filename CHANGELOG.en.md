@@ -2,6 +2,13 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.6]
+
+### Added
+- Serial Port Assist line playback supports pause and resume: pause during playback (send progress is kept) and resume sending from the paused position at any time
+### Fixed
+- The "Stop lines" action of the serial port assist line playback did not actually stop the sending (the timer was not cleared and sending kept going after stop)
+
 ## [1.6.5]
 
 ### Added

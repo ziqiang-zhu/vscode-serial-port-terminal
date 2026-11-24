@@ -344,6 +344,56 @@ describe('串口助手连接模式（自装配）', () => {
       temp.dispose();
     }
   });
+
+  it('#10 line player pause/resume keeps progress; stop resets', async () => {
+    const temp = withTempDir();
+    const file = path.join(temp.dir, 'lines.txt');
+    fs.writeFileSync(file, 'p1\np2\np3\n', 'utf8');
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device, undefined, undefined, 'assist');
+    const assist = instances.at(-1);
+    assert.ok(assist);
+    try {
+      assert.equal(assist.loadSendFile(file, 'cr'), 3);
+      assert.ok(assist.startFileSend(60, false));
+      // 播放到第 2 行可见后暂停（进度保留）
+      await waitFor(
+        'p2 tx entry',
+        () => assist.snapshotEntries().some(entry => entry.bytes.toString() === 'p2\r'),
+        2000
+      );
+      assist.pauseFileSend();
+      assert.equal(assist.isFileSendActive(), false);
+      assert.ok(assist.isFileSendPaused());
+      const frozen = assist.snapshotEntries().filter(entry => entry.dir === 'tx').length;
+      await new Promise(resolve => setTimeout(resolve, 150));
+      assert.equal(
+        assist.snapshotEntries().filter(entry => entry.dir === 'tx').length,
+        frozen,
+        'paused player stays frozen'
+      );
+      // 继续：剩余行发完（p3）且 EOF 自动停（无循环）
+      assert.equal(assist.resumeFileSend(), true);
+      await waitFor(
+        'p3 tx entry after resume',
+        () => assist.snapshotEntries().some(entry => entry.bytes.toString() === 'p3\r'),
+        2000
+      );
+      await waitFor('player auto-stops at EOF', () => !assist.isFileSendActive() && !assist.isFileSendPaused(), 2000);
+      // 停止复位：重新开始从首行播放
+      assert.ok(assist.startFileSend(60, false));
+      await waitFor(
+        'restart from p1',
+        () => assist.snapshotEntries().some(entry => entry.bytes.toString() === 'p1\r'),
+        2000
+      );
+      assist.stopFileSend();
+      assert.equal(assist.isFileSendPaused(), false);
+    } finally {
+      await harness.service.disconnect(device);
+      temp.dispose();
+    }
+  });
 });
 
 function connectionSend(harness: TestHarness, path: string, text: string): boolean {

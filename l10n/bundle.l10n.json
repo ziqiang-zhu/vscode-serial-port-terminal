@@ -122,6 +122,8 @@
   "Send file": "Send file",
   "Send lines": "Send lines",
   "Stop lines": "Stop lines",
+  "Pause lines": "Pause lines",
+  "Resume lines": "Resume lines",
   "Send key": "Send key",
   "No data yet. Device output and sent bytes will appear here.": "No data yet. Device output and sent bytes will appear here.",
   "{0} older entries hidden": "{0} older entries hidden",
