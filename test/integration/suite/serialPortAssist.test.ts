@@ -394,6 +394,44 @@ describe('串口助手连接模式（自装配）', () => {
       temp.dispose();
     }
   });
+
+  it('#11 record toggle messages control recording through the page message handler', async () => {
+    const temp = withTempDir();
+    const config = vscode.workspace.getConfiguration('serialPortTerminal');
+    await config.update('logDirectory', temp.dir, vscode.ConfigurationTarget.Global);
+    const device = findDevice(harness.detector, 'VCOM-ECHO');
+    await harness.service.connect(device, undefined, undefined, 'assist');
+    const assist = instances.at(-1);
+    assert.ok(assist);
+    try {
+      // 页面「记录」按钮发出的消息经宿主消息处理入口生效（入口为私有方法，测试经类型断言调用）
+      const onPageMessage = (message: unknown) =>
+        (assist as unknown as { onPageMessage(m: unknown): void }).onPageMessage(message);
+      assert.equal(assist.isRecording(), false);
+      onPageMessage({ type: 'recordStart' });
+      assert.equal(assist.isRecording(), true);
+      assert.ok(connectionSend(harness, 'VCOM-ECHO', 'ping'));
+      // 'ping' 的小写十六进制 = 70 69 6e 67
+      await waitFor(
+        'dat file with rx line after the recordStart message',
+        () => {
+          try {
+            const datFile = fs.readdirSync(temp.dir).find(name => name.endsWith('.dat'));
+            return datFile !== undefined && fs.readFileSync(path.join(temp.dir, datFile), 'utf8').includes(' RX 70 69 6e 67');
+          } catch {
+            return false;
+          }
+        },
+        2000
+      );
+      onPageMessage({ type: 'recordStop' });
+      assert.equal(assist.isRecording(), false);
+    } finally {
+      await harness.service.disconnect(device);
+      await config.update('logDirectory', undefined, vscode.ConfigurationTarget.Global);
+      temp.dispose();
+    }
+  });
 });
 
 function connectionSend(harness: TestHarness, path: string, text: string): boolean {

@@ -733,6 +733,10 @@ export class SerialPortAssist extends SerialPortConsumer {
       this.transmit(built.bytes);
       return;
     }
+    if (msg.type === 'recordStart') {
+      this.startDataRecording();
+      return;
+    }
     if (msg.type === 'recordStop') {
       this.stopDataRecording();
       return;

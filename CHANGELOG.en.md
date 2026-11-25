@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.9]
+
+### Fixed
+- The "Start recording" action of the serial port assist panel did not start data recording (the host lacked the handler for this message, so clicking it had no effect)
+
 ## [1.6.8]
 
 ### Changed
