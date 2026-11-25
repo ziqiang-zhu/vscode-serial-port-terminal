@@ -1,6 +1,6 @@
 # SerialPortAssist（串口助手）设计
 
-> 状态：设计定稿（2026-11-23，P0/P1 待实施）｜ 目录：`src/SerialPortConsumer/SerialPortAssist/`（计划）｜ 规范：[SerialPortConsumer设计.md](SerialPortConsumer设计.md) ｜ 上位文档：[../总体架构.md](../总体架构.md) ｜ 关联：[SerialPortAgentBridge设计.md](SerialPortAgentBridge设计.md)、[SerialPortLogRecorder设计.md](SerialPortLogRecorder设计.md)、[SerialPortMacroSender设计.md](SerialPortMacroSender设计.md)
+> 状态：已实现（产品 1.6.0–1.6.10）｜ 目录：`src/SerialPortConsumer/SerialPortAssist/` ｜ 规范：[SerialPortConsumer设计.md](SerialPortConsumer设计.md) ｜ 上位文档：[../总体架构.md](../总体架构.md) ｜ 关联：[SerialPortAgentBridge设计.md](SerialPortAgentBridge设计.md)、[SerialPortLogRecorder设计.md](SerialPortLogRecorder设计.md)、[SerialPortMacroSender设计.md](SerialPortMacroSender设计.md)
 
 ## 1. 定位（需求来源：2026-11-07 用户需求；2026-11-23 设计定稿）
 
@@ -38,13 +38,24 @@
 class SerialPortAssist extends SerialPortConsumer {
   readonly id = 'serialPortAssist';
   readonly displayName = 'Serial Port Assist';
-  attach(host: SerialPortConsumerHost): void;  // 创建 WebviewPanel 并 reveal
+  attach(host: SerialPortConsumerHost): void;  // 创建 WebviewPanel（保留隐藏时的页面内容）
   onData(data: Buffer): void;                  // RX：入环形缓冲 → 100ms 批刷推送
-  onClosed(): void;                            // 面板保留 + 「已断开」横幅 + 输入失效（面板已关则跳过）
+  onClosed(): void;                            // 面板保留 + 「已断开」横幅 + 控件失效（面板已关则跳过）
 }
 ```
 
-- 面板标题 `<basename(path)> · <配置名|波特率>`（对齐终端标题风格）；面板关闭（用户关页）→ `requestDisconnect()`——对齐 Terminal「关闭面板即断开」；断开（树视图入口/拔除）→ 面板保留进入冻结态；
+| 用途 | 成员 |
+|---|---|
+| 生命周期 | `attach` / `onData` / `onClosed` / `isVisible` / `devicePath` |
+| 数据记录 | `startDataRecording` / `stopDataRecording` / `isRecording` |
+| 发送槽 | `sendSlot` / `startSlotInterval` / `stopSlotInterval` / `isSlotIntervalActive` |
+| 文件发送 | `pickSendFile` / `loadSendFile` / `sendFileOnce` / `startFileSend` / `pauseFileSend` / `resumeFileSend` / `stopFileSend` / `isFileSendActive` / `isFileSendPaused` / `getSendFileProgress` |
+| AgentBridge | `startBridge` / `stopBridge` / `isBridgeActive` / `getBridgeAddress` / `getBridgeReadonly` / `getBridgeClients` / `observeOutbound` |
+| 诊断 | `snapshotEntries`（集成断言读取缓冲快照） |
+
+- 面板标题 `<path> · <配置名|波特率>`（完整设备路径，对齐终端标题风格）；创建后随 `ViewColumn.Active` 显示；`retainContextWhenHidden` 开启——页内已渲染内容与显示模式等会话态不随标签页隐藏丢失（宿主缓冲始终是事实源，页重载经 `ready` 握手全量重放）；
+- 面板关闭（用户关页）→ `requestDisconnect()`——对齐 Terminal「关闭面板即断开」；断开（树视图入口/拔除）→ 面板保留进入冻结态；
+- 面板可见性经 `onDidChangeViewState` 维护：可见时登记为「最近可见面板」，隐藏或断开时清除。全局桥状态栏据此解析（§7）；
 - 面板不序列化：窗口重载后面板消失，需重连（与 Terminal 一致）；
 - TX 本地记录与设备回显并存：发送字节本地位（TX）与设备回显（RX）都会出现在显示与记录中——**如实记录、不抑制回显**（波形解析两方向各取所需）。
 
@@ -55,7 +66,7 @@ class SerialPortAssist extends SerialPortConsumer {
 | 成员 | 契约 |
 |---|---|
 | `push(data: Buffer, dir: 'rx' \| 'tx')` | chunk 入缓冲：`{seq, ts, dir, bytes}`；`ts` 为入缓冲时刻 `Date.now()`（ms），seq 单调递增 |
-| 容量上限 5000 条（常量） | 超限丢弃最旧并累计 `truncated`，前端展示「已截断 N 行」 |
+| 容量上限 5000 条（常量） | 超限丢弃最旧并累计 `truncated`；累计值随 `state` 下发 |
 | `drain(sinceSeq)` | 取增量供 100ms 定时批刷（seq 防乱序防丢失） |
 
 显示格式三模式（页内渲染，宿主只发原始字节）。每条缓冲条目渲染为一行，依次为时间戳 `HH:mm:ss.SSS`、方向 `RX` / `TX`、内容：
@@ -71,7 +82,9 @@ class SerialPortAssist extends SerialPortConsumer {
 - **条目分隔**：每条数据左缘一根 2px 方向色条，RX 绿、TX 橙，贯穿该条的全部显示行；相邻条目间距 3px。
 - **窄宽退化**：回显区宽度小于 520px 时，混合模式的文本栏移至 HEX 栏下方，改为上下堆叠。
 
-暂停滚动、清屏为页内行为；导出会话属 P2 可选。
+批刷与页内渲染：宿主每 100ms 取增量推送，无增量且状态未变时不推送；页内对 DOM 条目数同样设 5000 条上限，超出时裁剪最旧条目并提示「已隐藏 N 条」。
+
+暂停滚动、清屏、显示模式切换为页内行为。
 
 ### 5.2 发送
 
@@ -81,6 +94,41 @@ class SerialPortAssist extends SerialPortConsumer {
 | HEX 模式 | 解析十六进制串（大小写不敏感、空白分隔）；奇数半字节拒绝并提示；**不加行尾符**（字节原文精确语义） |
 | 发送顺序 | 先 `dataRecorder.recordTx(bytes)`，后 `host.send(bytes)`——TX 时间戳即发送时刻 |
 | 发送历史 | 历史为页内会话态（点击回填）；循环发送由发送槽的循环开关与文件逐行发送承担，共用控制面板的发送间隔输入框 |
+| 发送键 | 可选 Enter / Shift+Enter（选中组合发送、另一组合插入换行）；Ctrl+Enter 恒发送。页内会话态 |
+| 错误提示 | HEX 输入非法时页内即时校验并标红（不与宿主往返）；宿主侧解析失败经 `sendError` 提示 |
+
+### 5.3 发送槽
+
+控制面板内的 8 个固定槽位，用于常驻命令的一键发送与循环发送：
+
+| 项 | 契约 |
+|---|---|
+| 槽内容 | 每槽一个输入框 + HEX 勾选，内容驻留页面（会话态，刷新即失） |
+| 单发 | 按槽构建字节立即发送，不改变槽内容 |
+| 循环 | 每槽独立的循环开关，按面板顶部间隔输入框的值循环该槽内容；同槽重复启动幂等拒绝 |
+| 并发 | 多槽可同时循环，字节按各自定时器交错写入——如实呈现，不做排序或合并 |
+| 间隔 | 与文件逐行发送共用同一输入框，下限 20ms |
+
+槽内容不进入发送历史；断开时全部循环停止、控件禁用、循环按钮文案复位。
+
+### 5.4 文件发送
+
+| 项 | 契约 |
+|---|---|
+| 装载 | 选择文件（宿主对话框）→ 同步读取并按 UTF-8 解码、`\r?\n` 切分、过滤空行，每行按**装载时的**行尾符追加后缓存 |
+| 一次性发送 | 发送文件原始字节（含文件自身换行，不补行尾符）——二进制安全 |
+| 逐行播放 | 按间隔逐行发送；支持暂停（保留进度）、继续（从暂停行恢复）、停止（复位回首行）；EOF 停止或循环回首行 |
+| 进度 | 页内显示 `当前行/总行数` 与文件名，随 `state` 更新 |
+| 间隔 | 与发送槽共用同一输入框；暂停/继续沿用启动时的间隔 |
+
+已知限制：行尾符在装载时固化，之后修改行尾符不影响已装载文件；播放中重新选择文件会重置进度；装载为同步读取，大文件会阻塞扩展宿主。
+
+### 5.5 面板布局
+
+- 左右两块：左侧回显区与输入栏上下排列，中间为拖拽分隔条（只分配这两块的高度）；右侧控制面板固定 300px 宽；
+- 工具栏一行：连接状态、显示模式选择、暂停滚动、清屏、记录开关、AgentBridge 开关（次级配色），截断提示靠右；
+- 输入栏：发送历史下拉、文本 / HEX 模式选择、多行输入框、行尾符、发送键、发送按钮、HEX 错误提示；
+- 控制面板：「文件发送」块（选择文件与文件名、三个等宽操作按钮、循环勾选与间隔输入框同行、进度）与 8 个发送槽。
 
 ## 6. SerialPortDataRecorder（依附型 Consumer）
 
@@ -104,29 +152,31 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 
 ## 7. AgentBridge 托管（透传模式）
 
-- Assist 托管桥与 Terminal 同构：页内开关 → 构造 `new SerialPortAgentBridge(host, port, readonlyMode, /* stripAnsi */ false, 计数回调, /* onOutboundBytes */ 出站回调)` → `addConsumer` → `listen()` → 页内回显地址（只读标记）→ `stopBridge()` 注销销毁；断开随 Connection 收尾（listen 取消路径 `AgentBridgeCancelledError` 静默——既有契约）；
+- Assist 托管桥与 Terminal 同构：页内开关 → 构造 `new SerialPortAgentBridge(host, port, readonlyMode, /* stripAnsi */ false, 计数回调, /* onOutboundBytes */ 出站回调)` → `addConsumer` → `listen()` → `stopBridge()` 注销销毁；页内只呈现开关按钮（开 / 停两态），桥地址、只读标记与客户端数由全局状态栏统一呈现（见下条）；断开随 Connection 收尾（listen 取消路径 `AgentBridgeCancelledError` 静默——既有契约）；
 - **透传模式语义**（1.4.8 既有）：不经剥离行缓冲、不挂 200ms 空闲刷出，数据即时到达，二进制协议不被 UTF-8 往返损坏——Assist 场景固定 `stripAnsi = false`，无页内开关；
-- **公共工厂（已实现为 `AgentBridgeSession` 类）**：startBridge 流程（读 `agentBridge.*` 配置 → 选端口 → 构造 → 注册 → listen → 呈现）Terminal 与 Assist 双消费方共用——owner 回调（addConsumer/removeConsumer）+ presenter 三回调注入呈现差异：`onChange`（任意状态迁移，Terminal = 状态栏拉模型 refreshLogContext / Assist = 强制推送 state）、`onStarted`（Terminal toast / Assist 页内地址行）、`onFailed`（双侧 host toast，复用既有文案键）；`bridgeStarting` 重入守卫随会话走（选端口窗口持锁、listen 窗口由 active 守卫自然拦截），防双开竞态；
-- **桥客户端字节可见（P1-b）**：桥第 6 参 `onOutboundBytes` 由 Assist 接线为 `observeOutbound(bytes)` = `dataRecorder?.recordTx(bytes)` + `buffer.push(bytes,'tx')`——桥客户端操作以 TX 行实时入面板并入 `.dat`，与面板发送同权可见（桥已自行 send，回调不重复发送）；readonly 桥该回调天然不触发；
-- 状态栏 `AgentBridge <host:port>` 常驻与 `· N` 计数为**全局桥指示，跟随最近交互面**——确定性两步解析，每次刷新从当前状态重算、与事件先后顺序无关（面板隐藏/终端切换双事件竞态天然收敛）：①活动串口终端有桥优先显示（`activeTerminal` 接线）；②否则最近可见的 Assist 面板有桥则显示（实例可见性标记 + `lastVisibleAssist`，`onDidChangeViewState` 维护；装配层注入 `collectVisibleAssistBridge` provider——避免 Terminal ↔ Assist 循环依赖；点击复制同源回退）；③都没有则隐藏。**对等性语义**：运行中的桥在焦点迁往无桥表面时同样从指示器消失（与终端切换行为一致）；Assist 桥状态迁移（开/停/计数）经 `refreshAgentBridgeStatus` 触发重算，页内呈现（开关按钮、地址行、客户端数）并行不悖。
+- **公共工厂（已实现为 `AgentBridgeSession` 类）**：startBridge 流程（读 `agentBridge.*` 配置 → 选端口 → 构造 → 注册 → listen → 呈现）Terminal 与 Assist 双消费方共用——owner 回调（addConsumer/removeConsumer）+ presenter 三回调注入呈现差异：`onChange`（任意状态迁移，Terminal = 状态栏拉模型 refreshLogContext / Assist = 强制推送 state）、`onStarted`（Terminal toast / Assist 强制推送 state）、`onFailed`（双侧 host toast，复用既有文案键）；`bridgeStarting` 重入守卫随会话走（选端口窗口持锁、listen 窗口由 active 守卫自然拦截），防双开竞态；
+- **桥客户端字节可见**：桥第 6 参 `onOutboundBytes` 由 Assist 接线为 `observeOutbound(bytes)` = `dataRecorder?.recordTx(bytes)` + `buffer.push(bytes,'tx')`——桥客户端操作以 TX 行实时入面板并入 `.dat`，与面板发送同权可见（桥已自行 send，回调不重复发送）；readonly 桥该回调天然不触发；
+- 状态栏 `AgentBridge <host:port>` 常驻与 `· N` 计数为**全局桥指示，跟随最近交互面**——确定性两步解析，每次刷新从当前状态重算、与事件先后顺序无关（面板隐藏/终端切换双事件竞态天然收敛）：①活动串口终端有桥优先显示（`activeTerminal` 接线）；②否则最近可见的 Assist 面板有桥则显示（实例可见性标记 + `lastVisibleAssist`，`onDidChangeViewState` 维护；装配层注入 `collectVisibleAssistBridge` provider——避免 Terminal ↔ Assist 循环依赖；点击复制同源回退）；③都没有则隐藏。**对等性语义**：运行中的桥在焦点迁往无桥表面时同样从指示器消失（与终端切换行为一致）；Assist 桥状态迁移（开/停/计数）经 `refreshAgentBridgeStatus` 触发重算，与页内开关按钮的推送并行不悖。
 
 ## 8. WebviewPanel 与消息协议
 
-- 每 Assist 连接一个 Panel；CSP nonce + 本地资源；文案宿主侧 `l10n.t` 定值后注入模板（webview 无 l10n 运行时——对齐 ConsoleView 先例）；
+- 每 Assist 连接一个 Panel；CSP nonce + 内联样式；文案宿主侧 `l10n.t` 定值后注入模板（webview 无 l10n 运行时——对齐 ConsoleView 先例）；
 - 宿主 → 页：
 
 | 消息 | 负载 | 时机 |
 |---|---|---|
-| `init` | 连接信息 + 全量控件态 | 页 ready 时一次 |
+| `init` | `{path}` | 页 `ready` 时一次（页重载后同样适用） |
 | `append` | `{entries: [{seq, ts, dir, bytes}]}` | 100ms 批刷 |
-| `state` | 连接态、桥（address / count / readonly / active）、记录（active）、截断计数 | 任意状态变化 |
+| `state` | `{connection, truncated, recording, file?, bridge: {active}}` | 状态变化（变更检测后才推送） |
+
+`file` 为 `{name, total, index, active, paused}`，未装载文件时缺省。
 
 - 页 → 宿主：`ready`（页就绪/重载握手，宿主回 `init` + 全量重放）、`sendText` / `sendHex`、`recordStart` / `recordStop`、`bridgeStart` / `bridgeStop`、`slotSend` / `slotIntervalStart` / `slotIntervalStop`、`pickSendFile` / `sendFileOnce` / `startFileSend` / `pauseFileSend` / `resumeFileSend` / `stopFileSend`；发送历史、发送槽内容与显示模式切换 / 清屏 / 暂停滚动同为**页内行为不经协议**（§5.1）；
-- 「已断开」横幅与输入失效为前端态（`state.connection` 转入断开后页内禁用发送区）。
+- 断开后（`state.connection` 转入 `closed`）：页内横幅提示「已断开」，并禁用发送区、记录与桥开关、文件选择与三个操作按钮、间隔输入框、全部槽控件，槽循环按钮文案复位；面板保留可回看。
 
 ## 9. 树视图双连接入口
 
-- inline 按钮（未连接态 `serialPortDevice.disconnected`）：终端连接 `serialPortDevice.connect`（现状）+ **助手连接 `serialPortDevice.connectAssist`**（新命令，图标实现时定，候选 `$(pulse)`）；已连接态断开按钮统一、不区分模式；connecting 态不匹配任何按钮（现状）；
+- inline 按钮（未连接态 `serialPortDevice.disconnected`）：终端连接 `serialPortDevice.connect`（现状）+ **助手连接 `serialPortDevice.connectAssist`**（新命令，图标 `$(pulse)`）；已连接态断开按钮统一、不区分模式；connecting 态不匹配任何按钮（现状）；
 - 连接流程完全复用参数选择器（手动配置 + 保存的配置 + 上次使用置顶 + 选中配置子节点直连），仅 `connect(..., 'assist')` 实参不同；快捷配置与上次使用记录按设备身份共享，与模式无关；
 - contextValue 三态约定不变；`serialPortDevice.connectAssist` 对齐终端连接只做 inline 按钮、不入右键菜单。
 
@@ -141,54 +191,28 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 
 ## 11. 配置
 
-**零新增设置项**。行尾符、显示模式、发送历史为页内会话态；渲染上限（5000 条）与批刷间隔（100ms）为模块常量；编码固定 UTF-8 + HEX。
+**零新增设置项**。行尾符、显示模式、发送键、发送历史、发送槽内容与间隔值均为页内会话态；渲染上限（5000 条）与批刷间隔（100ms）为模块常量；编码固定 UTF-8 + HEX。
 
 ## 12. 测试
 
 | 层 | 用例面 |
 |---|---|
-| P0 单测（纯逻辑，零桩） | AssistBuffer：push / drain / seq 单调 / 上限截断 / 双向 dir；HEX 格式化与解析（奇数半字节拒绝、空白容忍、大小写不敏感）；行尾符应用矩阵；转义解释 |
-| P0 单测 | DataRecorder：行格式快照、RX 广播与 TX 直调、懒建文件、onClosed 关流与「已保存」前提、按大小分割、写盘失败语义（复用 A3 测试技法） |
-| P1 单测 | 桥公共工厂（参数传递 / presenter 回调 / 重入守卫） |
-| P1 集成 | `connect(mode='assist')` 生命周期（attach / onData / 断开收尾）与默认 mode 兼容（既有 26 例回归即证）；桥经 Assist 透传端到端（虚拟 Echo，二进制字节保真断言）；DataRecorder 落盘含 TX 行 |
+| 单测（纯逻辑，零桩） | AssistBuffer：push / drain / seq 单调 / 上限截断与缺口计数 / 双向 dir；发送侧纯函数：行尾符应用矩阵、字面转义解释、HEX 解析（大小写与空白容忍、奇数半字节与非法字符拒绝） |
+| 单测（vscode 模块桩） | DataRecorder：行格式、RX 广播与 TX 直调、懒建文件、空 chunk 跳过、按大小分割、写盘失败语义；页脚本语法守卫：真实下发的页脚本可解析 |
+| 集成 | `connect(mode='assist')` 生命周期与默认 mode 兼容、重连新缓冲、`.dat` 落盘、桥客户端字节入面板与记录、槽单发与槽循环、文件一次性原发与逐行循环播放、逐行暂停继续与停止复位、记录开关消息经页面消息入口生效 |
 
-面板 UI 交互（按钮 / 滚动）归人工验证，集成覆盖 Consumer 生命周期与桥 / 记录路径；套件随新增文件 minor bump，用例清单与计数在实现批次登记 [../Test/开发测试体系.md](../Test/开发测试体系.md)。
+面板 UI 交互（按钮 / 滚动 / 布局）归人工验证；用例清单与计数登记 [../Test/开发测试体系.md](../Test/开发测试体系.md) §4 与 §6.10。
 
 ## 13. 范围边界（不做）
 
-- GBK 编解码（解码经 full-ICU `TextDecoder` 零依赖可行；编码需 iconv-lite 新运行时依赖——整体推迟至增强候选）；
+- GBK 编解码（解码经 full-ICU `TextDecoder` 零依赖可行；编码需 iconv-lite 新运行时依赖）；
 - 热切换（Terminal ⇄ Assist 不经断开直换）；
 - 全局宏支持（Terminal 专属，语义与核查结论见 §3）；
 - 面板跨窗口重载持久化（与 Terminal 一致）；
-- DTR/RTS 控制线（HAL 契约扩展，维持增强候选）；
-- 设备枚举与连接生命周期管理（设备须先由用户连接——人在环上，同 agent-bridge-mcp 决策）。
+- DTR/RTS 控制线（需 HAL 契约扩展）；
+- 设备枚举与连接生命周期管理（设备须先由用户连接——人在环上）。
 
-## 14. 演进路线
-
-### 14.1 P0（首批可发布，产品 1.6.0 起）
-
-| # | 内容 | 落点 |
-|---|---|---|
-| 1 | Service 连接模式参数与工厂签名 | `SerialPortConnectionService.ts` |
-| 2 | Assist 主 Consumer（attach / onData / onClosed / 发送路径 / 面板生命周期） | `src/SerialPortConsumer/SerialPortAssist/SerialPortAssist.ts` |
-| 3 | 缓冲管线纯逻辑类 | `SerialPortAssist/SerialPortAssistBuffer.ts` |
-| 4 | WebviewPanel（消息协议 + 三显示 + 发送区 + 行尾符 + 冻结横幅） | `SerialPortAssist/view/` |
-| 5 | 树视图双入口 + 命令 + 双语键 | TreeView / package.json / nls |
-| 6 | 单测 + 集成（§12） | test/ |
-
-### 14.2 P1（同版本累积）
-
-| # | 内容 | 落点 |
-|---|---|---|
-| 1 | DataRecorder（RX/TX / 分割 / 失败语义） | `SerialPortAssist/SerialPortDataRecorder.ts` |
-| 2 | 桥公共工厂抽取 + Assist 托管（页内呈现） | AgentBridge 共享模块 + Assist |
-| 3 | 发送历史 | 页内 + Assist |
-
-### 14.3 P2（可选，不进 1.6.0 承诺）
-
-GBK 解码（`TextDecoder`，零依赖）/ 导出会话 / 宏兼容评估 / 渲染虚拟滚动（大数据压测后再议）。
-
-## 15. 组件结构
+## 14. 组件结构
 
 ```mermaid
 classDiagram
@@ -213,8 +237,14 @@ classDiagram
         主 Consumer（mode=assist）
         +onData(data)
         +onClosed()
+        +startDataRecording() / stopDataRecording()
+        +sendSlot(i, opts) / startSlotInterval(i, opts) / stopSlotInterval(i)
+        +loadSendFile(path, ending) / startFileSend(ms, loop) / pauseFileSend() / resumeFileSend() / stopFileSend()
+        +startBridge() / stopBridge()
         -panel: WebviewPanel
         -buffer: SerialPortAssistBuffer
+        -dataRecorder: SerialPortDataRecorder
+        -bridgeSession: AgentBridgeSession
     }
     class SerialPortAssistBuffer {
         +push(data, dir)
@@ -228,9 +258,13 @@ classDiagram
     class SerialPortAgentBridge {
         stripAnsi = false（Assist 托管）
     }
+    class AgentBridgeSession {
+        公共工厂（Terminal 与 Assist 共用）
+        +start() / stop() / detach()
+    }
     class AssistPanel {
         <<WebviewPanel>>
-        三显示 / 发送区 / 页内桥与记录控制
+        三显示 / 发送区 / 发送槽 / 文件发送 / 页内记录与桥开关
     }
     SerialPortAssist --|> SerialPortConsumer
     SerialPortDataRecorder --|> SerialPortConsumer
@@ -239,6 +273,7 @@ classDiagram
     SerialPortConnectionService --> SerialPortTerminal : mode='terminal' 工厂注入（默认）
     SerialPortAssist --> SerialPortAssistBuffer : 持有
     SerialPortAssist --> AssistPanel : 创建并推送
-    SerialPortAssist --> SerialPortDataRecorder : 创建并托管（发送路径直调 recordTx）
-    SerialPortAssist --> SerialPortAgentBridge : 创建并托管（透传模式）
+    SerialPortAssist --> SerialPortDataRecorder : 创建并托管（面板发送与桥出站回调直调 recordTx）
+    SerialPortAssist --> AgentBridgeSession : 创建（透传模式）
+    AgentBridgeSession --> SerialPortAgentBridge : 构造并注册到连接
 ```
