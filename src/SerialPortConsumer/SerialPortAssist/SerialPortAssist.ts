@@ -32,7 +32,6 @@ interface StateMessage {
   connection: 'connected' | 'closed';
   truncated: number;
   recording: boolean;
-  interval: boolean;
   file: { name: string; total: number; index: number; active: boolean; paused: boolean } | undefined;
   bridge: { active: boolean };
 }
@@ -47,8 +46,9 @@ interface InitMessage {
   path: string;
 }
 
-// 页 → 宿主上行消息：发送 / 记录开关 / 桥控制 / 定时发送（发送历史为页内行为，
-// 不经协议——设计 §5.1/§8；显示模式 / 清屏 / 暂停滚动同为页内行为）。
+// 页 → 宿主上行消息：发送 / 记录开关 / 桥控制 / 槽发送 / 文件发送（发送历史与
+// 发送槽内容为页内行为，不经协议——设计 §5.1/§8；显示模式 / 清屏 / 暂停滚动
+// 同为页内行为）。
 interface ReadyMessage {
   type: 'ready';
 }
@@ -72,18 +72,6 @@ interface BridgeMessage {
   type: 'bridgeStart' | 'bridgeStop';
 }
 
-interface IntervalStartMessage {
-  type: 'startIntervalSend';
-  mode?: unknown;
-  text?: unknown;
-  lineEnding?: unknown;
-  interval?: unknown;
-}
-
-interface IntervalStopMessage {
-  type: 'stopIntervalSend';
-}
-
 // 文件发送（P2-c）：选文件（宿主对话框）→ 装载（按行拆分 + 原始字节缓存）→
 // 一次性原发 / 逐行播放（暂停/继续/停止状态机；循环 = 文件周期发送）；
 // 行尾符沿用页面行尾符设置（决策 3）。
@@ -103,13 +91,6 @@ interface SlotMessage {
   text?: unknown;
   lineEnding?: unknown;
   interval?: unknown;
-}
-
-export interface IntervalSendOptions {
-  mode: 'text' | 'hex';
-  text: string;
-  lineEnding: AssistLineEnding;
-  interval: number;
 }
 
 export interface SlotSendOptions {
@@ -147,10 +128,6 @@ export class SerialPortAssist extends SerialPortConsumer {
   private readonly buffer = new SerialPortAssistBuffer();
   private dataRecorder: SerialPortDataRecorder | undefined;
   private bridgeSession: AgentBridgeSession | undefined;
-  // 定时发送：启动时捕获字节，循环 transmit 直至停止/断开（设计 §5.2——内容以
-  // 开关时刻为准，运行中的输入编辑不影响已捕获内容，重新开关以更新）。
-  private intervalTimer: ReturnType<typeof setInterval> | undefined;
-  private intervalBytes: Buffer | undefined;
   // 槽循环定时器表（P2-b）：槽号 → 循环定时器；多槽并发 = 字节交织如实呈现。
   private readonly slotTimers = new Map<number, ReturnType<typeof setInterval>>();
   private readonly slotBytes = new Map<number, Buffer>();
@@ -181,7 +158,6 @@ export class SerialPortAssist extends SerialPortConsumer {
   private lastTruncated = -1;
   private lastConnection: 'connected' | 'closed' | undefined;
   private lastRecording = false;
-  private lastInterval = false;
   private lastFileIndex = -1;
 
   public get devicePath(): string {
@@ -243,7 +219,6 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.dataRecorder = undefined;
     this.bridgeSession?.detach();
     this.bridgeSession = undefined;
-    this.stopIntervalSend();
     this.stopAllSlotIntervals();
     this.stopFileSend();
     this.flush();
@@ -283,51 +258,6 @@ export class SerialPortAssist extends SerialPortConsumer {
 
   public isRecording(): boolean {
     return this.dataRecorder !== undefined;
-  }
-
-  /**
-   * 定时发送（页内开关 / 集成入口）：按启动时捕获的字节循环 transmit，断开自动
-   * 停。interval 下限 20ms；字节构建失败（HEX 非法/空内容）返回 false 并对 HEX
-   * 错误推送 sendError。
-   */
-  public startIntervalSend(options: IntervalSendOptions): boolean {
-    if (this.disconnected || this.intervalTimer) {
-      return false;
-    }
-    const built = this.buildOutbound(options.mode, options.text, options.lineEnding);
-    if ('error' in built) {
-      if (built.error !== 'empty') {
-        const error: SendErrorMessage = { type: 'sendError', reason: built.error };
-        void this.panel?.webview.postMessage(error);
-      }
-      return false;
-    }
-    this.intervalBytes = built.bytes;
-    this.intervalTimer = setInterval(() => {
-      if (this.disconnected) {
-        this.stopIntervalSend();
-        this.postState(true);
-        return;
-      }
-      if (this.intervalBytes) {
-        this.transmit(this.intervalBytes);
-      }
-    }, Math.max(20, options.interval));
-    this.postState(true);
-    return true;
-  }
-
-  public stopIntervalSend(): void {
-    if (this.intervalTimer) {
-      clearInterval(this.intervalTimer);
-      this.intervalTimer = undefined;
-      this.intervalBytes = undefined;
-      this.postState(true);
-    }
-  }
-
-  public isIntervalActive(): boolean {
-    return this.intervalTimer !== undefined;
   }
 
   /** 槽单发（P2-b）：按槽构建字节立即发送（不清槽内容）；HEX 非法推送 sendError。 */
@@ -521,7 +451,7 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.sendFilePaused = false;
     this.sendFileIndex = 0;
     // 停止即推送状态（file.active=false）——页面按钮文案与进度随之翻转；
-    // 漏推会让页面停在「停止逐行」态（P1-c 同类推送先例：stopIntervalSend 有）。
+    // 漏推会让页面停在「停止逐行」态。
     this.postState(true);
   }
 
@@ -665,7 +595,6 @@ export class SerialPortAssist extends SerialPortConsumer {
     const connection = this.disconnected ? 'closed' : 'connected';
     const truncated = this.buffer.truncated;
     const recording = this.dataRecorder !== undefined;
-    const interval = this.intervalTimer !== undefined;
     const file = this.getSendFileProgress();
     const fileIndex = file?.index ?? -1;
     const changed =
@@ -673,7 +602,6 @@ export class SerialPortAssist extends SerialPortConsumer {
       connection !== this.lastConnection ||
       truncated !== this.lastTruncated ||
       recording !== this.lastRecording ||
-      interval !== this.lastInterval ||
       fileIndex !== this.lastFileIndex;
     if (!changed) {
       return;
@@ -681,14 +609,12 @@ export class SerialPortAssist extends SerialPortConsumer {
     this.lastConnection = connection;
     this.lastTruncated = truncated;
     this.lastRecording = recording;
-    this.lastInterval = interval;
     this.lastFileIndex = fileIndex;
     const message: StateMessage = {
       type: 'state',
       connection,
       truncated,
       recording,
-      interval,
       file,
       bridge: {
         active: this.isBridgeActive()
@@ -765,20 +691,6 @@ export class SerialPortAssist extends SerialPortConsumer {
       } else {
         this.stopSlotInterval(index);
       }
-      return;
-    }
-    if (msg.type === 'startIntervalSend') {
-      const m = msg as IntervalStartMessage;
-      this.startIntervalSend({
-        mode: m.mode === 'hex' ? 'hex' : 'text',
-        text: typeof m.text === 'string' ? m.text : '',
-        lineEnding: isLineEnding(m.lineEnding) ? m.lineEnding : DEFAULT_LINE_ENDING,
-        interval: Number(m.interval) || 0
-      });
-      return;
-    }
-    if (msg.type === 'stopIntervalSend') {
-      this.stopIntervalSend();
       return;
     }
     if (msg.type === 'pickSendFile' || msg.type === 'sendFileOnce' || msg.type === 'startFileSend' || msg.type === 'stopFileSend') {
@@ -874,8 +786,6 @@ export class SerialPortAssist extends SerialPortConsumer {
       stop: vscode.l10n.t('Stop'),
       history: vscode.l10n.t('History'),
       interval: vscode.l10n.t('Interval (ms)'),
-      startInterval: vscode.l10n.t('Start interval send'),
-      stopInterval: vscode.l10n.t('Stop interval send'),
       empty: vscode.l10n.t('No data yet. Device output and sent bytes will appear here.'),
       truncated: vscode.l10n.t('{0} older entries hidden'),
       sendModeText: vscode.l10n.t('Text'),
@@ -941,6 +851,12 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
 #ctrlPanel { flex: none; width: 300px; display: flex; flex-direction: column; gap: 8px; padding: 8px; overflow-y: auto; }
 #ctrlPanel .panelTitle { font-weight: 600; }
 #ctrlPanel .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#ctrlPanel .sectionTitle { font-weight: 600; color: var(--vscode-descriptionForeground); margin-top: 4px; }
+#ctrlPanel .fileActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#ctrlPanel .fileActions button { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
+#ctrlPanel .fileOptions { justify-content: space-between; }
+#ctrlPanel .intervalField { display: flex; align-items: center; gap: 6px; }
+#fileName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ctrlPanel input[type="number"] { width: 90px; }
 #slots { display: flex; flex-direction: column; gap: 6px; }
 .slotRow { display: flex; gap: 4px; align-items: center; }
@@ -996,23 +912,21 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   </div>
   <div id="ctrlPanel" class="block">
     <div class="panelTitle">${L.sendControl}</div>
-    <div class="panelTitle">${L.fileSend}</div>
+    <div class="sectionTitle">${L.fileSend}</div>
     <div class="row">
       <button id="btnPickFile">${L.pickFile}</button>
       <span id="fileName" class="muted"></span>
     </div>
-    <div class="row">
+    <div class="row fileActions">
       <button id="btnFileOnce">${L.sendFile}</button>
       <button id="btnFileLines">${L.sendLines}</button>
       <button id="btnFileStop">${L.stopLines}</button>
+    </div>
+    <div class="row fileOptions">
       <label class="slotHex muted"><input type="checkbox" id="fileLoop">${L.loop}</label>
+      <span class="intervalField"><span class="muted">${L.interval}</span><input type="number" id="intervalMs" value="1000" min="20" step="100"></span>
     </div>
     <div id="fileProgress" class="muted"></div>
-    <div class="row">
-      <span class="muted">${L.interval}</span>
-      <input type="number" id="intervalMs" value="1000" min="20" step="100">
-      <button id="btnInterval">${L.startInterval}</button>
-    </div>
     <div id="slots"></div>
   </div>
 </div>
@@ -1036,7 +950,6 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   let paused = false;
   let closed = false;
   let recording = false;
-  let intervalActive = false;
   let bridgeActive = false;
   const history = [];   // { mode, text, lineEnding }——发送历史（页内会话态，点击回填）
 
@@ -1137,7 +1050,6 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
     document.getElementById('btnSend').disabled = true;
     document.getElementById('btnRecord').disabled = true;
     document.getElementById('btnBridge').disabled = true;
-    document.getElementById('btnInterval').disabled = true;
     document.getElementById('intervalMs').disabled = true;
     document.getElementById('btnPickFile').disabled = true;
     document.getElementById('btnFileOnce').disabled = true;
@@ -1267,13 +1179,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
     recordBtn.textContent = recording ? L.stopRecording : L.startRecording;
   };
 
-  const intervalBtn = document.getElementById('btnInterval');
   const intervalInput = document.getElementById('intervalMs');
-  const applyInterval = (value) => {
-    intervalActive = value === true;
-    intervalBtn.textContent = intervalActive ? L.stopInterval : L.startInterval;
-    intervalInput.disabled = intervalActive || closed;
-  };
 
   // 文件发送（P2-c）：文件内容驻留宿主（装载后的行表），页面只显示文件名与
   // 进度；循环勾选 = 逐行 EOF 后循环（文件周期发送）。逐行三态按钮：
@@ -1341,7 +1247,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
   });
 
   // 槽发送面板（P2-b）：8 槽——HEX 勾选 + 输入 + 单发（不清框）+ 循环开关
-  //（共享间隔 = 顶部 Interval 输入）；槽内容驻留页面（会话态，刷新即失）。
+  //（共享间隔 = 文件发送区的间隔输入框）；槽内容驻留页面（会话态，刷新即失）。
   const SLOT_COUNT = 8;
   const slotsEl = document.getElementById('slots');
   const slotEls = [];
@@ -1429,7 +1335,6 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
       appendEntries(message.entries);
     } else if (message.type === 'state') {
       applyRecording(message.recording === true);
-      applyInterval(message.interval === true);
       applyFile(message.file);
       applyBridge(message.bridge?.active === true);
       if (message.connection === 'closed' && !closed) {

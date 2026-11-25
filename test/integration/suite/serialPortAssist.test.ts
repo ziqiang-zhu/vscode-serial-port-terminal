@@ -222,34 +222,6 @@ describe('串口助手连接模式（自装配）', () => {
     }
   });
 
-  it('#7 interval send repeats the captured bytes and stops on disconnect', async () => {
-    const device = findDevice(harness.detector, 'VCOM-ECHO');
-    await harness.service.connect(device, undefined, undefined, 'assist');
-    const assist = instances.at(-1);
-    assert.ok(assist);
-    try {
-      // 60ms 间隔发送 'tick'（捕获于启动时刻），真实定时器循环
-      assert.equal(
-        assist.startIntervalSend({ mode: 'text', text: 'tick', lineEnding: 'cr', interval: 60 }),
-        true
-      );
-      assert.ok(assist.isIntervalActive());
-      await waitFor(
-        'at least three tx tick entries',
-        () => assist.snapshotEntries().filter(entry => entry.dir === 'tx' && entry.bytes.toString() === 'tick\r').length >= 3,
-        2000
-      );
-      const ticksBefore = assist.snapshotEntries().filter(entry => entry.dir === 'tx').length;
-      await harness.service.disconnect(device);
-      // 断开自动停：冻结后 tx 计数不再增长
-      await new Promise(resolve => setTimeout(resolve, 200));
-      assert.equal(assist.snapshotEntries().filter(entry => entry.dir === 'tx').length, ticksBefore);
-      assert.equal(assist.isIntervalActive(), false);
-    } finally {
-      await harness.service.disconnect(device);
-    }
-  });
-
   it('#8 slot send and slot interval loop with per-slot control', async () => {
     const device = findDevice(harness.detector, 'VCOM-ECHO');
     await harness.service.connect(device, undefined, undefined, 'assist');

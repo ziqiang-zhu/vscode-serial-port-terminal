@@ -2,6 +2,14 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.10]
+
+### Removed
+- Serial Port Assist interval send button: cyclic sending is provided by the loop toggle of each send slot and by file line playback, both sharing the send interval input
+
+### Changed
+- The file send area of the serial port assist panel gets a tidier button layout: the three action buttons sit in one row at equal width, with the loop toggle and the send interval side by side on the next row; the send interval input is shared by line playback and loop sending
+
 ## [1.6.9]
 
 ### Fixed

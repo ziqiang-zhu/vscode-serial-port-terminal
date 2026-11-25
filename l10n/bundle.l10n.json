@@ -113,8 +113,6 @@
   "Stop": "Stop",
   "History": "History",
   "Interval (ms)": "Interval (ms)",
-  "Start interval send": "Start interval send",
-  "Stop interval send": "Stop interval send",
   "File send": "File send",
   "Pick file": "Pick file",
   "Send file": "Send file",

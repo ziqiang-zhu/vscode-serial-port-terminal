@@ -113,8 +113,6 @@
   "Stop": "停止",
   "History": "历史",
   "Interval (ms)": "间隔（毫秒）",
-  "Start interval send": "开始定时发送",
-  "Stop interval send": "停止定时发送",
   "File send": "文件发送",
   "Pick file": "选择文件",
   "Send file": "发送文件",

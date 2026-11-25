@@ -80,7 +80,7 @@ class SerialPortAssist extends SerialPortConsumer {
 | 文本模式 | UTF-8 编码；字面转义解释 `\r` `\n` `\t` `\\`（对齐 MacroSender 先例）；行尾符可选 无 / CR / LF / CRLF（**默认 CR**，对齐终端输入现状），页内会话态 |
 | HEX 模式 | 解析十六进制串（大小写不敏感、空白分隔）；奇数半字节拒绝并提示；**不加行尾符**（字节原文精确语义） |
 | 发送顺序 | 先 `dataRecorder.recordTx(bytes)`，后 `host.send(bytes)`——TX 时间戳即发送时刻 |
-| 发送历史 / 定时发送（P1） | 历史为页内会话态（点击回填）；定时间隔 + 内容循环发送，断开自动停 |
+| 发送历史 | 历史为页内会话态（点击回填）；循环发送由发送槽的循环开关与文件逐行发送承担，共用控制面板的发送间隔输入框 |
 
 ## 6. SerialPortDataRecorder（依附型 Consumer）
 
@@ -121,7 +121,7 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 | `append` | `{entries: [{seq, ts, dir, bytes}]}` | 100ms 批刷 |
 | `state` | 连接态、桥（address / count / readonly / active）、记录（active）、截断计数 | 任意状态变化 |
 
-- 页 → 宿主：`ready`（页就绪/重载握手，宿主回 `init` + 全量重放）、`sendText` / `sendHex`、`recordStart` / `recordStop`、`bridgeStart` / `bridgeStop` / `copyBridgeAddress`、`startIntervalSend` / `stopIntervalSend`；发送历史与显示模式切换 / 清屏 / 暂停滚动同为**页内行为不经协议**（§5.1）；
+- 页 → 宿主：`ready`（页就绪/重载握手，宿主回 `init` + 全量重放）、`sendText` / `sendHex`、`recordStart` / `recordStop`、`bridgeStart` / `bridgeStop`、`slotSend` / `slotIntervalStart` / `slotIntervalStop`、`pickSendFile` / `sendFileOnce` / `startFileSend` / `pauseFileSend` / `resumeFileSend` / `stopFileSend`；发送历史、发送槽内容与显示模式切换 / 清屏 / 暂停滚动同为**页内行为不经协议**（§5.1）；
 - 「已断开」横幅与输入失效为前端态（`state.connection` 转入断开后页内禁用发送区）。
 
 ## 9. 树视图双连接入口
@@ -182,7 +182,7 @@ class SerialPortDataRecorder extends SerialPortConsumer {
 |---|---|---|
 | 1 | DataRecorder（RX/TX / 分割 / 失败语义） | `SerialPortAssist/SerialPortDataRecorder.ts` |
 | 2 | 桥公共工厂抽取 + Assist 托管（页内呈现） | AgentBridge 共享模块 + Assist |
-| 3 | 发送历史 / 定时发送 | 页内 + Assist |
+| 3 | 发送历史 | 页内 + Assist |
 
 ### 14.3 P2（可选，不进 1.6.0 承诺）
 
