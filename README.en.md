@@ -1,9 +1,10 @@
 # Serial Port Terminal
 
-**This extension is a VS Code serial port terminal for embedded-system debugging (Debug) and automated testing**.
+**This extension is a VS Code serial port debugging plugin for embedded-system debugging (Debug) and automated testing**, integrating two interaction modes in one plugin: a **serial terminal** for command interaction and **Serial Port Assist** for raw byte streams; both modes provide **AgentBridge** access, so an AI agent can reach the serial terminal directly or send and receive the serial data stream.
 
-- Manage serial devices in the sidebar and connect with one click as a serial terminal, providing terminal interaction with embedded systems;
-- **AgentBridge** bridges the serial terminal to a local TCP port with one click so an AI agent can access the terminal like a regular user — you and the AI share the same terminal screen: every step it takes is visible in real time, loggable, and you can take over at any moment.
+- Manage serial devices in the sidebar and connect with one click as a **serial terminal**, providing terminal interaction with embedded systems;
+- Use **Connect with Assist** to open the **Serial Port Assist** panel and exchange raw byte streams: HEX / ASCII / mixed display, text and HEX sending, send slots, file sending and `.dat` recording, suited to binary protocols and byte-level verification;
+- **AgentBridge** bridges the current serial port to a local TCP port with one click so an AI agent can access the device like a regular user — you and the AI share the same screen: every step it takes is visible in real time, loggable, and you can take over at any moment.
 
 <table width="100%"><tr><td>🇨🇳 <a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/README.md">简体中文</a></td><td align="right"><a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/doc/总览.md">📚 Documentation Overview</a></td></tr></table>
 
@@ -35,6 +36,7 @@
 - 💾 **Log saving** — "Save / Pause / Stop" buttons in the terminal title bar; files are created only when data arrives, names are precise to the second, ANSI escape sequences are stripped, optional per-line timestamps, and stopping notifies the save path; optional `Ctrl+S` shortcut (start/stop, disabled by default)
 - 📂 **Open log directory** — a one-click button in the device-list title bar opens the log folder in the system file manager
 - 🤖 **AgentBridge (AI interaction)** — one-click in the terminal title bar bridges the serial port to a local TCP port so AI agents can read/write the embedded Linux terminal (multi-client, ANSI-stripped line-buffered forwarding, persistent status-bar port, click to copy), see below
+- 🧰 **Serial Port Assist** — "Connect with Assist" on a device opens a standalone pure-byte-stream panel: both directions shown live (HEX / ASCII / two-column mixed view, millisecond timestamps, direction bars), with text / HEX sending (line ending and escapes), 8 send slots (one-shot / loop), file sending (whole file as raw bytes or line-by-line playback with pause / resume / stop / loop) and data recording to `.dat` (both RX and TX, millisecond timestamps); AgentBridge can be started from the panel toolbar in pass-through mode
 - 🧪 **Virtual devices (optional)** — once "Virtual Device Console" is enabled in settings (off by default; takes effect after restarting the extension host or VS Code), 4 VCOM- virtual devices (Echo / Linux / U-Boot / Replay) appear in the device tree; the sidebar console can plug/unplug devices, inject data, adjust delay and backpressure, and replay log files
 - 🌐 **Localization** — English / Simplified Chinese
 
@@ -82,7 +84,7 @@ Bridge the current serial terminal to a local TCP port with one click so an AI a
 
 **How to use**:
 
-1. After connecting, click the <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/broadcast.png" width="18" alt="broadcast icon"> button at the top-right of the terminal panel title bar to start Agent Bridge on the current connection;
+1. After connecting, click the <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/broadcast.png" width="18" alt="broadcast icon"> button at the top-right of the terminal panel title bar to start Agent Bridge on the current connection (it can also be started from the serial port assist panel toolbar — pass-through mode, binary bytes are not ANSI-stripped);
 2. The status bar and a notification show the listening address (e.g. `127.0.0.1:2000`; click the status bar to copy) — hand it to your AI agent;
 3. The agent connects to that address over TCP to read/write the serial data in real time (multiple clients supported, ANSI escape sequences stripped);
 4. To stop: click the <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/record.png" width="18" alt="record icon"> button in the same place — this closes Agent Bridge, and disconnecting the serial connection closes it automatically as well.
@@ -97,9 +99,10 @@ Bridge the current serial terminal to a local TCP port with one click so an AI a
 2. Click **Connect** on a device, then pick a saved config or "Manual configuration" in the picker; this connects with a temporary config
 3. Right-click a device to save a quick config; select a quick-config node first and connect to use that config directly
 4. The terminal panel opens automatically — device data appears in real time; type and press Enter to send
-5. Disconnect: click **Disconnect** on the device, or close the terminal panel
-6. Logging: click **Save** in the terminal title bar to start recording; pause / resume / stop as needed, and a shortcut can be configured to start/stop
-7. Agent collaboration: start the bridge with one click and hand the listening address to your AI agent — see the "AgentBridge" section above
+5. Serial Port Assist: click the inline **Connect with Assist** button on the same device to open the assist panel over a pure byte stream — ideal for binary protocols, for seeing exactly what was sent, or for format-based recording
+6. Disconnect: click **Disconnect** on the device, or close the terminal panel
+7. Logging: click **Save** in the terminal title bar to start recording; pause / resume / stop as needed, and a shortcut can be configured to start/stop
+8. Agent collaboration: start the bridge with one click and hand the listening address to your AI agent — see the "AgentBridge" section above
 
 ## ⌨️ Commands
 
@@ -126,6 +129,7 @@ The following commands require selecting a device or quick-config node in the de
 | Command ID | Title | Description |
 |---|---|---|
 | `serialPortDevice.connect` | Connect | Connect to the selected device |
+| `serialPortDevice.connectAssist` | Connect with Assist | Connect the selected device in assist (pure byte stream) mode |
 | `serialPortDevice.disconnect` | Disconnect | Disconnect from the selected device |
 | `serialPortQuickConfig.add` | Add Quick Config | Add a named config for the selected device |
 | `serialPortQuickConfig.rename` | Rename | Rename the selected quick config |
@@ -161,6 +165,8 @@ The following commands operate in the "Commands / Macros" view, triggered via th
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Candidate ports for Agent Bridge (picker shown when starting, a single value is used directly) |
 | `serialPortTerminal.agentBridge.readonly` | `false` | Read-only mode: clients cannot send data to the device through Agent Bridge (sent bytes are discarded); changes take effect the next time Agent Bridge starts |
 | `serialPortTerminal.virtualConsole` | `false` | Enable the Virtual Device Console and the VCOM- virtual devices; takes effect after restarting the extension host or restarting VS Code |
+
+> 📝 The assist panel's `.dat` data recording reuses `logDirectory`, `logFilenameTemplate` (the extension is replaced with `.dat`) and `logMaxFileSize` (size-based splitting) from the table above.
 
 ## 📦 Installation
 

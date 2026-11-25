@@ -1,9 +1,10 @@
 # Serial Port Terminal
 
-**本拓展是一个面向嵌入式系统调试（Debug）与自动化测试的 VS Code 串口终端插件**。
+**本拓展是一个面向嵌入式系统调试（Debug）与自动化测试的 VS Code 串口调试插件**，在同一插件内集成两种交互形态：面向命令交互的**串口终端**，与面向原始字节流的**串口助手**，两种形态都提供了 **AgentBridge** 接入能力，让 AI Agent 可以直接访问串口终端，或收发串口数据流。
 
-- 在侧边栏管理串口设备，可一键连接为串口终端，提供与嵌入式系统终端交互的能力；
-- **AgentBridge** 提供一键把串口终端桥接为本机 TCP 端口的能力，可以让 AI Agent 像普通用户一样直接访问终端，用户与 AI 共享同一块终端屏幕：AI 的每一步操作实时可见、可保存日志、随时可人工接管。
+- 在侧边栏管理串口设备，一键连接为**串口终端**，提供与嵌入式系统终端交互的能力；
+- 以**助手连接**打开**串口助手**面板，以原始字节流收发：HEX / ASCII / 混合三种显示、文本与 HEX 发送、发送槽、文件发送与 `.dat` 数据记录，适合二进制协议与需要逐字节核对的场景；
+- **AgentBridge** 提供一键把当前串口桥接为本机 TCP 端口的能力，可以让 AI Agent 像普通用户一样直接访问设备，用户与 AI 共享同一块屏幕：AI 的每一步操作实时可见、可保存日志、随时可人工接管。
 
 <table width="100%"><tr><td>🇬🇧 <a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/README.en.md">English</a></td><td align="right"><a href="https://github.com/ziqiang-zhu/vscode-serial-port-terminal/blob/master/doc/总览.md">📚 文档总览</a></td></tr></table>
 
@@ -35,6 +36,7 @@
 - 💾 **日志保存** —— 终端标题栏提供「保存/暂停/停止」按钮，有数据才建文件，文件名精确到秒，剥离 ANSI 转义序列（颜色码等）、可选每行时间戳，停止时提示保存路径；可选快捷键 `Ctrl+S`（开始/停止，默认关闭）
 - 📂 **打开日志目录** —— 设备列表标题栏一键在系统文件管理器中打开日志目录
 - 🤖 **AgentBridge（AI 交互）** —— 终端标题栏一键把串口桥接为本机 TCP 端口，让 AI Agent 读写嵌入式 Linux 终端（多客户端、去 ANSI 行缓冲转发、状态栏常驻端口、点击复制），详见下文
+- 🧰 **串口助手** —— 设备树的「助手连接」以纯字节流打开独立面板：收发双向实时显示（HEX / ASCII / 双栏混合、毫秒时间戳、方向色条），支持文本 / HEX 发送（行尾符与转义）、8 个发送槽（单发 / 循环）、文件发送（一次性原发或逐行播放，可暂停 / 继续 / 停止 / 循环）与数据记录为 `.dat`（RX/TX 双向、毫秒时间戳），并可在面板工具栏内开启 AgentBridge（透传模式）
 - 🧪 **虚拟设备（可选）** —— 设置开启「虚拟设备控制台」后（默认关闭，重启扩展宿主或 VS Code 生效），设备树出现 4 台 VCOM- 虚拟设备（Echo / Linux / U-Boot / 回放），侧边栏控制台可拔插设备、注入数据、调延迟与背压、回放日志文件
 - 🌐 **本地化** —— 支持英文 / 简体中文
 
@@ -80,7 +82,7 @@
 
 **使用方式**：
 
-1. 连接设备后，点击终端面板标题栏右上角的 <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/broadcast.png" width="18" alt="broadcast 图标"> 按钮，即可在当前连接上开启 Agent Bridge；
+1. 连接设备后，点击终端面板标题栏右上角的 <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/broadcast.png" width="18" alt="broadcast 图标"> 按钮，即可在当前连接上开启 Agent Bridge，也可在串口助手面板的工具栏中开启，从串口助手开启的 AgentBridge 原样收发字节流，不经 ANSI 剥离；
 2. 状态栏与通知显示监听地址（如 `127.0.0.1:2000`，点击状态栏可复制），把它交给 AI Agent；
 3. Agent 通过 TCP 连接该地址，即可实时收发串口数据（可多客户端并发、已剥离 ANSI 转义序列）；
 4. 停止桥接：点击同一位置的 <img src="https://raw.githubusercontent.com/ziqiang-zhu/vscode-serial-port-terminal/master/images/record.png" width="18" alt="record 图标"> 按钮即可关闭 Agent Bridge，断开串口连接也会自动关闭。
@@ -95,9 +97,10 @@
 2. 点击设备上的「连接」，在弹出的选择器中选择「保存的配置」或「手动配置参数」，可使用临时配置连接
 3. 右键点击设备，可保存快捷配置，先选中某个快捷配置子节点，再点连接，可直接用该配置连接
 4. 自动弹出终端面板 —— 设备数据实时显示，键入内容后回车发送
-5. 断开：点击设备条目上的「断开」，或直接关闭终端面板
-6. 日志：在终端面板标题栏点击「保存」开始记录，可暂停 / 继续 / 停止，可配置使用快捷键开始与停止
-7. Agent 协同：一键桥接后把监听地址交给 AI Agent 即可，详见上文「AgentBridge」章节
+5. 串口助手：在同一设备上点行内「助手连接」按钮，以纯字节流打开助手面板，适合二进制协议、需要查看发送内容或按格式记录的场景
+6. 断开：点击设备条目上的「断开」，或直接关闭终端面板
+7. 日志：在终端面板标题栏点击「保存」开始记录，可暂停 / 继续 / 停止，可配置使用快捷键开始与停止
+8. Agent 协同：一键桥接后把监听地址交给 AI Agent 即可，详见上文「AgentBridge」章节
 
 ## ⌨️ 命令
 
@@ -124,6 +127,7 @@
 | 命令 ID | 名称 | 说明 |
 |---|---|---|
 | `serialPortDevice.connect` | 连接 | 连接选中的设备 |
+| `serialPortDevice.connectAssist` | 助手连接 | 以助手（纯字节流）模式连接选中的设备 |
 | `serialPortDevice.disconnect` | 断开链接 | 断开选中的设备 |
 | `serialPortQuickConfig.add` | 添加快捷配置 | 为选中的设备添加命名连接配置 |
 | `serialPortQuickConfig.rename` | 重命名 | 重命名选中的快捷配置 |
@@ -159,6 +163,8 @@
 | `serialPortTerminal.agentBridge.ports` | `[2000]` | Agent Bridge 候选端口列表（启动时下拉选择，单值直接使用） |
 | `serialPortTerminal.agentBridge.readonly` | `false` | 只读模式：禁止客户端通过 Agent Bridge 向设备发送数据（发送的字节被丢弃）；修改后重新开启 Agent Bridge 生效 |
 | `serialPortTerminal.virtualConsole` | `false` | 启用虚拟设备控制台与 VCOM- 虚拟设备；修改后重启扩展宿主或重启 VS Code 生效 |
+
+> 📝 串口助手的 `.dat` 数据记录复用上表中的 `logDirectory`、`logFilenameTemplate`（扩展名替换为 `.dat`）与 `logMaxFileSize`（按大小分割）。
 
 ## 📦 安装
 
