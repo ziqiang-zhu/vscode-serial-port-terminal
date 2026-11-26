@@ -18,13 +18,9 @@ export class SerialPortConfigStore {
 
   constructor(private readonly storage: vscode.Memento) {}
 
-  // 一次性数据迁移（1.4.3，约定见 doc/SerialPortQuickConfig设计.md §4.1/§9）：
-  // 旧键 serialPortQuickConfigs 的两种形态并入全局池与引用，**持久化成功后**才
-  // 删除旧键作为迁移完成标记——持久化失败时旧键自然保留（从未被删），下次构造
-  // 幂等重跑自愈；会话内内存态即时生效，不受持久化时序影响。
-  // 对象形态（v1.2.0-）：分区配置逐条并入池，并为分区 identity 建立引用；
-  // 数组形态（v1.2.1/1.2.2）：内容并入池（引用已在 refs，无需重建）。
-  // 合并按 id 去重：旧条目 id 已在池中则跳过（refs 引用落到池内同 id 条目）。
+  // 存储结构 = 全局池 + 设备引用（refs）两层：池存全部条目，refs 按 identity 记录
+  // 挂到各设备的条目 id。树显示与名称校验读 refs（identity 内），参数唯一性校验读
+  // 全池（跨设备防相同参数）。旧版迁移已在 1.5.0 移除，不再读取旧键。
   getGlobalConfigs(identity: string): SerialPortQuickConfig[] {
     const ids = this.readRefs()[identity] ?? [];
     const pool = this.readPool();
@@ -43,7 +39,12 @@ export class SerialPortConfigStore {
   }
 
   add(identity: string, name: string, config: SerialConfig): SerialPortQuickConfig {
-    const trimmedName = this.assertValidName(identity, name);
+    const trimmedName = this.assertValidName(
+      identity,
+      name,
+      undefined,
+      'A quick config with the same name already exists - right-click the device and choose "Add Quick Config" to reuse it'
+    );
     this.assertValidConfig(config);
     this.assertNoDuplicateParams(config);
     const quickConfig: SerialPortQuickConfig = { id: this.generateId(), name: trimmedName, config };
@@ -77,7 +78,7 @@ export class SerialPortConfigStore {
   }
 
   remove(identity: string, id: string): void {
-    // 1.4.3 起旧键在构造时迁移并删除：移除统一走引用清理（未知 id 自然 no-op）。
+    // 移除统一走引用清理（未知 id 自然 no-op）。
     this.detachRef(identity, id);
     this._onDidChangeConfigs.fire(identity);
   }
@@ -150,23 +151,27 @@ export class SerialPortConfigStore {
     return this.storage.update(REFS_KEY, refs);
   }
 
-  private assertValidName(identity: string, name: string, excludeId?: string): string {
+  private assertValidName(identity: string, name: string, excludeId?: string, duplicatedMessage?: string): string {
     const trimmed = name.trim();
     if (!trimmed) {
       throw new Error(vscode.l10n.t('Config name cannot be empty'));
     }
     const duplicated = this.getGlobalConfigs(identity).some(c => c.id !== excludeId && c.name === trimmed);
     if (duplicated) {
-      throw new Error(vscode.l10n.t('Config name "{0}" already exists', trimmed));
+      throw new Error(vscode.l10n.t(duplicatedMessage ?? 'Config name "{0}" already exists', trimmed));
     }
     return trimmed;
   }
 
   private assertNoDuplicateParams(config: SerialConfig): void {
-    // 全局池内同参数唯一；旧数据不参与、不冲突。
+    // 全局池内同参数唯一（跨设备防相同参数）。
     const duplicated = this.readPool().some(c => serialConfigEquals(c.config, config));
     if (duplicated) {
-      throw new Error(vscode.l10n.t('A quick config with the same parameters already exists'));
+      throw new Error(
+        vscode.l10n.t(
+          'A quick config with the same parameters already exists - right-click the device and choose "Add Quick Config" to reuse it'
+        )
+      );
     }
   }
 

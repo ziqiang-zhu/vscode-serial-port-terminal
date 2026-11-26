@@ -2,6 +2,11 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.12]
+
+### Improved
+- The prompt shown when adding a quick config is rejected now guides toward reuse: when a config with the same parameters or the same name exists, it says the existing config can be reused via right-click → "Add Quick Config" on the device — helpful when a changed USB port makes existing configs temporarily invisible
+
 ## [1.6.11]
 
 ### Fixed
