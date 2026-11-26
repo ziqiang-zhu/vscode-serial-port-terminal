@@ -84,7 +84,14 @@ describe('日志落盘（自装配）', () => {
       await harness.service.disconnect(findDevice(harness.detector, 'VCOM-ECHO'));
       const secondSegment = `${logPath.slice(0, -4)}_002.log`;
       await waitFor('second segment file', () => fs.existsSync(secondSegment), 2000);
-      assert.ok(fs.statSync(logPath).size >= 1024, 'first segment should hold at least maxBytes');
+      // 首分段的异步写流可能晚于第二分段文件创建才落盘完毕——轮询等待而非即时断言
+      await waitFor('first segment holds maxBytes', () => {
+        try {
+          return fs.statSync(logPath).size >= 1024;
+        } catch {
+          return false;
+        }
+      }, 2000);
     } finally {
       await config.update('logMaxFileSize', undefined, vscode.ConfigurationTarget.Global);
       temp.dispose();
