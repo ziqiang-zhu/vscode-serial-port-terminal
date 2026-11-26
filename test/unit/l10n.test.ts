@@ -33,4 +33,20 @@ describe('语言包键集对称（l10n 守卫）', () => {
     // 37 = 当前常规态键数（含 console 视图标题与 virtualConsole 描述键，无 testMode）。
     assert.ok(en.length >= 37, `package.nls keys look too small: ${en.length}`);
   });
+
+  it('#3 bundle files contain no physically duplicated keys', () => {
+    // JSON.parse 会静默取后值，物理重复键让先前的翻译失效且守卫 #1 无法发现——
+    // 对两份 bundle 的原始文本逐行扫描键名，任何重复即失败。
+    for (const rel of ['l10n/bundle.l10n.json', 'l10n/bundle.l10n.zh-cn.json']) {
+      const raw = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
+      const seen = new Set<string>();
+      for (const match of raw.matchAll(/^[ \t]*"((?:[^"\\]|\\.)+)"[ \t]*:/gm)) {
+        const key = match[1];
+        assert.ok(key !== undefined, 'capture group must yield a key');
+        assert.ok(!seen.has(key), `${rel} defines key ${JSON.stringify(key)} more than once`);
+        seen.add(key);
+      }
+      assert.ok(seen.size > 100, `${rel} looks too small: ${seen.size} keys`);
+    }
+  });
 });

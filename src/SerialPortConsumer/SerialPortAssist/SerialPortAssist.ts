@@ -846,7 +846,7 @@ select:disabled, input:disabled, textarea:disabled { opacity: 0.45; }
 #splitter { flex: none; height: 5px; margin: 2px 0; cursor: row-resize; border-radius: 2px; }
 #splitter:hover, #splitter.dragging { background: var(--vscode-focusBorder); }
 #sendbar { flex: none; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 6px 8px; }
-#sendInput { flex: 1; padding: 4px 6px; resize: none; min-height: 40px; }
+#sendInput { flex: 1 1 200px; min-width: 160px; padding: 4px 6px; resize: none; min-height: 40px; }
 #sendError { color: var(--vscode-errorForeground); }
 #ctrlPanel { flex: none; width: 300px; display: flex; flex-direction: column; gap: 8px; padding: 8px; overflow-y: auto; }
 #ctrlPanel .panelTitle { font-weight: 600; }

@@ -2,6 +2,13 @@
 
 > 🇨🇳 [简体中文](CHANGELOG.md)
 
+## [1.6.11]
+
+### Fixed
+- The send input of the serial port assist panel was squeezed to an unusable width on narrow panels — it now has a minimum width, and the other controls wrap to the next row when space runs out
+- The loop button of the Virtual Device Console shows its Chinese label again (it had been overridden to a shorter text by a duplicated key in the language pack)
+- The file picker button of the serial port assist is now localized
+
 ## [1.6.10]
 
 ### Removed

@@ -195,7 +195,7 @@ export class SerialPortConsoleView implements vscode.WebviewViewProvider {
       startPlayback: vscode.l10n.t('Start playback'),
       replayRate: vscode.l10n.t('Replay rate (lines/s)'),
       applyRate: vscode.l10n.t('Apply rate'),
-      loop: vscode.l10n.t('Loop'),
+      loop: vscode.l10n.t('Loop replay'),
       loopOn: vscode.l10n.t('Loop: on'),
       loopOff: vscode.l10n.t('Loop: off'),
       responseDir: vscode.l10n.t('Response directory (linux/ and uboot/ subfolders)'),
